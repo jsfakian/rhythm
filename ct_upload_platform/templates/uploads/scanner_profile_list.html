@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scanner Profiles – CT Upload Platform</title>
+    {% include 'uploads/_styles.html' %}
+    <style>
+        .page-body { max-width: 960px; }
+    </style>
+
+</head>
+<body>
+
+    <div class="app-container">
+    {% include 'uploads/_sidebar.html' with active_nav='scanners' %}
+    <div class="main-content">
+    <div class="page-body">
+
+        <div class="page-header">
+            <h1>Scanner Profiles</h1>
+            <a href="/scanners/create/" class="btn btn-primary">+ Add Scanner</a>
+        </div>
+
+        <div class="card">
+            {% if scanner_profiles %}
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Manufacturer</th>
+                            <th>Model</th>
+                            <th>Detector Rows</th>
+                            <th>Year</th>
+                            <th>Date Added</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for scanner in scanner_profiles %}
+                        <tr>
+                            <td>{{ scanner.manufacturer|default:"—" }}</td>
+                            <td>{{ scanner.scanner_model|default:"—" }}</td>
+                            <td>{{ scanner.detector_rows|default:"—" }}</td>
+                            <td>{{ scanner.year_of_installation|default:"—" }}</td>
+                            <td>
+                                {% if scanner.created_at %}
+                                    {{ scanner.created_at|date:"N j, Y" }}
+                                {% elif scanner.date_added %}
+                                    {{ scanner.date_added|date:"N j, Y" }}
+                                {% else %}
+                                    <span class="text-muted">—</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="/scanners/{{ scanner.pk }}/edit/" class="btn btn-secondary btn-sm">Edit</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <p>No scanner profiles registered yet.</p>
+                <a href="/scanners/create/" class="btn btn-primary">Register your first scanner</a>
+            </div>
+            {% endif %}
+        </div>
+
+        {% if page_obj.has_other_pages %}
+        <div class="pagination">
+            {% if page_obj.has_previous %}
+                <a href="?page={{ page_obj.previous_page_number }}">&laquo; Previous</a>
+            {% else %}
+                <span class="disabled">&laquo; Previous</span>
+            {% endif %}
+
+            {% for num in page_obj.paginator.page_range %}
+                {% if page_obj.number == num %}
+                    <span class="current">{{ num }}</span>
+                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                    <a href="?page={{ num }}">{{ num }}</a>
+                {% endif %}
+            {% endfor %}
+
+            {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}">Next &raquo;</a>
+            {% else %}
+                <span class="disabled">Next &raquo;</span>
+            {% endif %}
+        </div>
+        {% endif %}
+
+    </div>
+    </div>
+    </div>
+
+</body>
+</html>

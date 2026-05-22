@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CT Protocol Repository GUI – CT Upload Platform</title>
+    {% include 'uploads/_styles.html' %}
+    <style>
+        :root {
+            --bg:#f4f7fb;--card:#fff;--text:#152238;--muted:#667085;
+            --border:#d9e2ef;--primary:#1e3a5f;--primary2:#2c5282;
+            --accent:#e8f1ff;--danger:#b42318;--danger-bg:#fff2f0;
+            --ok:#067647;--ok-bg:#e8f7ee;--warn:#b54708;--warn-bg:#fff7e6;
+        }
+        body { background: var(--bg); }
+        .gui-header {
+            background: linear-gradient(135deg, var(--primary), var(--primary2));
+            color: white; padding: 28px 32px 24px; border-radius: 0 0 24px 24px;
+            box-shadow: 0 12px 30px rgba(21,34,56,.18); margin-bottom: 24px;
+        }
+        .gui-header h1 { margin: 0 0 8px; font-size: 26px; }
+        .gui-header p { margin: 0; opacity: .9; font-size: 14px; line-height: 1.55; max-width: 900px; }
+        .gui-layout { display: grid; grid-template-columns: 420px 1fr; gap: 20px; align-items: start; max-width: 1480px; margin: 0 auto; padding: 0 20px 44px; }
+        .gui-card {
+            background: var(--card); border: 1px solid var(--border); border-radius: 18px;
+            padding: 20px; box-shadow: 0 6px 18px rgba(21,34,56,.07); margin-bottom: 18px;
+        }
+        .gui-card h2 { margin: 0 0 6px; font-size: 18px; color: var(--text); }
+        .gui-card .desc { margin: 0 0 16px; color: var(--muted); font-size: 13px; line-height: 1.4; }
+        .sticky-col { position: sticky; top: 16px; }
+        .field-row { margin-bottom: 14px; }
+        .field-row label { display: block; font-weight: 600; font-size: 13px; margin-bottom: 5px; color: var(--text); }
+        .field-row select, .field-row input, .field-row textarea {
+            width: 100%; border: 1px solid var(--border); border-radius: 10px;
+            padding: 9px 11px; background: white; font-size: 14px; outline: none;
+            font-family: inherit; color: var(--text);
+        }
+        .field-row select:focus, .field-row input:focus, .field-row textarea:focus {
+            border-color: var(--primary2); box-shadow: 0 0 0 3px rgba(40,75,122,.12);
+        }
+        .field-row textarea { min-height: 68px; resize: vertical; }
+        .notice { background: var(--warn-bg); border: 1px solid #f7d68a; color: #7a3d00; padding: 11px 14px; border-radius: 14px; font-size: 13px; margin-bottom: 14px; line-height: 1.4; }
+        .info-box { background: var(--accent); border: 1px solid #c7dbff; color: var(--primary); padding: 11px 14px; border-radius: 14px; font-size: 13px; margin-top: 14px; line-height: 1.4; }
+        .success-box { background: var(--ok-bg); border: 1px solid #b7e4c7; color: var(--ok); padding: 11px 14px; border-radius: 14px; font-size: 13px; margin-bottom: 14px; }
+        .danger-box { background: var(--danger-bg); border: 1px solid #ffd5d1; color: var(--danger); padding: 11px 14px; border-radius: 14px; font-size: 13px; margin-bottom: 14px; }
+        .scanner-select-row { display: flex; gap: 8px; align-items: flex-end; }
+        .scanner-select-row select { flex: 1; }
+        .tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; background: #edf2f7; padding: 6px; border-radius: 14px; }
+        .tab-btn {
+            background: transparent; color: #344054; border: 1px solid transparent;
+            padding: 8px 14px; border-radius: 10px; cursor: pointer; font-weight: 600;
+            font-size: 13px; transition: all .15s;
+        }
+        .tab-btn.active { background: white; color: var(--primary); border-color: var(--border); box-shadow: 0 3px 8px rgba(21,34,56,.08); }
+        .fields-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+        .fields-grid .full { grid-column: 1/-1; }
+        .fields-grid .half { grid-column: span 2; }
+        .progress-bar-wrap { height: 10px; background: #e5eaf2; border-radius: 999px; overflow: hidden; margin-top: 8px; }
+        .progress-bar { height: 100%; background: var(--primary2); width: 0%; transition: width .2s; }
+        .form-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; align-items: center; }
+        .btn-gui {
+            border: 0; padding: 10px 18px; border-radius: 12px; cursor: pointer;
+            font-weight: 700; font-size: 14px; transition: filter .15s;
+        }
+        .btn-gui:hover { filter: brightness(.93); }
+        .btn-save { background: var(--primary2); color: white; }
+        .btn-clear { background: var(--danger-bg); color: var(--danger); border: 1px solid #ffd5d1; }
+        .btn-update { background: var(--ok-bg); color: var(--ok); border: 1px solid #b7e4c7; }
+        .btn-records { background: #edf2f7; color: var(--text); border: 1px solid var(--border); }
+        .exists-banner { display: none; }
+        .exists-banner.visible { display: block; }
+        @media(max-width:1100px) {
+            .gui-layout { grid-template-columns: 1fr; }
+            .sticky-col { position: static; }
+            .fields-grid { grid-template-columns: 1fr 1fr; }
+        }
+        @media(max-width:640px) { .fields-grid { grid-column: 1fr; } }
+    </style>
+</head>
+<body>
+<div class="app-container">
+    {% include 'uploads/_sidebar.html' with active_nav='protocol-gui' %}
+    <div class="main-content">
+        <div class="gui-header">
+            <h1>CT Protocol Repository GUI</h1>
+            <p>Clinical indication / region-centered workflow. Step 1 selects the anatomical region and clinical indication. Step 2 selects the CT scanner. Step 3 records protocol parameters.</p>
+        </div>
+        <div class="gui-layout">
+            <!-- Left sticky column -->
+            <aside class="sticky-col">
+                <!-- Step 1 -->
+                <div class="gui-card">
+                    <h2>1. Select Clinical Indication / Region</h2>
+                    <p class="desc">Select the anatomical region and clinical indication to populate scanner and protocol fields.</p>
+                    <div class="field-row">
+                        <label>Anatomical Region</label>
+                        <select id="cl_region" onchange="onRegionChange()"><option value="">Select anatomical region...</option></select>
+                    </div>
+                    <div class="field-row">
+                        <label>Clinical Indication</label>
+                        <select id="cl_indication" onchange="onIndicationChange()"><option value="">Select region first...</option></select>
+                    </div>
+                    <div class="field-row">
+                        <label>IV Contrast?</label>
+                        <select id="cl_contrast" onchange="onStep1Change()"><option value="">Select contrast option...</option></select>
+                    </div>
+                    <div class="field-row">
+                        <label>Comments / Protocol Guidance</label>
+                        <select id="cl_comments" onchange="onStep1Change()"><option value="">Select indication first...</option></select>
+                        <div id="cl_comments_other_wrap" style="display:none;margin-top:6px;">
+                            <input id="cl_comments_other" placeholder="Type custom guidance..." oninput="onStep1Change()" />
+                        </div>
+                    </div>
+                    <div id="clinicalPreview" class="info-box" style="display:none;"></div>
+                </div>
+
+                <!-- Step 2 -->
+                <div class="gui-card">
+                    <h2>2. Select Scanner</h2>
+                    <p class="desc">Choose a registered CT scanner or add a new one.</p>
+                    <div id="noScannersNotice" class="notice" style="display:none;">No scanners registered yet. Register one first.</div>
+                    <div class="field-row">
+                        <label>CT Scanner</label>
+                        <div class="scanner-select-row">
+                            <select id="scanner_select" onchange="onScannerChange()"><option value="">Select scanner...</option></select>
+                            <a href="/scanners/create/?next=/protocols/gui/" class="btn-gui btn-records" style="white-space:nowrap;text-decoration:none;padding:9px 12px;">+ Add new scanner</a>
+                        </div>
+                    </div>
+                    <div id="scannerPreview" style="display:none;margin-top:8px;font-size:13px;color:var(--muted);"></div>
+                </div>
+            </aside>
+
+            <!-- Right column -->
+            <section>
+                <!-- Step 3 toolbar -->
+                <div class="gui-card">
+                    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;">
+                        <div style="flex:1;">
+                            <h2>3. Enter Protocol Fields</h2>
+                            <p id="protocolContextText" class="desc" style="margin-bottom:6px;">Select a clinical indication and scanner before adding protocols.</p>
+                            <div class="progress-bar-wrap"><div class="progress-bar" id="progressBar"></div></div>
+                            <div style="font-size:12px;color:var(--muted);margin-top:4px;">Completion: <span id="completionPct">0%</span></div>
+                        </div>
+                        <div class="form-actions" style="margin-top:0;">
+                            <button class="btn-gui btn-save" onclick="saveProtocol(false)">Save Protocol</button>
+                            <button class="btn-gui btn-clear" onclick="clearProtocolForm()">Clear form</button>
+                            <a href="/protocols/records/" class="btn-gui btn-records" style="text-decoration:none;">View saved records</a>
+                        </div>
+                    </div>
+                    <!-- Exists warning banner -->
+                    <div id="existsBanner" class="danger-box exists-banner" style="margin-top:14px;">
+                        <strong>Duplicate entry detected.</strong> <span id="existsMsg"></span>
+                        <div style="margin-top:8px;display:flex;gap:8px;">
+                            <button class="btn-gui btn-update" onclick="saveProtocol(true)">Update existing record</button>
+                            <button class="btn-gui btn-records" onclick="dismissBanner()">Cancel</button>
+                        </div>
+                    </div>
+                    <div id="successBanner" class="success-box" style="display:none;margin-top:14px;"></div>
+                </div>
+
+                <!-- Protocol tabs + fields -->
+                <div class="gui-card">
+                    <div id="protocolBlocked" class="notice">Select a clinical indication (Step 1) and a scanner (Step 2) before entering protocol fields.</div>
+                    <div id="protocolFormWrap" style="display:none;">
+                        <div class="tabs" id="protocolTabs"></div>
+                        <div id="protocolFields"></div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+</div>
+
+<script>
+const CLINICAL_ROWS = {{ clinical_rows_json|safe }};
+const SCANNERS = {{ scanners_json|safe }};
+const PROTOCOL_TABS = {{ protocol_tabs_json|safe }};
+const PROTOCOL_CHOICES = {{ protocol_choices_json|safe }};
+const CSRF_TOKEN = '{{ csrf_token }}';
+
+const OTHER_VAL = "Other: Please Specify";
+
+let state = {
+    region: "", indication: "", contrast: "", comments: "",
+    scannerId: "",
+    activeTab: Object.keys(PROTOCOL_TABS)[0],
+    fields: {},
+};
+
+/* ── Helpers ── */
+function unique(arr) { return [...new Set(arr.filter(v => v))]; }
+function esc(s) { return String(s ?? "").replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m])); }
+function setSelect(el, options, placeholder, current) {
+    el.innerHTML = `<option value="">${esc(placeholder)}</option>` +
+        options.map(o => `<option value="${esc(o)}"${o===current?' selected':''}>${esc(o)}</option>`).join('');
+}
+
+/* ── Step 1 ── */
+function initStep1() {
+    const regions = unique(CLINICAL_ROWS.map(r => r.anatomical_region));
+    setSelect(document.getElementById('cl_region'), regions, 'Select anatomical region...', state.region);
+}
+
+function onRegionChange() {
+    state.region = document.getElementById('cl_region').value;
+    state.indication = ""; state.contrast = ""; state.comments = "";
+    const rows = CLINICAL_ROWS.filter(r => r.anatomical_region === state.region);
+    const inds = unique(rows.map(r => r.clinical_indication));
+    setSelect(document.getElementById('cl_indication'), inds, inds.length ? 'Select clinical indication...' : 'No indications available', '');
+    setSelect(document.getElementById('cl_contrast'), ['Non-contrast','Contrast-enhanced'], 'Select contrast option...', '');
+    setSelect(document.getElementById('cl_comments'), [], 'Select indication first...', '');
+    hideOtherInput('cl_comments_other_wrap');
+    updatePreview(); updateProtocolContext();
+}
+
+function onIndicationChange() {
+    state.indication = document.getElementById('cl_indication').value;
+    state.contrast = ""; state.comments = "";
+    const rows = CLINICAL_ROWS.filter(r => r.anatomical_region === state.region && r.clinical_indication === state.indication);
+    setSelect(document.getElementById('cl_contrast'), ['Non-contrast','Contrast-enhanced'], 'Select contrast option...', '');
+    const comments = unique(rows.map(r => r.comments));
+    const withOther = [...comments, OTHER_VAL];
+    setSelect(document.getElementById('cl_comments'), withOther, 'Select comments / protocol guidance...', comments.length === 1 ? comments[0] : '');
+    if (comments.length === 1) state.comments = comments[0];
+    hideOtherInput('cl_comments_other_wrap');
+    updatePreview(); updateProtocolContext();
+}
+
+function onStep1Change() {
+    state.contrast = document.getElementById('cl_contrast').value;
+    const commSel = document.getElementById('cl_comments');
+    if (commSel.value === OTHER_VAL) {
+        document.getElementById('cl_comments_other_wrap').style.display = 'block';
+        state.comments = document.getElementById('cl_comments_other').value.trim();
+    } else {
+        hideOtherInput('cl_comments_other_wrap');
+        state.comments = commSel.value;
+    }
+    updatePreview(); updateProtocolContext();
+}
+
+function hideOtherInput(id) {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+}
+
+function updatePreview() {
+    const box = document.getElementById('clinicalPreview');
+    if (state.region && state.indication && state.contrast) {
+        box.style.display = 'block';
+        box.innerHTML = `<strong>Selected:</strong> ${esc(state.region)} — ${esc(state.indication)}<br><strong>IV contrast:</strong> ${esc(state.contrast)}${state.comments ? `<br><strong>Comments:</strong> ${esc(state.comments)}` : ''}`;
+    } else {
+        box.style.display = 'none';
+    }
+}
+
+/* ── Step 2 ── */
+function initStep2() {
+    const sel = document.getElementById('scanner_select');
+    if (!SCANNERS.length) {
+        document.getElementById('noScannersNotice').style.display = 'block';
+        sel.style.display = 'none';
+    } else {
+        sel.innerHTML = '<option value="">Select scanner...</option>' +
+            SCANNERS.map(s => `<option value="${esc(s.id)}">${esc(s.display)}${s.year ? ' (' + esc(s.year) + ')' : ''}</option>`).join('');
+    }
+}
+
+function onScannerChange() {
+    state.scannerId = document.getElementById('scanner_select').value;
+    const scanner = SCANNERS.find(s => s.id === state.scannerId);
+    const preview = document.getElementById('scannerPreview');
+    if (scanner) {
+        preview.style.display = 'block';
+        preview.innerHTML = `${esc(scanner.manufacturer)} | ${esc(scanner.model)}${scanner.detector_rows ? ' | ' + esc(scanner.detector_rows) : ''}${scanner.note ? ' | ' + esc(scanner.note) : ''}`;
+    } else {
+        preview.style.display = 'none';
+    }
+    updateProtocolContext();
+}
+
+/* ── Step 3 ── */
+function updateProtocolContext() {
+    const ready = state.region && state.indication && state.contrast && state.scannerId;
+    document.getElementById('protocolBlocked').style.display = ready ? 'none' : 'block';
+    document.getElementById('protocolFormWrap').style.display = ready ? 'block' : 'none';
+    if (!ready) return;
+    const scanner = SCANNERS.find(s => s.id === state.scannerId);
+    document.getElementById('protocolContextText').innerHTML =
+        `Selected: <strong>${esc(state.region)} / ${esc(state.indication)}</strong> &nbsp;&middot;&nbsp; Scanner: <strong>${esc(scanner ? scanner.display : '')}</strong>`;
+    renderTabs();
+    renderFields();
+}
+
+function renderTabs() {
+    const container = document.getElementById('protocolTabs');
+    container.innerHTML = Object.entries(PROTOCOL_TABS).map(([key, tab]) =>
+        `<button class="tab-btn${key===state.activeTab?' active':''}" onclick="setTab('${key}')">${esc(tab.label)}</button>`
+    ).join('');
+}
+
+function setTab(key) {
+    state.activeTab = key;
+    state.fields = {};
+    renderTabs();
+    renderFields();
+}
+
+function getOptions(categoryKey) {
+    return (PROTOCOL_CHOICES[categoryKey] || []).map(o => o.value);
+}
+
+function makeSelect(fieldKey, options, label, fullWidth) {
+    const allOpts = [...options, OTHER_VAL];
+    const val = state.fields[fieldKey] || '';
+    const isOther = val && !options.includes(val);
+    return `<div class="field-row${fullWidth?' full':''}">
+        <label>${esc(label)}</label>
+        <select id="fld_${fieldKey}" onchange="onFieldChange('${fieldKey}')">
+            <option value="">Select...</option>
+            ${allOpts.map(o => `<option value="${esc(o)}"${o===val||o===OTHER_VAL&&isOther?' selected':''}>${esc(o)}</option>`).join('')}
+        </select>
+        <div id="fld_${fieldKey}_other" style="margin-top:6px;${isOther?'':'display:none;'}">
+            <input type="text" id="fld_${fieldKey}_other_txt" value="${esc(isOther?val:'')}" placeholder="Specify value..." oninput="onOtherInput('${fieldKey}')" />
+        </div>
+    </div>`;
+}
+
+function makeInput(fieldKey, label, fullWidth, isTextarea) {
+    const val = esc(state.fields[fieldKey] || '');
+    const cls = `field-row${fullWidth?' full':''}`;
+    if (isTextarea) {
+        return `<div class="${cls}"><label>${esc(label)}</label><textarea id="fld_${fieldKey}" oninput="onFieldChange('${fieldKey}')">${val}</textarea></div>`;
+    }
+    return `<div class="${cls}"><label>${esc(label)}</label><input type="text" id="fld_${fieldKey}" value="${val}" oninput="onFieldChange('${fieldKey}')" /></div>`;
+}
+
+function renderFields() {
+    const tab = PROTOCOL_TABS[state.activeTab];
+    if (!tab) return;
+    const container = document.getElementById('protocolFields');
+    const egVal = state.fields['examination_group'] || '';
+    const agVal = state.fields['age_group'] || '';
+
+    let html = `<div class="fields-grid" style="margin-bottom:16px;">
+        <div class="field-row">
+            <label>Examination Group</label>
+            <select id="fld_examination_group" onchange="onFieldChange('examination_group')">
+                <option value="">Select...</option>
+                ${tab.examination_groups.map(g => `<option value="${esc(g)}"${g===egVal?' selected':''}>${esc(g)}</option>`).join('')}
+            </select>
+        </div>
+        <div class="field-row">
+            <label>Age / Weight Group</label>
+            <select id="fld_age_group" onchange="onFieldChange('age_group')">
+                <option value="">Select...</option>
+                ${tab.age_groups.map(a => `<option value="${esc(a)}"${a===agVal?' selected':''}>${esc(a)}</option>`).join('')}
+            </select>
+        </div>
+    </div>
+    <div class="fields-grid">
+        ${makeInput('protocol_name', 'Protocol Name', false, false)}
+        ${makeSelect('scan_type', getOptions('scan_type'), 'Scan Type', false)}
+        ${makeSelect('contrast', getOptions('contrast'), 'Contrast', false)}
+        ${makeSelect('number_of_phases', getOptions('number_of_phases'), 'Number of Phases', false)}
+        ${makeSelect('auto_kvp_selection', getOptions('auto_kvp_selection'), 'Automatic kVp Selection', false)}
+        ${makeSelect('kvp', getOptions('kvp'), 'kVp', false)}
+        ${makeSelect('auto_ma_modulation', getOptions('auto_ma_modulation'), 'Automatic mA Modulation', false)}
+        ${makeSelect('exposure_metric', getOptions('exposure_metric'), 'mAs / Reference Exposure Metric', false)}
+        ${makeInput('mas_value', 'mAs Value', false, false)}
+        ${makeSelect('pitch', getOptions('pitch'), 'Pitch', false)}
+        ${makeSelect('rotation_time', getOptions('rotation_time'), 'Rotation Time (s)', false)}
+        ${makeSelect('slice_thickness', getOptions('slice_thickness'), 'Slice Thickness 1st Recon (mm)', false)}
+        ${makeSelect('scan_fov', getOptions('scan_fov'), 'Scan Field of View', false)}
+        ${makeSelect('kernel_class', getOptions('kernel_class'), 'Generic Kernel Class', false)}
+        ${makeSelect('reconstruction_algorithm', getOptions('reconstruction_algorithm'), 'Reconstruction Algorithm', false)}
+        ${makeSelect('protocol_intent', getOptions('protocol_intent'), 'Protocol Intent / Optimization Goal', false)}
+        ${makeSelect('dose_metadata', getOptions('dose_metadata'), 'Dose-Relevant Metadata', false)}
+        ${makeInput('notes', 'Additional Free-Text Notes', true, true)}
+    </div>`;
+
+    container.innerHTML = html;
+    updateCompletion();
+}
+
+function onFieldChange(key) {
+    const el = document.getElementById('fld_' + key);
+    if (!el) return;
+    if (el.tagName === 'SELECT' && el.value === OTHER_VAL) {
+        const otherDiv = document.getElementById('fld_' + key + '_other');
+        if (otherDiv) otherDiv.style.display = 'block';
+        state.fields[key] = document.getElementById('fld_' + key + '_other_txt')?.value.trim() || '';
+    } else {
+        const otherDiv = document.getElementById('fld_' + key + '_other');
+        if (otherDiv) otherDiv.style.display = 'none';
+        state.fields[key] = el.value;
+    }
+    updateCompletion();
+}
+
+function onOtherInput(key) {
+    state.fields[key] = document.getElementById('fld_' + key + '_other_txt')?.value.trim() || '';
+    updateCompletion();
+}
+
+function updateCompletion() {
+    const keys = ['examination_group', 'age_group', 'protocol_name', 'scan_type', 'contrast',
+        'number_of_phases', 'auto_kvp_selection', 'kvp', 'auto_ma_modulation', 'exposure_metric',
+        'pitch', 'rotation_time', 'slice_thickness', 'scan_fov', 'kernel_class', 'reconstruction_algorithm'];
+    const filled = keys.filter(k => state.fields[k] && String(state.fields[k]).trim()).length;
+    const pct = Math.round((filled / keys.length) * 100);
+    document.getElementById('progressBar').style.width = pct + '%';
+    document.getElementById('completionPct').textContent = pct + '%';
+}
+
+function clearProtocolForm() {
+    state.fields = {};
+    renderFields();
+    document.getElementById('existsBanner').classList.remove('visible');
+    document.getElementById('successBanner').style.display = 'none';
+}
+
+/* ── Save ── */
+async function saveProtocol(forceUpdate) {
+    document.getElementById('existsBanner').classList.remove('visible');
+    document.getElementById('successBanner').style.display = 'none';
+
+    if (!state.region || !state.indication || !state.contrast) {
+        alert('Please complete Step 1: select anatomical region, clinical indication, and IV contrast.'); return;
+    }
+    if (!state.scannerId) { alert('Please select a scanner in Step 2.'); return; }
+    if (!state.fields['examination_group'] || !state.fields['age_group']) {
+        alert('Please select Examination Group and Age / Weight Group.'); return;
+    }
+
+    const payload = {
+        scanner_id: state.scannerId,
+        protocol_type: state.activeTab,
+        anatomical_region: state.region,
+        clinical_indication: state.indication,
+        contrast: state.contrast,
+        clinical_comments: state.comments,
+        examination_group: state.fields['examination_group'],
+        age_group: state.fields['age_group'],
+        force_update: forceUpdate,
+        protocol_fields: { ...state.fields },
+    };
+
+    try {
+        const resp = await fetch('/protocols/api/save/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
+            body: JSON.stringify(payload),
+        });
+        const data = await resp.json();
+        if (data.status === 'exists') {
+            document.getElementById('existsMsg').textContent = data.message;
+            document.getElementById('existsBanner').classList.add('visible');
+        } else if (data.status === 'created' || data.status === 'updated') {
+            const box = document.getElementById('successBanner');
+            box.textContent = data.message;
+            box.style.display = 'block';
+            if (data.status === 'created') clearProtocolForm();
+        } else {
+            alert(data.error || 'An error occurred.');
+        }
+    } catch (e) {
+        alert('Network error: ' + e.message);
+    }
+}
+
+function dismissBanner() {
+    document.getElementById('existsBanner').classList.remove('visible');
+}
+
+/* ── Init ── */
+initStep1();
+initStep2();
+</script>
+</body>
+</html>

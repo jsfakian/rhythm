@@ -1,0 +1,59 @@
+{
+  "$schema": "https://your-org.internal/schemas/ct-upload-manifest/v1.0.json",
+  "manifest_version": "1.0",
+  "upload_id": "{{UUID_v4_generated_by_uploader}}",
+  "created_at": "{{ISO8601_UTC_timestamp}}",
+  "source_institution": "{{anonymized_institution_code}}",
+
+  "study": {
+    "study_uid": "{{DICOM_StudyInstanceUID_or_pseudonymized_UID}}",
+    "acquisition_date": "{{YYYY-MM-DD}}",
+    "clinical_indication": "{{free_text_or_controlled_vocabulary}}",
+    "pathology_labels": ["{{label_1}}", "{{label_2}}"],
+    "contrast_used": false,
+    "contrast_agent": null,
+    "notes": "{{optional_free_text}}"
+  },
+
+  "patient": {
+    "pseudo_id": "{{opaque_patient_pseudonym}}",
+    "sex": "{{M|F|O|U}}",
+    "age_at_acquisition": {{integer_years}},
+    "cohort_tag": "{{dataset_or_trial_name}}"
+  },
+
+  "images": [
+    {
+      "filename": "img_001.dcm",
+      "checksum_sha256": "{{sha256_hex_string}}",
+      "series_uid": "{{DICOM_SeriesInstanceUID_or_pseudonymized}}",
+      "series_number": 1,
+      "instance_number": 1,
+      "body_part": "{{controlled_vocab_e.g._CHEST|ABDOMEN|PELVIS|HEAD|NECK|SPINE}}",
+      "laterality": "{{L|R|B|NA}}",
+      "view_plane": "{{AXIAL|CORONAL|SAGITTAL|NA}}",
+      "slice_thickness_mm": {{float}},
+      "pixel_spacing_mm": [{{row_spacing_float}}, {{col_spacing_float}}],
+      "image_dimensions": {"rows": {{int}}, "cols": {{int}}},
+      "scanner_manufacturer": "{{e.g._Siemens|GE|Philips}}",
+      "scanner_model": "{{model_string}}",
+      "kvp": {{peak_kilovoltage_float_or_null}},
+      "processing_status": "{{RAW|PREPROCESSED|ANNOTATED}}",
+      "annotations": [
+        {
+          "annotation_id": "{{UUID}}",
+          "annotator_id": "{{pseudonymized_annotator_id}}",
+          "annotation_date": "{{YYYY-MM-DD}}",
+          "type": "{{SEGMENTATION|BOUNDING_BOX|LANDMARK|CLASSIFICATION}}",
+          "label": "{{annotation_label}}",
+          "file_ref": "{{optional_path_to_annotation_file_in_tar}}"
+        }
+      ]
+    }
+  ],
+
+  "pipeline": {
+    "uploader_id": "{{pseudonymized_uploader_id}}",
+    "upload_client_version": "{{semver_string}}"
+  }
+}

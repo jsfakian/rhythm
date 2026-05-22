@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CT Examination Data Entry – CT Upload Platform</title>
+    {% include 'uploads/_styles.html' %}
+    <style>
+        :root {
+            --bg:#f4f7fb; --card:#fff; --text:#152238; --muted:#667085;
+            --border:#d9e2ef; --primary:#1e3a5f; --primary2:#2c5282;
+            --accent:#e8f1ff; --ok:#067647; --ok-bg:#e8f7ee;
+            --danger:#b42318; --danger-bg:#fff2f0;
+            --warn:#b54708; --warn-bg:#fff7e6;
+        }
+        body { background: var(--bg); }
+        .exam-header {
+            background: linear-gradient(135deg, var(--primary), var(--primary2));
+            color: white; padding: 28px 32px 24px;
+            border-radius: 0 0 24px 24px;
+            box-shadow: 0 12px 30px rgba(21,34,56,.18);
+            margin-bottom: 24px;
+        }
+        .exam-header h1 { margin: 0 0 8px; font-size: 26px; }
+        .exam-header p { margin: 0; opacity: .9; font-size: 14px; line-height: 1.55; max-width: 860px; }
+        .exam-body { max-width: 900px; margin: 0 auto; padding: 0 20px 48px; }
+        .section-card {
+            background: var(--card); border: 1px solid var(--border);
+            border-radius: 18px; padding: 22px 26px;
+            box-shadow: 0 6px 18px rgba(21,34,56,.07); margin-bottom: 20px;
+        }
+        .section-card h2 { margin: 0 0 4px; font-size: 16px; color: var(--primary); font-weight: 700; }
+        .section-card .sdesc { margin: 0 0 18px; color: var(--muted); font-size: 13px; }
+        .fgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 20px; }
+        .fgrid .full { grid-column: 1/-1; }
+        .frow { display: flex; flex-direction: column; gap: 5px; }
+        .frow label { font-weight: 600; font-size: 13px; color: var(--text); }
+        .frow input, .frow select, .frow textarea {
+            border: 1px solid var(--border); border-radius: 10px;
+            padding: 9px 11px; background: white; font-size: 14px;
+            outline: none; font-family: inherit; color: var(--text); width: 100%;
+        }
+        .frow input:focus, .frow select:focus {
+            border-color: var(--primary2); box-shadow: 0 0 0 3px rgba(40,75,122,.12);
+        }
+        .frow input[type=number] { -moz-appearance: textfield; }
+        .hint { font-size: 12px; color: var(--muted); margin-top: 2px; }
+        .toggle-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; cursor: pointer; }
+        .toggle-row input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--primary2); cursor: pointer; }
+        .toggle-row span { font-size: 13px; color: var(--text); font-weight: 500; }
+        /* phases table */
+        .phases-table { width: 100%; border-collapse: collapse; margin-top: 14px; }
+        .phases-table th { background: #f1f5fb; padding: 9px 12px; font-size: 12px; text-align: left; color: #344054; text-transform: uppercase; letter-spacing: .03em; border-bottom: 1px solid var(--border); }
+        .phases-table td { padding: 8px 10px; border-bottom: 1px solid #edf1f7; }
+        .phases-table td input { width: 100%; border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px; font-size: 14px; outline: none; background: white; }
+        .phases-table td input:focus { border-color: var(--primary2); box-shadow: 0 0 0 2px rgba(40,75,122,.1); }
+        .phases-label { font-size: 13px; color: var(--muted); font-weight: 600; }
+        /* banners */
+        .success-box { background: var(--ok-bg); border: 1px solid #b7e4c7; color: var(--ok); padding: 12px 16px; border-radius: 14px; font-size: 13px; margin-bottom: 16px; display: none; }
+        .error-box { background: var(--danger-bg); border: 1px solid #ffd5d1; color: var(--danger); padding: 12px 16px; border-radius: 14px; font-size: 13px; margin-bottom: 16px; display: none; }
+        /* actions */
+        .form-actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 8px; }
+        .btn-save { background: var(--primary2); color: white; border: 0; padding: 11px 22px; border-radius: 12px; cursor: pointer; font-weight: 700; font-size: 14px; }
+        .btn-save:hover { filter: brightness(.93); }
+        .btn-clear { background: var(--danger-bg); color: var(--danger); border: 1px solid #ffd5d1; padding: 10px 18px; border-radius: 12px; cursor: pointer; font-weight: 700; font-size: 14px; }
+        .btn-list { background: #edf2f7; color: var(--text); border: 1px solid var(--border); padding: 10px 18px; border-radius: 12px; font-weight: 700; font-size: 14px; text-decoration: none; display: inline-block; }
+        @media(max-width:640px) { .fgrid { grid-template-columns: 1fr; } .fgrid .full { grid-column: 1; } }
+    </style>
+</head>
+<body>
+<div class="app-container">
+    {% include 'uploads/_sidebar.html' with active_nav='exam-entry' %}
+    <div class="main-content">
+        <div class="exam-header">
+            <h1>CT Examination Data Entry</h1>
+            <p>Record examination-level dose and quality data. Optionally link to a saved protocol. CTDI vol and DLP fields expand to match the number of acquisition phases.</p>
+        </div>
+        <div class="exam-body">
+
+            <div id="successBanner" class="success-box"></div>
+            <div id="errorBanner" class="error-box"></div>
+
+            <!-- Protocol (optional) -->
+            <div class="section-card">
+                <h2>Protocol Link (optional)</h2>
+                <p class="sdesc">Select a saved protocol to pre-fill scanner, anatomical region and clinical indication.</p>
+                <div class="frow">
+                    <label for="sel_protocol">Protocol</label>
+                    <select id="sel_protocol" onchange="onProtocolChange()">
+                        <option value="">— None / manual entry —</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Scanner -->
+            <div class="section-card">
+                <h2>CT Scanner</h2>
+                <p class="sdesc">Select or confirm the scanner used for this examination.</p>
+                <div class="fgrid">
+                    <div class="frow">
+                        <label for="sel_manufacturer">Manufacturer</label>
+                        <select id="sel_manufacturer" onchange="onManufacturerChange()">
+                            <option value="">Select manufacturer…</option>
+                        </select>
+                    </div>
+                    <div class="frow">
+                        <label for="sel_model">Model</label>
+                        <select id="sel_model" onchange="onModelChange()">
+                            <option value="">Select model…</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Clinical -->
+            <div class="section-card">
+                <h2>Anatomical Region &amp; Clinical Indication</h2>
+                <div class="fgrid">
+                    <div class="frow">
+                        <label for="sel_region">Anatomical Region</label>
+                        <select id="sel_region" onchange="onRegionChange()">
+                            <option value="">Select region…</option>
+                        </select>
+                    </div>
+                    <div class="frow">
+                        <label for="sel_indication">Clinical Indication</label>
+                        <select id="sel_indication">
+                            <option value="">Select indication…</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Patient -->
+            <div class="section-card">
+                <h2>Patient Data</h2>
+                <div class="fgrid">
+                    <div class="frow">
+                        <label for="inp_weight">Patient's Weight (kg)</label>
+                        <input type="number" id="inp_weight" min="0" step="0.1" placeholder="e.g. 3.5" oninput="onWeightInput()" />
+                        <span class="hint">Leave blank if not available.</span>
+                    </div>
+                    <div class="frow" id="wed_row">
+                        <label for="inp_wed">Water Equivalent Diameter — WED (cm)</label>
+                        <input type="number" id="inp_wed" min="0" step="0.1" placeholder="e.g. 12.4" />
+                        <span class="hint">Used when patient weight is not available.</span>
+                    </div>
+                    <div class="frow">
+                        <label for="inp_age">Patient's Age (years)</label>
+                        <input type="number" id="inp_age" min="0" max="150" step="1" placeholder="e.g. 4" />
+                    </div>
+                </div>
+            </div>
+
+            <!-- Phases + dose -->
+            <div class="section-card">
+                <h2>Acquisition Phases &amp; Dose</h2>
+                <p class="sdesc">Set the number of phases; one row per phase will appear for CTDI<sub>vol</sub> and DLP.</p>
+                <div style="max-width:200px;">
+                    <div class="frow">
+                        <label for="inp_phases">Number of phases</label>
+                        <input type="number" id="inp_phases" min="1" max="10" step="1" value="1" oninput="renderPhasesTable()" />
+                    </div>
+                </div>
+                <div id="phases_table_wrap"></div>
+            </div>
+
+            <!-- Image quality -->
+            <div class="section-card">
+                <h2>Image Quality</h2>
+                <div style="max-width:260px;">
+                    <div class="frow">
+                        <label for="sel_quality">Image Quality</label>
+                        <select id="sel_quality">
+                            <option value="">Select…</option>
+                            <option value="EXCELLENT">Excellent</option>
+                            <option value="GOOD">Good</option>
+                            <option value="MODERATE">Moderate</option>
+                            <option value="POOR">Poor</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="section-card">
+                <div class="form-actions">
+                    <button class="btn-save" onclick="saveExamination()">Save Examination</button>
+                    <button class="btn-clear" onclick="clearForm()">Clear form</button>
+                    <a href="/examinations/" class="btn-list">View saved examinations</a>
+                </div>
+            </div>
+
+        </div><!-- /exam-body -->
+    </div>
+</div>
+
+<script>
+const SCANNERS        = {{ scanners_json|safe }};
+const PROTOCOLS       = {{ protocols_json|safe }};
+const MANUFACTURERS   = {{ manufacturers_json|safe }};
+const ANATOMICAL_OPTS = {{ anatomical_options_json|safe }};
+const CLINICAL_ROWS   = {{ clinical_rows_json|safe }};
+const CSRF_TOKEN      = '{{ csrf_token }}';
+
+// ---------------------------------------------------------------------------
+// Init
+// ---------------------------------------------------------------------------
+function init() {
+    // Manufacturers dropdown
+    const mfgSel = document.getElementById('sel_manufacturer');
+    MANUFACTURERS.forEach(m => {
+        const o = document.createElement('option');
+        o.value = m.id; o.textContent = m.name;
+        mfgSel.appendChild(o);
+    });
+
+    // Anatomical regions
+    const regSel = document.getElementById('sel_region');
+    ANATOMICAL_OPTS.forEach(r => {
+        const o = document.createElement('option');
+        o.value = r; o.textContent = r;
+        regSel.appendChild(o);
+    });
+
+    // Protocols
+    const pSel = document.getElementById('sel_protocol');
+    PROTOCOLS.forEach(p => {
+        const o = document.createElement('option');
+        o.value = p.id; o.textContent = p.display;
+        o.dataset.scannerId = p.scanner_id;
+        o.dataset.region = p.anatomical_region;
+        o.dataset.indication = p.clinical_indication;
+        pSel.appendChild(o);
+    });
+
+    renderPhasesTable();
+}
+
+// ---------------------------------------------------------------------------
+// Protocol selection → pre-fill
+// ---------------------------------------------------------------------------
+function onProtocolChange() {
+    const sel = document.getElementById('sel_protocol');
+    const opt = sel.options[sel.selectedIndex];
+    if (!opt || !opt.value) return;
+
+    const scannerId = opt.dataset.scannerId;
+    const region    = opt.dataset.region;
+    const indication = opt.dataset.indication;
+
+    // Pre-fill scanner
+    if (scannerId) {
+        const scanner = SCANNERS.find(s => s.id === scannerId);
+        if (scanner) {
+            document.getElementById('sel_manufacturer').value = scanner.manufacturer_id;
+            onManufacturerChange(scanner.id);
+        }
+    }
+
+    // Pre-fill region
+    if (region) {
+        document.getElementById('sel_region').value = region;
+        onRegionChange(indication);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Manufacturer → Model cascade
+// ---------------------------------------------------------------------------
+function onManufacturerChange(preSelectScannerId) {
+    const mfgId = document.getElementById('sel_manufacturer').value;
+    const modelSel = document.getElementById('sel_model');
+    modelSel.innerHTML = '<option value="">Loading…</option>';
+
+    fetch('/api/v1/scanners/models/?manufacturer_id=' + encodeURIComponent(mfgId))
+        .then(r => r.json())
+        .then(data => {
+            modelSel.innerHTML = '<option value="">Select model…</option>';
+            data.models.forEach(m => {
+                const o = document.createElement('option');
+                o.value = m.id; o.textContent = m.name;
+                modelSel.appendChild(o);
+            });
+            if (preSelectScannerId) {
+                const scanner = SCANNERS.find(s => s.id === preSelectScannerId);
+                if (scanner) {
+                    // Find model option by name
+                    const opts = Array.from(modelSel.options);
+                    const match = opts.find(o => o.textContent === scanner.model);
+                    if (match) modelSel.value = match.value;
+                }
+            }
+        })
+        .catch(() => {
+            modelSel.innerHTML = '<option value="">— failed to load —</option>';
+        });
+}
+
+function onModelChange() { /* no-op; value captured on save */ }
+
+// ---------------------------------------------------------------------------
+// Anatomical region → filter indications
+// ---------------------------------------------------------------------------
+function onRegionChange(preSelectIndication) {
+    const region = document.getElementById('sel_region').value;
+    const indSel = document.getElementById('sel_indication');
+    indSel.innerHTML = '<option value="">Select indication…</option>';
+    const rows = CLINICAL_ROWS.filter(r => r.anatomical_region === region);
+    const inds = rows.length
+        ? [...new Set(rows.map(r => r.clinical_indication))]
+        : [...new Set(CLINICAL_ROWS.map(r => r.clinical_indication))].sort();
+    inds.forEach(ind => {
+        const o = document.createElement('option');
+        o.value = ind; o.textContent = ind;
+        indSel.appendChild(o);
+    });
+    if (preSelectIndication) indSel.value = preSelectIndication;
+}
+
+// ---------------------------------------------------------------------------
+// Weight input → show/hide WED
+// ---------------------------------------------------------------------------
+function onWeightInput() {
+    // WED is always visible; hint guides the user
+}
+
+// ---------------------------------------------------------------------------
+// Phases table
+// ---------------------------------------------------------------------------
+function renderPhasesTable() {
+    const n = Math.max(1, Math.min(10, parseInt(document.getElementById('inp_phases').value) || 1));
+    const wrap = document.getElementById('phases_table_wrap');
+    if (n === 0) { wrap.innerHTML = ''; return; }
+
+    let rows = '';
+    for (let i = 1; i <= n; i++) {
+        rows += `<tr>
+            <td class="phases-label">Phase ${i}</td>
+            <td><input type="number" id="ctdi_${i}" min="0" step="0.01" placeholder="mGy" /></td>
+            <td><input type="number" id="dlp_${i}" min="0" step="0.1" placeholder="mGy·cm" /></td>
+        </tr>`;
+    }
+
+    wrap.innerHTML = `<table class="phases-table">
+        <thead><tr><th>Phase</th><th>CTDI<sub>vol</sub> (mGy)</th><th>DLP (mGy·cm)</th></tr></thead>
+        <tbody>${rows}</tbody>
+    </table>`;
+}
+
+// ---------------------------------------------------------------------------
+// Save
+// ---------------------------------------------------------------------------
+async function saveExamination() {
+    document.getElementById('successBanner').style.display = 'none';
+    document.getElementById('errorBanner').style.display = 'none';
+
+    const n = Math.max(1, Math.min(10, parseInt(document.getElementById('inp_phases').value) || 1));
+    const ctdiVol = [], dlp = [];
+    for (let i = 1; i <= n; i++) {
+        ctdiVol.push(parseFloat(document.getElementById('ctdi_' + i)?.value) || null);
+        dlp.push(parseFloat(document.getElementById('dlp_' + i)?.value) || null);
+    }
+
+    // Resolve scanner id from selected manufacturer + model
+    const modelSelVal = document.getElementById('sel_model').value;
+    const mfgSelVal   = document.getElementById('sel_manufacturer').value;
+    let scannerId = null;
+    if (modelSelVal) {
+        const scanner = SCANNERS.find(s => s.manufacturer_id === mfgSelVal && s.model === document.getElementById('sel_model').options[document.getElementById('sel_model').selectedIndex]?.textContent);
+        if (scanner) scannerId = scanner.id;
+    }
+
+    const payload = {
+        protocol_id:              document.getElementById('sel_protocol').value || null,
+        scanner_id:               scannerId,
+        anatomical_region:        document.getElementById('sel_region').value,
+        clinical_indication:      document.getElementById('sel_indication').value,
+        patient_weight:           document.getElementById('inp_weight').value || null,
+        water_equivalent_diameter: document.getElementById('inp_wed').value || null,
+        patient_age:              document.getElementById('inp_age').value || null,
+        number_of_phases:         n,
+        ctdi_vol_per_phase:       ctdiVol,
+        dlp_per_phase:            dlp,
+        image_quality:            document.getElementById('sel_quality').value,
+    };
+
+    try {
+        const resp = await fetch('/examinations/api/save/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
+            body: JSON.stringify(payload),
+        });
+        const data = await resp.json();
+        if (data.status === 'created') {
+            const box = document.getElementById('successBanner');
+            box.textContent = data.message;
+            box.style.display = 'block';
+            clearForm();
+        } else {
+            showError(data.error || 'An error occurred.');
+        }
+    } catch (e) {
+        showError('Network error: ' + e.message);
+    }
+}
+
+function showError(msg) {
+    const box = document.getElementById('errorBanner');
+    box.textContent = msg;
+    box.style.display = 'block';
+}
+
+function clearForm() {
+    document.getElementById('sel_protocol').value = '';
+    document.getElementById('sel_manufacturer').value = '';
+    document.getElementById('sel_model').innerHTML = '<option value="">Select model…</option>';
+    document.getElementById('sel_region').value = '';
+    document.getElementById('sel_indication').innerHTML = '<option value="">Select indication…</option>';
+    document.getElementById('inp_weight').value = '';
+    document.getElementById('inp_wed').value = '';
+    document.getElementById('inp_age').value = '';
+    document.getElementById('inp_phases').value = '1';
+    document.getElementById('sel_quality').value = '';
+    renderPhasesTable();
+}
+
+init();
+</script>
+</body>
+</html>

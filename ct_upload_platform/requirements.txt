@@ -1,0 +1,12 @@
+django>=5.0
+djangorestframework
+celery
+redis
+psycopg[binary]
+pydicom
+jsonschema
+python-magic
+django-environ
+requests
+gunicorn
+playwright

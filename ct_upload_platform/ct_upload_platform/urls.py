@@ -1,0 +1,58 @@
+"""
+URL configuration for ct_upload_platform project.
+"""
+
+from django.contrib import admin
+from django.urls import path, include
+from uploads.views import UploadIndexView, UploadAdvancedView, LoginPageView, SignupPageView, LogoutView
+from uploads.protocol_views import (
+    ProtocolListView,
+    ProtocolDetailView,
+    ProtocolCreateView,
+    ProtocolUpdateView,
+    ProtocolDeleteView,
+    ProtocolsHubView,
+    ScannerProfileListView,
+    ScannerProfileCreateView,
+    ScannerModelsByManufacturerView,
+    ScannerProfileEditView,
+    ProtocolGUIView,
+    ProtocolSaveAPIView,
+    ProtocolRecordsView,
+    ExaminationEntryView,
+    ExaminationSaveAPIView,
+    ExaminationListView,
+    ExaminationDeleteView,
+)
+
+urlpatterns = [
+    path('admin/', admin.site.urls),
+    path('login/', LoginPageView.as_view(), name='login-page'),
+    path('logout/', LogoutView.as_view(), name='logout'),
+    path('signup/', SignupPageView.as_view(), name='signup-page'),
+    path('', UploadAdvancedView.as_view(), name='index'),
+    path('simple/', UploadIndexView.as_view(), name='simple'),
+    path('api/v1/', include('uploads.urls')),
+
+    # Examination UI pages
+    path('examinations/', ExaminationListView.as_view(), name='examination-list'),
+    path('examinations/entry/', ExaminationEntryView.as_view(), name='examination-entry'),
+    path('examinations/api/save/', ExaminationSaveAPIView.as_view(), name='examination-save-api'),
+    path('examinations/<str:pk>/delete/', ExaminationDeleteView.as_view(), name='examination-delete'),
+
+    # Protocol UI pages (human-facing; not under api/v1/)
+    # Order matters: fixed paths before parameterised catch-alls.
+    path('protocols/', ProtocolsHubView.as_view(), name='protocols-hub'),
+    path('protocols/gui/', ProtocolGUIView.as_view(), name='protocol-gui'),
+    path('protocols/records/', ProtocolRecordsView.as_view(), name='protocol-records'),
+    path('protocols/api/save/', ProtocolSaveAPIView.as_view(), name='protocol-save-api'),
+    path('protocols/<str:protocol_type>/create/', ProtocolCreateView.as_view(), name='protocol-create'),
+    path('protocols/<str:protocol_type>/<str:pk>/edit/', ProtocolUpdateView.as_view(), name='protocol-update'),
+    path('protocols/<str:protocol_type>/<str:pk>/delete/', ProtocolDeleteView.as_view(), name='protocol-delete'),
+    path('protocols/<str:protocol_type>/<str:pk>/', ProtocolDetailView.as_view(), name='protocol-detail'),
+    path('protocols/<str:protocol_type>/', ProtocolListView.as_view(), name='protocol-list'),
+    path('scanners/', ScannerProfileListView.as_view(), name='scanner-profile-list'),
+    path('scanners/create/', ScannerProfileCreateView.as_view(), name='scanner-profile-create'),
+    path('scanners/models/', ScannerModelsByManufacturerView.as_view(), name='scanner-models-by-manufacturer'),
+    path('scanners/<str:pk>/edit/', ScannerProfileEditView.as_view(), name='scanner-profile-edit'),
+]

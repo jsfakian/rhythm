@@ -1,0 +1,19 @@
+{
+  "Name": "CT Upload Platform Orthanc",
+  "HttpPort": 8042,
+  "HttpThreadsCount": 8,
+  "RemoteAccessAllowed": true,
+  "AuthenticationEnabled": true,
+  "RegisteredUsers": {
+    "orthanc": "REDACTED"
+  },
+  "DicomAET": "ORTHANC",
+  "DicomServerEnabled": true,
+  "DicomPort": 4242,
+  "StorageCompression": false,
+  "MaximumStorageSize": 0,
+  "MaximumPatientCount": 0,
+  "SynchronousCMoveTimeout": 3600,
+  "HttpDescribeErrors": true,
+  "HttpCompressionEnabled": true
+}

@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ protocol_type_display }} – CT Upload Platform</title>
+    {% include 'uploads/_styles.html' %}
+    <style>
+        .page-body { max-width: 1100px; }
+        .type-tabs { display: flex; gap: 8px; margin-bottom: 24px; flex-wrap: wrap; }
+        .type-tab {
+            padding: 8px 16px; border-radius: 4px; font-size: 14px; font-weight: 500;
+            text-decoration: none; color: #2c3e50; background: white; border: 1px solid #bdc3c7;
+            transition: background 0.2s, border-color 0.2s, color 0.2s;
+        }
+        .type-tab:hover { background: #ecf0f1; border-color: #95a5a6; }
+        .type-tab.active { background: #3498db; border-color: #3498db; color: white; }
+        .toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 8px; }
+        .toolbar-left { display: flex; align-items: center; gap: 12px; }
+        .footer-note { margin-top: 24px; font-size: 13px; color: #7f8c8d; }
+        .footer-note a { color: #3498db; text-decoration: none; }
+        .footer-note a:hover { text-decoration: underline; }
+        @media (max-width: 640px) { .toolbar { flex-direction: column; align-items: flex-start; } }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+    {% include 'uploads/_sidebar.html' with active_nav='protocols' %}
+    <div class="main-content">
+    <div class="page-body">
+
+        <div class="page-header">
+            <h1>{{ protocol_type_display }}</h1>
+        </div>
+
+        <div class="type-tabs">
+            <a href="/protocols/PEDIATRIC_HEAD/" class="type-tab{% if protocol_type == 'PEDIATRIC_HEAD' %} active{% endif %}">Pediatric Head CT</a>
+            <a href="/protocols/PEDIATRIC_BODY/" class="type-tab{% if protocol_type == 'PEDIATRIC_BODY' %} active{% endif %}">Pediatric Body CT</a>
+            <a href="/protocols/YOUNG_ADULT/" class="type-tab{% if protocol_type == 'YOUNG_ADULT' %} active{% endif %}">Young Adult CT</a>
+        </div>
+
+        <div class="toolbar">
+            <div class="toolbar-left">
+                <a href="/protocols/{{ protocol_type }}/create/" class="btn btn-primary">+ Add New Protocol</a>
+            </div>
+        </div>
+
+        <div class="card">
+            {% if protocols %}
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Age Group</th>
+                            <th>Clinical Indication</th>
+                            <th>Protocol Name</th>
+                            <th>Scan Type</th>
+                            <th>kVp</th>
+                            <th>Contrast</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for protocol in protocols %}
+                        <tr>
+                            <td>{{ protocol.age_group }}</td>
+                            <td>{{ protocol.clinical_indication }}</td>
+                            <td>{{ protocol.protocol_name }}</td>
+                            <td>{{ protocol.scan_type }}</td>
+                            <td>{{ protocol.kvp|default:"—" }}</td>
+                            <td>
+                                {% if protocol.contrast %}
+                                    <span class="badge badge-contrast-yes">Yes</span>
+                                {% else %}
+                                    <span class="badge badge-contrast-no">No</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="actions-cell">
+                                    <a href="/protocols/{{ protocol_type }}/{{ protocol.pk }}/" class="btn btn-secondary btn-sm">View</a>
+                                    <a href="/protocols/{{ protocol_type }}/{{ protocol.pk }}/edit/" class="btn btn-secondary btn-sm">Edit</a>
+                                    <a href="/protocols/{{ protocol_type }}/{{ protocol.pk }}/delete/" class="btn btn-danger btn-sm">Delete</a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <p>No protocols found for {{ protocol_type_display }}.</p>
+                <a href="/protocols/{{ protocol_type }}/create/" class="btn btn-primary">Add your first protocol</a>
+            </div>
+            {% endif %}
+        </div>
+
+        {% if page_obj.has_other_pages %}
+        <div class="pagination">
+            {% if page_obj.has_previous %}
+                <a href="?page={{ page_obj.previous_page_number }}">&laquo; Previous</a>
+            {% else %}
+                <span class="disabled">&laquo; Previous</span>
+            {% endif %}
+
+            {% for num in page_obj.paginator.page_range %}
+                {% if page_obj.number == num %}
+                    <span class="current">{{ num }}</span>
+                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                    <a href="?page={{ num }}">{{ num }}</a>
+                {% endif %}
+            {% endfor %}
+
+            {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}">Next &raquo;</a>
+            {% else %}
+                <span class="disabled">Next &raquo;</span>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <p class="footer-note">
+            Scanner hardware not listed? <a href="/scanners/">Manage scanner profiles</a>.
+        </p>
+
+    </div>
+    </div>
+    </div>
+
+</body>
+</html>

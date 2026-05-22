@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CT Examination Records – CT Upload Platform</title>
+    {% include 'uploads/_styles.html' %}
+    <style>
+        .page-body { max-width: 1400px; }
+        .badge-EXCELLENT { background:#e8f7ee; color:#067647; }
+        .badge-GOOD      { background:#e8f1ff; color:#1e3a5f; }
+        .badge-MODERATE  { background:#fff7e6; color:#b54708; }
+        .badge-POOR      { background:#fff2f0; color:#b42318; }
+        .badge-quality   { display:inline-block; padding:2px 8px; border-radius:10px; font-size:11px; font-weight:700; }
+        .filter-row { display:flex; gap:12px; align-items:center; margin-bottom:20px; flex-wrap:wrap; }
+        .filter-row select { padding:8px 12px; border:1px solid #bdc3c7; border-radius:6px; font-size:14px; }
+        .numeric { font-variant-numeric: tabular-nums; }
+    </style>
+</head>
+<body>
+<div class="app-container">
+    {% include 'uploads/_sidebar.html' with active_nav='exam-list' %}
+    <div class="main-content">
+    <div class="page-body">
+
+        <div class="page-header">
+            <h1>CT Examination Records</h1>
+            <a href="/examinations/entry/" class="btn btn-primary">+ Add Examination</a>
+        </div>
+
+        <form method="get" class="filter-row">
+            <select name="image_quality" onchange="this.form.submit()">
+                <option value="">All image quality</option>
+                {% for key, label in image_quality_choices %}
+                <option value="{{ key }}"{% if key == selected_quality %} selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="btn btn-secondary">Filter</button>
+            {% if selected_quality %}<a href="/examinations/" class="btn btn-secondary">Clear</a>{% endif %}
+        </form>
+
+        <div class="card">
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Protocol</th>
+                            <th>Scanner</th>
+                            <th>Region</th>
+                            <th>Clinical Indication</th>
+                            <th>Weight (kg)</th>
+                            <th>WED (cm)</th>
+                            <th>Age (y)</th>
+                            <th>Phases</th>
+                            <th>CTDI<sub>vol</sub> per phase</th>
+                            <th>DLP per phase</th>
+                            <th>Total DLP</th>
+                            <th>Image Quality</th>
+                            <th>Recorded</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for e in examinations %}
+                        <tr>
+                            <td>{{ forloop.counter }}</td>
+                            <td>{% if e.protocol %}<span title="{{ e.protocol.pk }}">{{ e.protocol.protocol_name|default:"—" }}</span>{% else %}—{% endif %}</td>
+                            <td>
+                                {% if e.scanner %}
+                                    {{ e.scanner.manufacturer.name }} – {{ e.scanner.scanner_model.name }}
+                                {% else %}—{% endif %}
+                            </td>
+                            <td>{{ e.anatomical_region|default:"—" }}</td>
+                            <td>{{ e.clinical_indication|default:"—" }}</td>
+                            <td class="numeric">{{ e.patient_weight|default:"—" }}</td>
+                            <td class="numeric">{{ e.water_equivalent_diameter|default:"—" }}</td>
+                            <td class="numeric">{{ e.patient_age|default:"—" }}</td>
+                            <td class="numeric">{{ e.number_of_phases }}</td>
+                            <td class="numeric">
+                                {% for v in e.ctdi_vol_per_phase %}{{ v }}{% if not forloop.last %}, {% endif %}{% empty %}—{% endfor %}
+                            </td>
+                            <td class="numeric">
+                                {% for v in e.dlp_per_phase %}{{ v }}{% if not forloop.last %}, {% endif %}{% empty %}—{% endfor %}
+                            </td>
+                            <td class="numeric">{{ e.total_dlp|floatformat:1 }}</td>
+                            <td>
+                                {% if e.image_quality %}
+                                <span class="badge-quality badge-{{ e.image_quality }}">{{ e.get_image_quality_display }}</span>
+                                {% else %}—{% endif %}
+                            </td>
+                            <td>{{ e.created_at|date:"Y-m-d" }}</td>
+                            <td>
+                                <div class="actions-cell">
+                                    <a href="/examinations/{{ e.pk }}/delete/" class="btn btn-danger btn-sm">Delete</a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="15" class="text-muted" style="text-align:center;padding:32px;">No examination records yet.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+    </div>
+</div>
+</body>
+</html>

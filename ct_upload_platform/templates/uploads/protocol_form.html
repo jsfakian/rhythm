@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% if is_edit %}Edit Protocol{% else %}New {{ protocol_type_display }} Protocol{% endif %} – CT Upload Platform</title>
+    {% include 'uploads/_styles.html' %}
+    <style>
+        .page-body { max-width: 900px; }
+        h1 { color: #2c3e50; font-size: 22px; margin-bottom: 24px; }
+        .btn { padding: 10px 24px; }
+        .card-header {
+            display: flex; align-items: center; justify-content: space-between;
+            cursor: pointer; user-select: none;
+        }
+        .card-header h2 { font-size: 15px; font-weight: 600; color: #2c3e50; }
+        .card-header .toggle-caret { font-size: 12px; color: #7f8c8d; transition: transform 0.2s; }
+        .card-header.collapsed .toggle-caret { transform: rotate(-90deg); }
+        .card-body.collapsed { display: none; }
+        .checkbox-group { display: flex; flex-wrap: wrap; gap: 10px 20px; padding-top: 4px; }
+        .checkbox-group label { display: flex; align-items: center; gap: 6px; font-weight: 400; cursor: pointer; margin-bottom: 0; }
+        .checkbox-group input[type="checkbox"] { width: 16px; height: 16px; accent-color: #3498db; cursor: pointer; }
+        .field-wrap.inline-check { flex-direction: row; align-items: center; gap: 8px; }
+        .field-wrap.inline-check label { margin-bottom: 0; order: 1; }
+        .field-wrap.inline-check input[type="checkbox"] { width: 16px; height: 16px; accent-color: #3498db; order: 0; }
+        .add-scanner-link { font-size: 13px; color: #3498db; text-decoration: none; display: inline-block; margin-top: 8px; }
+        .add-scanner-link:hover { text-decoration: underline; }
+        .inline-scanner-panel { display: none; margin-top: 16px; padding: 16px; border: 1px dashed #bdc3c7; border-radius: 4px; background: #f8fafc; }
+        .inline-scanner-panel.visible { display: block; }
+        .inline-scanner-panel h3 { font-size: 14px; font-weight: 600; color: #2c3e50; margin-bottom: 14px; }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+    {% include 'uploads/_sidebar.html' with active_nav='protocols' %}
+    <div class="main-content">
+    <div class="page-body">
+
+        <h1>{% if is_edit %}Edit Protocol{% else %}New {{ protocol_type_display }} Protocol{% endif %}</h1>
+
+        {% if form.non_field_errors %}
+        <div class="alert-error">
+            <strong>Please correct the errors below:</strong>
+            <ul>
+                {% for error in form.non_field_errors %}
+                <li>{{ error }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+
+        <form method="post" novalidate>
+            {% csrf_token %}
+
+            {# hidden protocol_type field — keep value even if missing from CTProtocolForm #}
+            {% if form.protocol_type %}
+                {{ form.protocol_type.as_hidden }}
+            {% else %}
+                <input type="hidden" name="protocol_type" value="{{ protocol_type }}">
+            {% endif %}
+
+            <!-- ────────────────────────────────────────────────
+                 SECTION 1: Scanner & Examination Setup
+            ──────────────────────────────────────────────────── -->
+            <div class="card">
+                <div class="card-header" id="hdr-scanner" onclick="toggleCard('scanner')">
+                    <h2>Scanner &amp; Examination Setup</h2>
+                    <span class="toggle-caret" id="caret-scanner">&#9660;</span>
+                </div>
+                <div class="card-body" id="body-scanner">
+                    <div class="form-grid">
+
+                        <!-- Scanner select (the FK field on the protocol form) -->
+                        {% if form.scanner %}
+                        <div class="field-wrap">
+                            <label for="{{ form.scanner.id_for_label }}">{{ form.scanner.label }}</label>
+                            {{ form.scanner }}
+                            {% if form.scanner.errors %}
+                            <ul class="field-errors">
+                                {% for e in form.scanner.errors %}<li>{{ e }}</li>{% endfor %}
+                            </ul>
+                            {% endif %}
+                            <a href="#" class="add-scanner-link" id="add-scanner-toggle">+ Add new scanner inline</a>
+                        </div>
+                        {% endif %}
+
+                        <!-- Age group -->
+                        {% if form.age_group %}
+                        <div class="field-wrap" id="wrap-age_group">
+                            <label for="{{ form.age_group.id_for_label }}">{{ form.age_group.label }}</label>
+                            {{ form.age_group }}
+                            {% if form.age_group.errors %}
+                            <ul class="field-errors">
+                                {% for e in form.age_group.errors %}<li>{{ e }}</li>{% endfor %}
+                            </ul>
+                            {% endif %}
+                            <div class="other-input" id="other-age_group">
+                                <input type="text" id="age_group_other_text" placeholder="Specify age group">
+                                <p class="field-hint">Enter a custom age group value</p>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        <!-- Clinical indication -->
+                        {% if form.clinical_indication %}
+                        <div class="field-wrap full-width" id="wrap-clinical_indication">
+                            <label for="{{ form.clinical_indication.id_for_label }}">{{ form.clinical_indication.label }}</label>
+                            {{ form.clinical_indication }}
+                            {% if form.clinical_indication.errors %}
+                            <ul class="field-errors">
+                                {% for e in form.clinical_indication.errors %}<li>{{ e }}</li>{% endfor %}
+                            </ul>
+                            {% endif %}
+                            <div class="other-input" id="other-clinical_indication">
+                                <input type="text" id="clinical_indication_other_text" placeholder="Specify clinical indication">
+                                <p class="field-hint">Enter a custom clinical indication</p>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        <!-- Protocol name -->
+                        {% if form.protocol_name %}
+                        <div class="field-wrap full-width">
+                            <label for="{{ form.protocol_name.id_for_label }}">{{ form.protocol_name.label }}</label>
+                            {{ form.protocol_name }}
+                            {% if form.protocol_name.errors %}
+                            <ul class="field-errors">
+                                {% for e in form.protocol_name.errors %}<li>{{ e }}</li>{% endfor %}
+                            </ul>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+
+                    </div><!-- /form-grid -->
+
+                    <!-- Inline scanner creation panel -->
+                    {% if scanner_form %}
+                    <div class="inline-scanner-panel" id="inline-scanner-panel">
+                        <h3>Register New Scanner</h3>
+                        <div class="form-grid">
+                            {% for field in scanner_form %}
+                            {% if not field.is_hidden %}
+                            <div class="field-wrap{% if field.name == 'notes' or field.name == 'description' %} full-width{% endif %}" id="inline-wrap-{{ field.name }}">
+                                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                                {{ field }}
+                                {% if field.errors %}
+                                <ul class="field-errors">
+                                    {% for e in field.errors %}<li>{{ e }}</li>{% endfor %}
+                                </ul>
+                                {% endif %}
+                                <div class="other-input" id="inline-other-{{ field.name }}">
+                                    <input type="text" id="inline_{{ field.name }}_other_text" placeholder="Specify value">
+                                    <p class="field-hint">Enter a custom value</p>
+                                </div>
+                            </div>
+                            {% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="inline-scanner-panel" id="inline-scanner-panel">
+                        <h3>Register New Scanner</h3>
+                        <p style="font-size:13px;color:#7f8c8d;">
+                            To add a scanner, go to <a href="/scanners/create/?protocol_type={{ protocol_type }}" style="color:#3498db;">Manage Scanners</a>.
+                        </p>
+                    </div>
+                    {% endif %}
+
+                </div>
+            </div>
+
+            <!-- ────────────────────────────────────────────────
+                 SECTION 2: Technical Parameters
+            ──────────────────────────────────────────────────── -->
+            <div class="card">
+                <div class="card-header" id="hdr-tech" onclick="toggleCard('tech')">
+                    <h2>Technical Parameters</h2>
+                    <span class="toggle-caret" id="caret-tech">&#9660;</span>
+                </div>
+                <div class="card-body" id="body-tech">
+                    <div class="form-grid">
+
+                        {% if form.scan_type %}
+                        <div class="field-wrap" id="wrap-scan_type">
+                            <label for="{{ form.scan_type.id_for_label }}">{{ form.scan_type.label }}</label>
+                            {{ form.scan_type }}
+                            {% if form.scan_type.errors %}
+                            <ul class="field-errors">
+                                {% for e in form.scan_type.errors %}<li>{{ e }}</li>{% endfor %}
+                            </ul>
+                            {% endif %}
+                            <div class="other-input" id="other-scan_type">
+                                <input type="text" id="scan_type_other_text" placeholder="Specify scan type">
+                                <p class="field-hint">Enter a custom scan type</p>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        {% if form.contrast %}
+                        <div class="field-wrap inline-check">
+                            <input type="checkbox" id="{{ form.contrast.id_for_label }}" name="{{ form.contrast.html_name }}"{% if form.contrast.value %} checked{% endif %}>
+                            <label for="{{ form.contrast.id_for_label }}">{{ form.contrast.label }}</label>
+                            {% if form.contrast.errors %}
+                            <ul class="field-errors" style="width:100%;">
+                                {% for e in form.contrast.errors %}<li>{{ e }}</li>{% endfor %}
+                            </ul>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+
+                        {% if form.number_of_phases %}
+                        <div class="field-wrap">
+                            <label for="{{ form.number_of_phases.id_for_label }}">{{ form.number_of_phases.label }}</label>
+                            {{ form.number_of_phases }}
+                            {% if form.number_of_phases.errors %}
+                            <ul class="field-errors">
+                                {% for e in form.number_of_phases.errors %}<li>{{ e }}</li>{% endfor %}
+                            </ul>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+
+                        {% if form.anatomical_region %}
+                        <div class="field-wrap" id="wrap-anatomical_region">
+                            <label for="{{ form.anatomical_region.id_for_label }}">{{ form.anatomical_region.label }}</label>
+                            {{ form.anatomical_region }}
+                            {% if form.anatomical_region.errors %}
+                            <ul class="field-errors">
+                                {% for e in form.anatomical_region.errors %}<li>{{ e }}</li>{% endfor %}
+                            </ul>
+                            {% endif %}
+                            <div class="other-input" id="other-anatomical_region">
+                                <input type="text" id="anatomical_region_other_text" placeholder="Specify anatomical region">
+                                <p class="field-hint">Enter a custom anatomical region</p>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                    </div>
+                </div>
+            </div>
+
+            <!-- ────────────────────────────────────────────────
+                 SECTION 3: Exposure Settings
+            ──────────────────────────────────────────────────── -->
+            <div class="card">
+                <div class="card-header" id="hdr-exposure" onclick="toggleCard('exposure')">
+                    <h2>Exposure Settings</h2>
+                    <span class="toggle-caret" id="caret-exposure">&#9660;</span>
+                </div>
+                <div class="card-body" id="body-exposure">
+                    <div class="form-grid">
+
+                        {% if form.auto_kvp_selection %}
+                        <div class="field-wrap inline-check">
+                            <input type="checkbox" id="{{ form.auto_kvp_selection.id_for_label }}" name="{{ form.auto_kvp_selection.html_name }}"{% if form.auto_kvp_selection.value %} checked{% endif %}>
+                            <label for="{{ form.auto_kvp_selection.id_for_label }}">{{ form.auto_kvp_selection.label }}</label>
+                        </div>
+                        {% endif %}
+
+                        {% if form.kvp %}
+                        <div class="field-wrap" id="wrap-kvp">
+                            <label for="{{ form.kvp.id_for_label }}">{{ form.kvp.label }}</label>
+                            {{ form.kvp }}
+                            {% if form.kvp.errors %}
+                            <ul class="field-errors">
+                                {% for e in form.kvp.errors %}<li>{{ e }}</li>{% endfor %}
+                            </ul>
+                            {% endif %}
+                            <div class="other-input" id="other-kvp">
+                                <input type="text" id="kvp_other_text" placeholder="Specify kVp value">
+                                <p class="field-hint">Enter a custom kVp value</p>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        {% if form.auto_ma_modulation %}
+                        <div class="field-wrap inline-check">
+                            <input type="checkbox" id="{{ form.auto_ma_modulation.id_for_label }}" name="{{ form.auto_ma_modulation.html_name }}"{% if form.auto_ma_modulation.value %} checked{% endif %}>
+                            <label for="{{ form.auto_ma_modulation.id_for_label }}">{{ form.auto_ma_modulation.label }}</label>
+                        </div>
+                        {% endif %}
+
+                        {% if form.exposure_metric %}
+                        <div class="field-wrap" id="wrap-exposure_metric">
+                            <label for="{{ form.exposure_metric.id_for_label }}">{{ form.exposure_metric.label }}</label>
+                            {{ form.exposure_metric }}
+                            {% if form.exposure_metric.errors %}
+                            <ul class="field-errors">
+                                {% for e in form.exposure_metric.errors %}<li>{{ e }}</li>{% endfor %}
+                            </ul>
+                            {% endif %}
+                            <div class="other-input" id="other-exposure_metric">
+                                <input type="text" id="exposure_metric_other_text" placeholder="Specify metric">
+                                <p class="field-hint">Enter a custom exposure metric</p>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        {% if form.mas_value %}
+                        <div class="field-wrap">
+                            <label for="{{ form.mas_value.id_for_label }}">{{ form.mas_value.label }}</label>
+                            {{ form.mas_value }}
+                            {% if form.mas_value.errors %}
+                            <ul class="field-errors">
+                                {% for e in form.mas_value.errors %}<li>{{ e }}</li>{% endfor %}
+                            </ul>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+
+                        {% if form.pitch %}
+                        <div class="field-wrap">
+                            <label for="{{ form.pitch.id_for_label }}">{{ form.pitch.label }}</label>
+                            {{ form.pitch }}
+                            {% if form.pitch.errors %}
+                            <ul class="field-errors">
+                                {% for e in form.pitch.errors %}<li>{{ e }}</li>{% endfor %}
+                            </ul>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+
+                        {% if form.rotation_time %}
+                        <div class="field-wrap">
+                            <label for="{{ form.rotation_time.id_for_label }}">{{ form.rotation_time.label }}</label>
+                            {{ form.rotation_time }}
+                            {% if form.rotation_time.errors %}
+                            <ul class="field-errors">
+                                {% for e in form.rotation_time.errors %}<li>{{ e }}</li>{% endfor %}
+                            </ul>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+
+                    </div>
+                </div>
+            </div>
+
+            <!-- ────────────────────────────────────────────────
+                 SECTION 4: Image Reconstruction
+            ──────────────────────────────────────────────────── -->
+            <div class="card">
+                <div class="card-header" id="hdr-recon" onclick="toggleCard('recon')">
+                    <h2>Image Reconstruction</h2>
+                    <span class="toggle-caret" id="caret-recon">&#9660;</span>
+                </div>
+                <div class="card-body" id="body-recon">
+                    <div class="form-grid">
+
+                        {% if form.slice_thickness %}
+                        <div class="field-wrap">
+                            <label for="{{ form.slice_thickness.id_for_label }}">{{ form.slice_thickness.label }}</label>
+                            {{ form.slice_thickness }}
+                            {% if form.slice_thickness.errors %}
+                            <ul class="field-errors">
+                                {% for e in form.slice_thickness.errors %}<li>{{ e }}</li>{% endfor %}
+                            </ul>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+
+                        {% if form.scan_fov %}
+                        <div class="field-wrap">
+                            <label for="{{ form.scan_fov.id_for_label }}">{{ form.scan_fov.label }}</label>
+                            {{ form.scan_fov }}
+                            {% if form.scan_fov.errors %}
+                            <ul class="field-errors">
+                                {% for e in form.scan_fov.errors %}<li>{{ e }}</li>{% endfor %}
+                            </ul>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+
+                        {% if form.kernel_class %}
+                        <div class="field-wrap" id="wrap-kernel_class">
+                            <label for="{{ form.kernel_class.id_for_label }}">{{ form.kernel_class.label }}</label>
+                            {{ form.kernel_class }}
+                            {% if form.kernel_class.errors %}
+                            <ul class="field-errors">
+                                {% for e in form.kernel_class.errors %}<li>{{ e }}</li>{% endfor %}
+                            </ul>
+                            {% endif %}
+                            <div class="other-input" id="other-kernel_class">
+                                <input type="text" id="kernel_class_other_text" placeholder="Specify kernel class">
+                                <p class="field-hint">Enter a custom kernel class</p>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        {% if form.reconstruction_algorithm %}
+                        <div class="field-wrap" id="wrap-reconstruction_algorithm">
+                            <label for="{{ form.reconstruction_algorithm.id_for_label }}">{{ form.reconstruction_algorithm.label }}</label>
+                            {{ form.reconstruction_algorithm }}
+                            {% if form.reconstruction_algorithm.errors %}
+                            <ul class="field-errors">
+                                {% for e in form.reconstruction_algorithm.errors %}<li>{{ e }}</li>{% endfor %}
+                            </ul>
+                            {% endif %}
+                            <div class="other-input" id="other-reconstruction_algorithm">
+                                <input type="text" id="reconstruction_algorithm_other_text" placeholder="Specify algorithm">
+                                <p class="field-hint">Enter a custom reconstruction algorithm</p>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                    </div>
+                </div>
+            </div>
+
+            <!-- ────────────────────────────────────────────────
+                 SECTION 5: Protocol Intent & Dose
+            ──────────────────────────────────────────────────── -->
+            <div class="card">
+                <div class="card-header" id="hdr-intent" onclick="toggleCard('intent')">
+                    <h2>Protocol Intent &amp; Dose</h2>
+                    <span class="toggle-caret" id="caret-intent">&#9660;</span>
+                </div>
+                <div class="card-body" id="body-intent">
+                    <div class="form-grid">
+
+                        {% if form.protocol_intent %}
+                        <div class="field-wrap" id="wrap-protocol_intent">
+                            <label for="{{ form.protocol_intent.id_for_label }}">{{ form.protocol_intent.label }}</label>
+                            {{ form.protocol_intent }}
+                            {% if form.protocol_intent.errors %}
+                            <ul class="field-errors">
+                                {% for e in form.protocol_intent.errors %}<li>{{ e }}</li>{% endfor %}
+                            </ul>
+                            {% endif %}
+                            <div class="other-input" id="other-protocol_intent">
+                                <input type="text" id="protocol_intent_other_text" placeholder="Specify intent">
+                                <p class="field-hint">Enter a custom protocol intent</p>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        {% if form.dose_metadata %}
+                        <div class="field-wrap full-width">
+                            <label>{{ form.dose_metadata.label }}</label>
+                            <div class="checkbox-group">
+                                {{ form.dose_metadata }}
+                            </div>
+                            {% if form.dose_metadata.errors %}
+                            <ul class="field-errors">
+                                {% for e in form.dose_metadata.errors %}<li>{{ e }}</li>{% endfor %}
+                            </ul>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+
+                        {% if form.notes %}
+                        <div class="field-wrap full-width">
+                            <label for="{{ form.notes.id_for_label }}">{{ form.notes.label }}</label>
+                            {{ form.notes }}
+                            {% if form.notes.errors %}
+                            <ul class="field-errors">
+                                {% for e in form.notes.errors %}<li>{{ e }}</li>{% endfor %}
+                            </ul>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── Actions ── -->
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">Save Protocol</button>
+                <a href="/protocols/{{ protocol_type }}/" class="btn btn-secondary">Cancel</a>
+            </div>
+
+        </form>
+    </div>
+    </div>
+    </div>
+
+    <script>
+        // ── Card collapse/expand ──
+        function toggleCard(key) {
+            var body = document.getElementById('body-' + key);
+            var hdr  = document.getElementById('hdr-'  + key);
+            var caret = document.getElementById('caret-' + key);
+            if (body.classList.contains('collapsed')) {
+                body.classList.remove('collapsed');
+                hdr.classList.remove('collapsed');
+            } else {
+                body.classList.add('collapsed');
+                hdr.classList.add('collapsed');
+            }
+        }
+
+        // ── "Other" select handler ──
+        // Attach to every <select> that has an "Other" option.
+        function initOtherHandlers() {
+            var selects = document.querySelectorAll('select');
+            selects.forEach(function(sel) {
+                var name = sel.name;
+                if (!name) return;
+
+                // Normalise: strip the trailing [] that ModelMultipleChoiceField adds
+                var baseName = name.replace(/\[\]$/, '');
+
+                var otherPanel = document.getElementById('other-' + baseName) ||
+                                 document.getElementById('inline-other-' + baseName);
+                if (!otherPanel) return;
+
+                function check() {
+                    if (sel.value === 'Other' || sel.value === 'other') {
+                        otherPanel.classList.add('visible');
+                    } else {
+                        otherPanel.classList.remove('visible');
+                    }
+                }
+
+                sel.addEventListener('change', check);
+                check(); // run on page load (edit mode)
+            });
+        }
+
+        // ── Before submit: copy "Other" text values back into hidden inputs ──
+        function hookFormSubmit() {
+            var forms = document.querySelectorAll('form[method="post"]');
+            forms.forEach(function(frm) {
+                frm.addEventListener('submit', function() {
+                    var selects = frm.querySelectorAll('select');
+                    selects.forEach(function(sel) {
+                        if (sel.value === 'Other' || sel.value === 'other') {
+                            var baseName = sel.name.replace(/\[\]$/, '');
+                            var textInput = document.getElementById(baseName + '_other_text') ||
+                                            document.getElementById('inline_' + baseName + '_other_text');
+                            if (textInput && textInput.value.trim()) {
+                                sel.value = textInput.value.trim();
+                            }
+                        }
+                    });
+                });
+            });
+        }
+
+        // ── Manufacturer → Model cascade ──
+        // Works for both the main form scanner select and the inline scanner form.
+        function initManufacturerCascade() {
+            // Try to find a manufacturer select in both the main form and inline panel
+            var mfgSelects = document.querySelectorAll('select[name*="manufacturer"]');
+            mfgSelects.forEach(function(mfgSel) {
+                mfgSel.addEventListener('change', function() {
+                    var mfgId = mfgSel.value;
+                    if (!mfgId) return;
+
+                    // Find the closest scanner_model select
+                    var container = mfgSel.closest('.form-grid') || mfgSel.closest('form');
+                    if (!container) return;
+                    var modelSel = container.querySelector('select[name*="scanner_model"]') ||
+                                   container.querySelector('select[name*="model"]');
+                    if (!modelSel) return;
+
+                    fetch('/api/v1/scanners/models/?manufacturer_id=' + encodeURIComponent(mfgId))
+                        .then(function(r) { return r.json(); })
+                        .then(function(data) {
+                            // data expected: [{id, name}, ...]
+                            var current = modelSel.value;
+                            modelSel.innerHTML = '<option value="">---------</option>';
+                            data.forEach(function(item) {
+                                var opt = document.createElement('option');
+                                opt.value = item.id;
+                                opt.textContent = item.name;
+                                if (String(item.id) === String(current)) {
+                                    opt.selected = true;
+                                }
+                                modelSel.appendChild(opt);
+                            });
+                        })
+                        .catch(function(err) {
+                            console.warn('Model cascade failed:', err);
+                        });
+                });
+            });
+        }
+
+        // ── Inline scanner panel toggle ──
+        var addScannerToggle = document.getElementById('add-scanner-toggle');
+        var inlineScannerPanel = document.getElementById('inline-scanner-panel');
+        if (addScannerToggle && inlineScannerPanel) {
+            addScannerToggle.addEventListener('click', function(e) {
+                e.preventDefault();
+                inlineScannerPanel.classList.toggle('visible');
+                addScannerToggle.textContent = inlineScannerPanel.classList.contains('visible')
+                    ? '- Hide scanner form'
+                    : '+ Add new scanner inline';
+            });
+        }
+
+        // ── Init ──
+        initOtherHandlers();
+        hookFormSubmit();
+        initManufacturerCascade();
+    </script>
+
+</body>
+</html>

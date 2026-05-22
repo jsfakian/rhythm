@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ protocol.age_group }} – {{ protocol_type_display }} – CT Upload Platform</title>
+    {% include 'uploads/_styles.html' %}
+    <style>
+        .page-body { max-width: 960px; }
+        .breadcrumb { display: flex; align-items: center; gap: 6px; margin-bottom: 20px; font-size: 13px; color: #7f8c8d; flex-wrap: wrap; }
+        .breadcrumb a { color: #3498db; text-decoration: none; }
+        .breadcrumb a:hover { text-decoration: underline; }
+        .breadcrumb-sep { color: #bdc3c7; }
+        .breadcrumb .current { color: #2c3e50; font-weight: 500; }
+        .page-header { align-items: flex-start; gap: 16px; margin-bottom: 28px; }
+        .page-header h1 { font-size: 22px; line-height: 1.3; }
+        .page-header .subtitle { color: #7f8c8d; font-size: 14px; margin-top: 4px; }
+        .action-bar { display: flex; gap: 8px; flex-wrap: wrap; flex-shrink: 0; }
+        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px 32px; }
+        .info-grid .full-width { grid-column: 1 / -1; }
+        .info-item { display: flex; flex-direction: column; gap: 4px; }
+        .info-label { font-size: 12px; font-weight: 600; color: #7f8c8d; text-transform: uppercase; letter-spacing: 0.04em; }
+        .info-value { font-size: 14px; color: #2c3e50; }
+        .info-value.empty { color: #bdc3c7; font-style: italic; }
+        .tag-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
+        .tag { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 12px; font-weight: 500; background: #d6eaf8; color: #1a5276; }
+        .notes-text { font-size: 14px; color: #2c3e50; line-height: 1.6; white-space: pre-wrap; }
+        .timestamps { margin-top: 24px; padding-top: 16px; border-top: 1px solid #e8ecef; font-size: 12px; color: #95a5a6; display: flex; gap: 24px; flex-wrap: wrap; }
+        @media (max-width: 640px) {
+            .info-grid { grid-template-columns: 1fr; }
+            .info-grid .full-width { grid-column: 1; }
+            .page-header { flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+    {% include 'uploads/_sidebar.html' with active_nav='protocols' %}
+    <div class="main-content">
+    <div class="page-body">
+
+        <div class="breadcrumb">
+            <a href="/">Home</a>
+            <span class="breadcrumb-sep">/</span>
+            <a href="/protocols/{{ protocol.protocol_type }}/">{{ protocol_type_display }}</a>
+            <span class="breadcrumb-sep">/</span>
+            <span class="current">{{ protocol.protocol_name|default:protocol.age_group }}</span>
+        </div>
+
+        <div class="page-header">
+            <div>
+                <h1>{{ protocol.age_group }} &ndash; {{ protocol_type_display }}</h1>
+                <p class="subtitle">{{ protocol.protocol_name }}</p>
+            </div>
+            <div class="action-bar">
+                <a href="/protocols/{{ protocol.protocol_type }}/{{ protocol.pk }}/edit/" class="btn btn-primary">Edit</a>
+                <a href="/protocols/{{ protocol.protocol_type }}/{{ protocol.pk }}/delete/" class="btn btn-danger">Delete</a>
+                <a href="/protocols/{{ protocol.protocol_type }}/" class="btn btn-secondary">Back to List</a>
+            </div>
+        </div>
+
+        <!-- Scanner Info -->
+        <div class="card">
+            <div class="card-header"><h2>Scanner</h2></div>
+            <div class="card-body">
+                <div class="info-grid">
+                    <div class="info-item">
+                        <span class="info-label">Manufacturer</span>
+                        <span class="info-value">{{ protocol.scanner.manufacturer|default:"—" }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Model</span>
+                        <span class="info-value">{{ protocol.scanner.scanner_model|default:"—" }}</span>
+                    </div>
+                    {% if protocol.scanner.detector_rows %}
+                    <div class="info-item">
+                        <span class="info-label">Detector Rows</span>
+                        <span class="info-value">{{ protocol.scanner.detector_rows }}</span>
+                    </div>
+                    {% endif %}
+                    {% if protocol.scanner.year_of_installation %}
+                    <div class="info-item">
+                        <span class="info-label">Year of Installation</span>
+                        <span class="info-value">{{ protocol.scanner.year_of_installation }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Examination Setup -->
+        <div class="card">
+            <div class="card-header"><h2>Examination Setup</h2></div>
+            <div class="card-body">
+                <div class="info-grid">
+                    <div class="info-item">
+                        <span class="info-label">Age Group</span>
+                        <span class="info-value">{{ protocol.age_group|default:"—" }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Protocol Type</span>
+                        <span class="info-value">{{ protocol_type_display }}</span>
+                    </div>
+                    <div class="info-item full-width">
+                        <span class="info-label">Clinical Indication</span>
+                        <span class="info-value">{{ protocol.clinical_indication|default:"—" }}</span>
+                    </div>
+                    <div class="info-item full-width">
+                        <span class="info-label">Protocol Name</span>
+                        <span class="info-value">{{ protocol.protocol_name|default:"—" }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Technical Parameters -->
+        <div class="card">
+            <div class="card-header"><h2>Technical Parameters</h2></div>
+            <div class="card-body">
+                <div class="info-grid">
+                    <div class="info-item">
+                        <span class="info-label">Scan Type</span>
+                        <span class="info-value">{{ protocol.scan_type|default:"—" }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Contrast</span>
+                        <span class="info-value">
+                            {% if protocol.contrast %}
+                                <span class="badge-yes">Yes</span>
+                            {% else %}
+                                <span class="badge-no">No</span>
+                            {% endif %}
+                        </span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Number of Phases</span>
+                        <span class="info-value">{{ protocol.number_of_phases|default:"—" }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Anatomical Region</span>
+                        <span class="info-value">{{ protocol.anatomical_region|default:"—" }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Exposure Settings -->
+        <div class="card">
+            <div class="card-header"><h2>Exposure Settings</h2></div>
+            <div class="card-body">
+                <div class="info-grid">
+                    <div class="info-item">
+                        <span class="info-label">Auto kVp Selection</span>
+                        <span class="info-value">
+                            {% if protocol.auto_kvp_selection %}
+                                <span class="badge-yes">Enabled</span>
+                            {% else %}
+                                <span class="badge-no">Disabled</span>
+                            {% endif %}
+                        </span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">kVp</span>
+                        <span class="info-value">{{ protocol.kvp|default:"—" }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Auto mA Modulation</span>
+                        <span class="info-value">
+                            {% if protocol.auto_ma_modulation %}
+                                <span class="badge-yes">Enabled</span>
+                            {% else %}
+                                <span class="badge-no">Disabled</span>
+                            {% endif %}
+                        </span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Exposure Metric</span>
+                        <span class="info-value">{{ protocol.exposure_metric|default:"—" }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">mAs Value</span>
+                        <span class="info-value">{{ protocol.mas_value|default:"—" }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Pitch</span>
+                        <span class="info-value">{{ protocol.pitch|default:"—" }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Rotation Time</span>
+                        <span class="info-value">{{ protocol.rotation_time|default:"—" }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Image Reconstruction -->
+        <div class="card">
+            <div class="card-header"><h2>Image Reconstruction</h2></div>
+            <div class="card-body">
+                <div class="info-grid">
+                    <div class="info-item">
+                        <span class="info-label">Slice Thickness</span>
+                        <span class="info-value">{{ protocol.slice_thickness|default:"—" }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Scan FOV</span>
+                        <span class="info-value">{{ protocol.scan_fov|default:"—" }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Kernel Class</span>
+                        <span class="info-value">{{ protocol.kernel_class|default:"—" }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Reconstruction Algorithm</span>
+                        <span class="info-value">{{ protocol.reconstruction_algorithm|default:"—" }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Protocol Intent & Dose -->
+        <div class="card">
+            <div class="card-header"><h2>Protocol Intent &amp; Dose</h2></div>
+            <div class="card-body">
+                <div class="info-grid">
+                    <div class="info-item">
+                        <span class="info-label">Protocol Intent</span>
+                        <span class="info-value">{{ protocol.protocol_intent|default:"—" }}</span>
+                    </div>
+                    {% if dose_metadata_display %}
+                    <div class="info-item full-width">
+                        <span class="info-label">Dose Metadata</span>
+                        <div class="tag-list">
+                            {% for item in dose_metadata_display %}
+                            <span class="tag">{{ item }}</span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% if protocol.notes %}
+                    <div class="info-item full-width">
+                        <span class="info-label">Notes</span>
+                        <p class="notes-text">{{ protocol.notes }}</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Timestamps -->
+        <div class="timestamps">
+            <span>
+                Created:
+                {% if protocol.created_at %}{{ protocol.created_at|date:"N j, Y H:i" }}{% else %}—{% endif %}
+                {% if protocol.created_by %} by {{ protocol.created_by }}{% endif %}
+            </span>
+            <span>
+                Last updated:
+                {% if protocol.updated_at %}{{ protocol.updated_at|date:"N j, Y H:i" }}{% else %}—{% endif %}
+            </span>
+        </div>
+
+    </div>
+    </div>
+    </div>
+
+</body>
+</html>

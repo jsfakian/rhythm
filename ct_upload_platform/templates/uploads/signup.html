@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign Up - CT Upload Platform</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .signup-container {
+            width: 100%;
+            max-width: 440px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            padding: 50px 40px;
+        }
+
+        .logo {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .logo h1 {
+            color: #2c3e50;
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+
+        .logo p {
+            color: #7f8c8d;
+            font-size: 14px;
+        }
+
+        .form-row {
+            display: flex;
+            gap: 12px;
+        }
+
+        .form-row .form-group {
+            flex: 1;
+        }
+
+        .form-group {
+            margin-bottom: 18px;
+        }
+
+        label {
+            display: block;
+            color: #2c3e50;
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        label .optional {
+            color: #95a5a6;
+            font-weight: 400;
+            font-size: 12px;
+        }
+
+        input[type="text"],
+        input[type="email"],
+        input[type="password"] {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #ecf0f1;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+            font-family: inherit;
+        }
+
+        input[type="text"]:focus,
+        input[type="email"]:focus,
+        input[type="password"]:focus {
+            outline: none;
+            border-color: #667eea;
+            background: #f8f9ff;
+        }
+
+        input.error {
+            border-color: #e74c3c;
+        }
+
+        .field-error {
+            color: #e74c3c;
+            font-size: 12px;
+            margin-top: 4px;
+            display: none;
+        }
+
+        .field-error.show {
+            display: block;
+        }
+
+        .signup-btn {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-top: 6px;
+        }
+
+        .signup-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .signup-btn:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .error-message {
+            background: #fee;
+            color: #c33;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            display: none;
+            border-left: 4px solid #c33;
+        }
+
+        .error-message.show {
+            display: block;
+        }
+
+        .success-message {
+            background: #efe;
+            color: #3c3;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            display: none;
+            border-left: 4px solid #3c3;
+        }
+
+        .success-message.show {
+            display: block;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border: 2px solid #ffffff;
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .divider {
+            height: 1px;
+            background: #ecf0f1;
+            margin: 25px 0;
+        }
+
+        .login-link {
+            text-align: center;
+            font-size: 14px;
+            color: #7f8c8d;
+        }
+
+        .login-link a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .login-link a:hover {
+            text-decoration: underline;
+        }
+
+        .password-hint {
+            color: #95a5a6;
+            font-size: 12px;
+            margin-top: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="signup-container">
+        <div class="logo">
+            <h1>CT Upload Platform</h1>
+            <p>Create your account</p>
+        </div>
+
+        <div id="errorMessage" class="error-message"></div>
+        <div id="successMessage" class="success-message"></div>
+
+        <form id="signupForm" novalidate>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="firstName">First Name <span class="optional">(optional)</span></label>
+                    <input
+                        type="text"
+                        id="firstName"
+                        name="first_name"
+                        placeholder="Jane"
+                        autocomplete="given-name"
+                    >
+                </div>
+                <div class="form-group">
+                    <label for="lastName">Last Name <span class="optional">(optional)</span></label>
+                    <input
+                        type="text"
+                        id="lastName"
+                        name="last_name"
+                        placeholder="Smith"
+                        autocomplete="family-name"
+                    >
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input
+                    type="text"
+                    id="username"
+                    name="username"
+                    required
+                    placeholder="e.g. jane.smith"
+                    autocomplete="username"
+                >
+                <div id="usernameError" class="field-error"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="email">Email</label>
+                <input
+                    type="email"
+                    id="email"
+                    name="email"
+                    required
+                    placeholder="jane@example.com"
+                    autocomplete="email"
+                >
+                <div id="emailError" class="field-error"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input
+                    type="password"
+                    id="password"
+                    name="password"
+                    required
+                    placeholder="At least 8 characters"
+                    autocomplete="new-password"
+                >
+                <div id="passwordError" class="field-error"></div>
+                <p class="password-hint">Must be at least 8 characters and not entirely numeric.</p>
+            </div>
+
+            <div class="form-group">
+                <label for="password2">Confirm Password</label>
+                <input
+                    type="password"
+                    id="password2"
+                    name="password2"
+                    required
+                    placeholder="Repeat your password"
+                    autocomplete="new-password"
+                >
+                <div id="password2Error" class="field-error"></div>
+            </div>
+
+            <button type="submit" class="signup-btn" id="signupBtn">
+                Create Account
+            </button>
+        </form>
+
+        <div class="divider"></div>
+
+        <p class="login-link">
+            Already have an account? <a href="/login/">Sign in</a>
+        </p>
+    </div>
+
+    <script>
+        const signupForm = document.getElementById('signupForm');
+        const signupBtn = document.getElementById('signupBtn');
+        const errorMessage = document.getElementById('errorMessage');
+        const successMessage = document.getElementById('successMessage');
+
+        const fieldErrors = {
+            username: document.getElementById('usernameError'),
+            email: document.getElementById('emailError'),
+            password: document.getElementById('passwordError'),
+            password2: document.getElementById('password2Error'),
+        };
+
+        function clearErrors() {
+            errorMessage.classList.remove('show');
+            successMessage.classList.remove('show');
+            Object.values(fieldErrors).forEach(el => {
+                el.classList.remove('show');
+                el.textContent = '';
+            });
+            ['username', 'email', 'password', 'password2'].forEach(id => {
+                document.getElementById(id).classList.remove('error');
+            });
+        }
+
+        function showFieldError(field, message) {
+            const input = document.getElementById(field);
+            const errEl = fieldErrors[field];
+            if (input) input.classList.add('error');
+            if (errEl) {
+                errEl.textContent = message;
+                errEl.classList.add('show');
+            }
+        }
+
+        signupForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            clearErrors();
+
+            const username = document.getElementById('username').value.trim();
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value;
+            const password2 = document.getElementById('password2').value;
+            const firstName = document.getElementById('firstName').value.trim();
+            const lastName = document.getElementById('lastName').value.trim();
+
+            if (!username) {
+                showFieldError('username', 'Username is required.');
+                return;
+            }
+            if (!email) {
+                showFieldError('email', 'Email is required.');
+                return;
+            }
+            if (!password) {
+                showFieldError('password', 'Password is required.');
+                return;
+            }
+            if (password !== password2) {
+                showFieldError('password2', 'Passwords do not match.');
+                return;
+            }
+
+            signupBtn.disabled = true;
+            const originalText = signupBtn.innerHTML;
+            signupBtn.innerHTML = '<span class="loading"></span> Creating account...';
+
+            try {
+                const response = await fetch('/api/v1/auth/signup/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        username,
+                        email,
+                        password,
+                        password2,
+                        first_name: firstName,
+                        last_name: lastName,
+                    }),
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    localStorage.setItem('token', data.token);
+                    localStorage.setItem('user', JSON.stringify(data));
+
+                    successMessage.textContent = `Account created! Welcome, ${data.username}. Redirecting...`;
+                    successMessage.classList.add('show');
+
+                    setTimeout(() => { window.location.href = '/'; }, 1500);
+                } else {
+                    const details = data.details || {};
+                    let handled = false;
+
+                    // Show per-field errors from the API
+                    ['username', 'email', 'password', 'password2'].forEach(field => {
+                        if (details[field]) {
+                            const msg = Array.isArray(details[field])
+                                ? details[field].join(' ')
+                                : details[field];
+                            showFieldError(field, msg);
+                            handled = true;
+                        }
+                    });
+
+                    // Handle non-field errors
+                    if (details.non_field_errors) {
+                        errorMessage.textContent = Array.isArray(details.non_field_errors)
+                            ? details.non_field_errors.join(' ')
+                            : details.non_field_errors;
+                        errorMessage.classList.add('show');
+                        handled = true;
+                    }
+
+                    if (!handled) {
+                        errorMessage.textContent = data.error || 'Registration failed. Please try again.';
+                        errorMessage.classList.add('show');
+                    }
+
+                    signupBtn.disabled = false;
+                    signupBtn.innerHTML = originalText;
+                }
+            } catch (err) {
+                errorMessage.textContent = 'Network error. Please try again.';
+                errorMessage.classList.add('show');
+                signupBtn.disabled = false;
+                signupBtn.innerHTML = originalText;
+                console.error('Signup error:', err);
+            }
+        });
+
+        // Clear field error on input
+        ['username', 'email', 'password', 'password2'].forEach(id => {
+            document.getElementById(id).addEventListener('input', () => {
+                const errEl = fieldErrors[id];
+                if (errEl) {
+                    errEl.classList.remove('show');
+                    errEl.textContent = '';
+                }
+                document.getElementById(id).classList.remove('error');
+                errorMessage.classList.remove('show');
+            });
+        });
+    </script>
+</body>
+</html>

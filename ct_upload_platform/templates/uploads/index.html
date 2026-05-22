@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CT Upload Platform</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 600px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), 0 10px 20px rgba(0, 0, 0, 0.15);
+            padding: 40px;
+        }
+
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+            font-size: 24px;
+        }
+
+        .subtitle {
+            color: #7f8c8d;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #2c3e50;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        input[type="text"],
+        input[type="password"],
+        input[type="file"] {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #bdc3c7;
+            border-radius: 4px;
+            font-size: 14px;
+            font-family: inherit;
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+
+        input[type="text"]:focus,
+        input[type="password"]:focus,
+        input[type="file"]:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+        }
+
+        input[type="file"] {
+            padding: 10px;
+        }
+
+        .field-hint {
+            font-size: 12px;
+            color: #95a5a6;
+            margin-top: 4px;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s, transform 0.1s;
+        }
+
+        button:hover {
+            background: #2980b9;
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+
+        button:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .alert {
+            padding: 12px 16px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            display: none;
+        }
+
+        .alert.show {
+            display: block;
+        }
+
+        .alert-error {
+            background: #fee;
+            color: #c33;
+            border-left: 4px solid #c33;
+        }
+
+        .alert-success {
+            background: #efe;
+            color: #3c3;
+            border-left: 4px solid #3c3;
+        }
+
+        .alert-info {
+            background: #eef;
+            color: #33c;
+            border-left: 4px solid #33c;
+        }
+
+        .progress-container {
+            display: none;
+            margin: 20px 0;
+        }
+
+        .progress-container.show {
+            display: block;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: #ecf0f1;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: #3498db;
+            width: 0%;
+            transition: width 0.3s;
+        }
+
+        .progress-text {
+            font-size: 12px;
+            color: #7f8c8d;
+            margin-top: 4px;
+        }
+
+        .status-panel {
+            display: none;
+            margin-top: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            border-left: 4px solid #3498db;
+        }
+
+        .status-panel.show {
+            display: block;
+        }
+
+        .status-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .status-label {
+            font-weight: 600;
+            color: #2c3e50;
+            font-size: 14px;
+        }
+
+        .status-value {
+            font-size: 14px;
+            padding: 4px 8px;
+            border-radius: 3px;
+            font-weight: 600;
+        }
+
+        .status-pending {
+            background: #ffeaa7;
+            color: #d63031;
+        }
+
+        .status-processing {
+            background: #74b9ff;
+            color: #0984e3;
+        }
+
+        .status-complete {
+            background: #a9e34b;
+            color: #27ae60;
+        }
+
+        .status-partial {
+            background: #fab1a0;
+            color: #e17055;
+        }
+
+        .status-failed {
+            background: #ff7675;
+            color: #d63031;
+        }
+
+        .status-detail {
+            font-size: 13px;
+            color: #5d626b;
+            margin: 8px 0;
+        }
+
+        .status-detail strong {
+            color: #2c3e50;
+        }
+
+        .errors-section {
+            margin-top: 15px;
+        }
+
+        .errors-toggle {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            font-size: 13px;
+            color: #2c3e50;
+            font-weight: 600;
+        }
+
+        .errors-toggle:hover {
+            color: #3498db;
+        }
+
+        .toggle-icon {
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            background: #2c3e50;
+            margin-right: 8px;
+            border-radius: 1px;
+            transform: rotate(45deg) scaleY(0.2);
+            transition: transform 0.3s;
+        }
+
+        .errors-toggle.expanded .toggle-icon {
+            transform: rotate(45deg) scaleY(1);
+        }
+
+        .errors-table {
+            display: none;
+            margin-top: 10px;
+            width: 100%;
+            overflow-x: auto;
+        }
+
+        .errors-table.show {
+            display: block;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+
+        th {
+            background: #ecf0f1;
+            padding: 8px;
+            text-align: left;
+            color: #2c3e50;
+            font-weight: 600;
+            border-bottom: 1px solid #bdc3c7;
+        }
+
+        td {
+            padding: 8px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        .error-message {
+            color: #c33;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border: 2px solid #ecf0f1;
+            border-top-color: #3498db;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .text-muted {
+            color: #7f8c8d;
+            font-size: 12px;
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                padding: 20px;
+            }
+
+            h1 {
+                font-size: 20px;
+            }
+
+            .status-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .status-value {
+                margin-top: 4px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>CT Upload Platform</h1>
+        <p class="subtitle">Upload DICOM images for processing</p>
+
+        <div id="alert" class="alert"></div>
+
+        <form id="uploadForm">
+            {% csrf_token %}
+
+            <div class="form-group">
+                <label for="apiToken">API Token *</label>
+                <input
+                    type="password"
+                    id="apiToken"
+                    name="apiToken"
+                    placeholder="Enter your API token"
+                    required
+                >
+                <div class="field-hint">Your token will be stored in this session only</div>
+            </div>
+
+            <div class="form-group">
+                <label for="uploaderId">Uploader ID (Optional)</label>
+                <input
+                    type="text"
+                    id="uploaderId"
+                    name="uploaderId"
+                    placeholder="Leave blank to use your username"
+                >
+                <div class="field-hint">If provided, will be recorded with this upload</div>
+            </div>
+
+            <div class="form-group">
+                <label for="tarFile">TAR File *</label>
+                <input
+                    type="file"
+                    id="tarFile"
+                    name="tarFile"
+                    accept=".tar,.tar.gz"
+                    required
+                >
+                <div class="field-hint">Max size: {{ max_upload_size_mb }} MB | Format: .tar or .tar.gz</div>
+            </div>
+
+            <button type="submit" id="uploadBtn">Upload</button>
+        </form>
+
+        <div id="progressContainer" class="progress-container">
+            <div class="progress-bar">
+                <div class="progress-fill"></div>
+            </div>
+            <div class="progress-text"><span class="spinner"></span> <span id="progressText">Uploading...</span></div>
+        </div>
+
+        <div id="statusPanel" class="status-panel">
+            <div class="status-header">
+                <div class="status-label">Job Status</div>
+                <div class="status-value" id="statusValue">PENDING</div>
+            </div>
+
+            <div class="status-detail">
+                <strong>Job ID:</strong> <span id="jobId" class="text-muted">-</span>
+            </div>
+
+            <div class="status-detail">
+                <strong>Submitted:</strong> <span id="submittedAt" class="text-muted">-</span>
+            </div>
+
+            <div class="status-detail">
+                <strong>Images Processed:</strong> <span id="imageCount" class="text-muted">-</span>
+            </div>
+
+            <div class="status-detail">
+                <strong>Completed:</strong> <span id="completedAt" class="text-muted">-</span>
+            </div>
+
+            <div id="errorsSection" class="errors-section hidden">
+                <div class="errors-toggle" id="errorsToggle">
+                    <span class="toggle-icon"></span>
+                    <span id="errorsCount">0</span> Errors
+                </div>
+                <div id="errorsTable" class="errors-table">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Field</th>
+                                <th>Code</th>
+                                <th>Message</th>
+                            </tr>
+                        </thead>
+                        <tbody id="errorsBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configuration
+        const API_BASE_URL = '/api/v1';
+        const MAX_UPLOAD_SIZE_BYTES = {{ max_upload_size_mb }} * 1024 * 1024;
+        const POLL_INTERVAL_MS = 3000;
+        const MAX_RETRIES = 30; // 90 seconds max
+        const STATUS_TERMINAL = ['COMPLETE', 'FAILED', 'PARTIAL'];
+
+        // DOM Elements
+        const form = document.getElementById('uploadForm');
+        const apiTokenInput = document.getElementById('apiToken');
+        const uploaderIdInput = document.getElementById('uploaderId');
+        const tarFileInput = document.getElementById('tarFile');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const alertDiv = document.getElementById('alert');
+        const progressContainer = document.getElementById('progressContainer');
+        const progressFill = progressContainer.querySelector('.progress-fill');
+        const progressText = document.getElementById('progressText');
+        const statusPanel = document.getElementById('statusPanel');
+        const statusValue = document.getElementById('statusValue');
+        const jobIdSpan = document.getElementById('jobId');
+        const submittedAtSpan = document.getElementById('submittedAt');
+        const imageCountSpan = document.getElementById('imageCount');
+        const completedAtSpan = document.getElementById('completedAt');
+        const errorsSection = document.getElementById('errorsSection');
+        const errorsToggle = document.getElementById('errorsToggle');
+        const errorsTable = document.getElementById('errorsTable');
+        const errorsBody = document.getElementById('errorsBody');
+        const errorsCount = document.getElementById('errorsCount');
+
+        // State
+        let currentJobId = null;
+        let pollCount = 0;
+        let pollIntervalId = null;
+
+        // Utility Functions
+        function showAlert(message, type = 'error') {
+            alertDiv.textContent = message;
+            alertDiv.className = `alert show alert-${type}`;
+            window.scrollTo(0, 0);
+        }
+
+        function hideAlert() {
+            alertDiv.classList.remove('show');
+        }
+
+        function validateFile() {
+            const file = tarFileInput.files[0];
+            if (!file) {
+                showAlert('Please select a file');
+                return false;
+            }
+
+            // Check file size
+            if (file.size > MAX_UPLOAD_SIZE_BYTES) {
+                const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+                showAlert(
+                    `File size (${sizeMB}MB) exceeds maximum ({{ max_upload_size_mb }}MB)`,
+                    'error'
+                );
+                return false;
+            }
+
+            // Check file extension
+            const name = file.name.toLowerCase();
+            if (!name.endsWith('.tar') && !name.endsWith('.tar.gz')) {
+                showAlert('File must be a .tar or .tar.gz archive', 'error');
+                return false;
+            }
+
+            return true;
+        }
+
+        function getAuthHeaders() {
+            const token = apiTokenInput.value.trim();
+            if (!token) {
+                showAlert('API token is required', 'error');
+                return null;
+            }
+            
+            // Store in sessionStorage
+            try {
+                sessionStorage.setItem('apiToken', token);
+            } catch (e) {
+                console.error('Failed to store token:', e);
+            }
+
+            return {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            };
+        }
+
+        function formatDate(dateString) {
+            if (!dateString) return '-';
+            try {
+                const date = new Date(dateString);
+                return date.toLocaleString();
+            } catch {
+                return dateString;
+            }
+        }
+
+        function formatStatusBadge(status) {
+            const badgeClass = `status-${status.toLowerCase()}`;
+            return status;
+        }
+
+        function displayErrors(errorReport) {
+            if (!errorReport || errorReport.length === 0) {
+                errorsSection.classList.add('hidden');
+                return;
+            }
+
+            errorsSection.classList.remove('hidden');
+            errorsCount.textContent = errorReport.length;
+            errorsBody.innerHTML = '';
+
+            errorReport.forEach((error) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${escapeHtml(error.field || '-')}</td>
+                    <td>${escapeHtml(error.code || '-')}</td>
+                    <td class="error-message">${escapeHtml(error.message || 'Unknown error')}</td>
+                `;
+                errorsBody.appendChild(row);
+            });
+        }
+
+        function escapeHtml(text) {
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return text.replace(/[&<>"']/g, m => map[m]);
+        }
+
+        function updateStatusPanel(job) {
+            jobIdSpan.textContent = job.id;
+            submittedAtSpan.textContent = formatDate(job.submitted_at);
+            completedAtSpan.textContent = formatDate(job.completed_at) || '-';
+            imageCountSpan.textContent = job.image_count || 0;
+
+            const status = job.status.toUpperCase();
+            statusValue.textContent = status;
+            statusValue.className = `status-value status-${status.toLowerCase()}`;
+
+            displayErrors(job.error_report);
+        }
+
+        function showProgress(uploadedBytes, totalBytes) {
+            progressContainer.classList.add('show');
+            const percentage = Math.round((uploadedBytes / totalBytes) * 100);
+            progressFill.style.width = percentage + '%';
+            progressText.textContent = `Uploading... ${percentage}%`;
+        }
+
+        function hideProgress() {
+            progressContainer.classList.remove('show');
+            progressFill.style.width = '0%';
+        }
+
+        function stopPolling() {
+            if (pollIntervalId) {
+                clearInterval(pollIntervalId);
+                pollIntervalId = null;
+            }
+            pollCount = 0;
+        }
+
+        function pollJobStatus(jobId) {
+            if (pollCount >= MAX_RETRIES) {
+                showAlert('Poll timeout - job may still be processing', 'error');
+                stopPolling();
+                return;
+            }
+
+            const token = sessionStorage.getItem('apiToken');
+            if (!token) {
+                showAlert('API token lost from session', 'error');
+                stopPolling();
+                return;
+            }
+
+            fetch(`${API_BASE_URL}/uploads/${jobId}/`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            })
+                .then(response => {
+                    if (response.status === 401) {
+                        throw new Error('Invalid API token (401 Unauthorized)');
+                    }
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(job => {
+                    updateStatusPanel(job);
+                    
+                    if (STATUS_TERMINAL.includes(job.status)) {
+                        stopPolling();
+                        if (job.status === 'COMPLETE') {
+                            showAlert('Upload completed successfully!', 'success');
+                        } else if (job.status === 'PARTIAL') {
+                            showAlert('Upload completed with errors (see details below)', 'info');
+                        } else {
+                            showAlert('Upload failed', 'error');
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Poll error:', error);
+                    showAlert(`Poll error: ${error.message}`, 'error');
+                    stopPolling();
+                });
+
+            pollCount++;
+        }
+
+        function startPolling(jobId) {
+            currentJobId = jobId;
+            pollCount = 0;
+            statusPanel.classList.add('show');
+            progressText.textContent = 'Processing... (polling for status)';
+
+            // First poll immediately
+            pollJobStatus(jobId);
+
+            // Then poll at intervals
+            pollIntervalId = setInterval(() => {
+                pollJobStatus(jobId);
+            }, POLL_INTERVAL_MS);
+        }
+
+        // Form Submission
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            hideAlert();
+
+            // Validate
+            if (!apiTokenInput.value.trim()) {
+                showAlert('API token is required', 'error');
+                return;
+            }
+
+            if (!validateFile()) {
+                return;
+            }
+
+            // Disable form during upload
+            uploadBtn.disabled = true;
+            tarFileInput.disabled = true;
+
+            try {
+                const formData = new FormData();
+                formData.append('tar_file', tarFileInput.files[0]);
+                if (uploaderIdInput.value.trim()) {
+                    formData.append('uploader_id', uploaderIdInput.value.trim());
+                }
+
+                // Use XMLHttpRequest for upload progress
+                const xhr = new XMLHttpRequest();
+
+                // Progress event
+                xhr.upload.addEventListener('progress', (e) => {
+                    if (e.lengthComputable) {
+                        showProgress(e.loaded, e.total);
+                    }
+                });
+
+                // Load event (the request is done)
+                xhr.addEventListener('load', () => {
+                    if (xhr.status === 202) {
+                        try {
+                            const response = JSON.parse(xhr.responseText);
+                            startPolling(response.job_id);
+                            hideProgress();
+                            showAlert('Upload accepted! Processing...', 'success');
+                        } catch (e) {
+                            showAlert('Invalid response from server', 'error');
+                            uploadBtn.disabled = false;
+                            tarFileInput.disabled = false;
+                        }
+                    } else if (xhr.status === 401) {
+                        showAlert('Invalid API token (401 Unauthorized)', 'error');
+                        uploadBtn.disabled = false;
+                        tarFileInput.disabled = false;
+                    } else if (xhr.status === 413) {
+                        showAlert('File is too large', 'error');
+                        uploadBtn.disabled = false;
+                        tarFileInput.disabled = false;
+                    } else if (xhr.status === 400) {
+                        try {
+                            const error = JSON.parse(xhr.responseText);
+                            showAlert(`Bad request: ${error.error || 'Unknown'}`, 'error');
+                        } catch {
+                            showAlert('Bad request - invalid file format?', 'error');
+                        }
+                        uploadBtn.disabled = false;
+                        tarFileInput.disabled = false;
+                    } else if (xhr.status >= 500) {
+                        showAlert(`Server error (${xhr.status})`, 'error');
+                        uploadBtn.disabled = false;
+                        tarFileInput.disabled = false;
+                    } else {
+                        showAlert(`Upload failed (HTTP ${xhr.status})`, 'error');
+                        uploadBtn.disabled = false;
+                        tarFileInput.disabled = false;
+                    }
+                });
+
+                // Error event
+                xhr.addEventListener('error', () => {
+                    showAlert('Network error - could not connect to server', 'error');
+                    uploadBtn.disabled = false;
+                    tarFileInput.disabled = false;
+                });
+
+                // Abort event
+                xhr.addEventListener('abort', () => {
+                    showAlert('Upload cancelled', 'error');
+                    uploadBtn.disabled = false;
+                    tarFileInput.disabled = false;
+                });
+
+                // Send request
+                xhr.open('POST', `${API_BASE_URL}/uploads/`);
+                xhr.setRequestHeader('Authorization', `Bearer ${apiTokenInput.value.trim()}`);
+                xhr.send(formData);
+
+            } catch (error) {
+                showAlert(`Error: ${error.message}`, 'error');
+                uploadBtn.disabled = false;
+                tarFileInput.disabled = false;
+            }
+        });
+
+        // Errors toggle
+        errorsToggle.addEventListener('click', () => {
+            errorsToggle.classList.toggle('expanded');
+            errorsTable.classList.toggle('show');
+        });
+
+        // Restore token from sessionStorage on page load
+        window.addEventListener('load', () => {
+            try {
+                const savedToken = sessionStorage.getItem('apiToken');
+                if (savedToken) {
+                    apiTokenInput.value = savedToken;
+                }
+            } catch (e) {
+                console.error('Failed to restore token:', e);
+            }
+        });
+
+        // Clear polling on page unload
+        window.addEventListener('beforeunload', () => {
+            stopPolling();
+        });
+    </script>
+</body>
+</html>

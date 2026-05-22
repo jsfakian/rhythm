@@ -1,0 +1,73 @@
+<div class="sidebar">
+    <div class="sidebar-title">
+        <span>🏥</span>
+        <span>CT Upload</span>
+    </div>
+    <div class="nav-items">
+        <a class="nav-item nav-link{% if active_nav == 'upload' %} active{% endif %}"
+           href="/" data-page="home">
+            <span class="nav-icon">📤</span>
+            <span>Upload</span>
+        </a>
+        <a class="nav-item nav-link{% if active_nav == 'manifest' %} active{% endif %}"
+           href="/" data-page="manifest">
+            <span class="nav-icon">✅</span>
+            <span>Validate Manifest</span>
+        </a>
+        <a class="nav-item nav-link{% if active_nav == 'uploads' %} active{% endif %}"
+           href="/" data-page="uploads">
+            <span class="nav-icon">📋</span>
+            <span>My Uploads</span>
+        </a>
+        <a class="nav-item nav-link{% if active_nav == 'studies' %} active{% endif %}"
+           href="/" data-page="studies">
+            <span class="nav-icon">📊</span>
+            <span>Studies</span>
+        </a>
+        <a class="nav-item nav-link{% if active_nav == 'settings' %} active{% endif %}"
+           href="/" data-page="settings">
+            <span class="nav-icon">⚙️</span>
+            <span>Settings</span>
+        </a>
+        <div class="nav-divider"></div>
+        <div class="nav-section-label">CT Protocols</div>
+        <a class="nav-item nav-link{% if active_nav == 'protocols' %} active{% endif %}"
+           href="/protocols/">
+            <span class="nav-icon">📋</span>
+            <span>All Protocols</span>
+        </a>
+        <a class="nav-item nav-link{% if active_nav == 'scanners' %} active{% endif %}"
+           href="/scanners/">
+            <span class="nav-icon">🔬</span>
+            <span>Scanners</span>
+        </a>
+        <a class="nav-item nav-link{% if active_nav == 'protocol-gui' %} active{% endif %}"
+           href="/protocols/gui/">
+            <span class="nav-icon">🖥️</span>
+            <span>Protocol GUI</span>
+        </a>
+        <a class="nav-item nav-link{% if active_nav == 'protocol-records' %} active{% endif %}"
+           href="/protocols/records/">
+            <span class="nav-icon">📊</span>
+            <span>Protocol Records</span>
+        </a>
+        <div class="nav-divider"></div>
+        <div class="nav-section-label">Examinations</div>
+        <a class="nav-item nav-link{% if active_nav == 'exam-entry' %} active{% endif %}"
+           href="/examinations/entry/">
+            <span class="nav-icon">🩺</span>
+            <span>Exam Entry</span>
+        </a>
+        <a class="nav-item nav-link{% if active_nav == 'exam-list' %} active{% endif %}"
+           href="/examinations/">
+            <span class="nav-icon">📋</span>
+            <span>Examinations</span>
+        </a>
+        <div style="margin-top: auto; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.1);">
+            <a class="nav-item nav-link" href="/logout/">
+                <span class="nav-icon">🚪</span>
+                <span>Logout</span>
+            </a>
+        </div>
+    </div>
+</div>

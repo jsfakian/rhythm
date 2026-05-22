@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% if is_edit %}Edit Scanner{% else %}Register Scanner{% endif %} – CT Upload Platform</title>
+    {% include 'uploads/_styles.html' %}
+    <style>
+        .page-body { max-width: 700px; }
+        h1 { color: #2c3e50; font-size: 22px; margin-bottom: 24px; }
+        .card { padding: 28px; }
+        .form-grid { gap: 18px 24px; }
+        .form-actions { margin-top: 4px; }
+        .btn { padding: 10px 24px; }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+    {% include 'uploads/_sidebar.html' with active_nav='scanners' %}
+    <div class="main-content">
+    <div class="page-body">
+
+        <h1>{% if is_edit %}Edit Scanner{% else %}Register Scanner{% endif %}</h1>
+
+        {% if form.non_field_errors %}
+        <div class="alert-error">
+            <strong>Please correct the errors below:</strong>
+            <ul>
+                {% for error in form.non_field_errors %}
+                <li>{{ error }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+
+        <form method="post" novalidate>
+            {% csrf_token %}
+
+            <div class="card">
+                <div class="form-grid">
+
+                    <!-- Manufacturer -->
+                    {% if form.manufacturer %}
+                    <div class="field-wrap" id="wrap-manufacturer">
+                        <label for="{{ form.manufacturer.id_for_label }}">{{ form.manufacturer.label }}</label>
+                        {{ form.manufacturer }}
+                        {% if form.manufacturer.errors %}
+                        <ul class="field-errors">
+                            {% for e in form.manufacturer.errors %}<li>{{ e }}</li>{% endfor %}
+                        </ul>
+                        {% endif %}
+                        <div class="other-input" id="other-manufacturer">
+                            <input type="text" id="manufacturer_other_text" placeholder="Specify manufacturer">
+                            <p class="field-hint">Enter the manufacturer name</p>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Scanner model — populated by cascade JS -->
+                    {% if form.scanner_model %}
+                    <div class="field-wrap" id="wrap-scanner_model">
+                        <label for="{{ form.scanner_model.id_for_label }}">{{ form.scanner_model.label }}</label>
+                        {{ form.scanner_model }}
+                        {% if form.scanner_model.errors %}
+                        <ul class="field-errors">
+                            {% for e in form.scanner_model.errors %}<li>{{ e }}</li>{% endfor %}
+                        </ul>
+                        {% endif %}
+                        <div class="other-input" id="other-scanner_model">
+                            <input type="text" id="scanner_model_other_text" placeholder="Specify model name">
+                            <p class="field-hint">Enter the scanner model name</p>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Detector rows -->
+                    {% if form.detector_rows %}
+                    <div class="field-wrap" id="wrap-detector_rows">
+                        <label for="{{ form.detector_rows.id_for_label }}">{{ form.detector_rows.label }}</label>
+                        {{ form.detector_rows }}
+                        {% if form.detector_rows.errors %}
+                        <ul class="field-errors">
+                            {% for e in form.detector_rows.errors %}<li>{{ e }}</li>{% endfor %}
+                        </ul>
+                        {% endif %}
+                        <div class="other-input" id="other-detector_rows">
+                            <input type="text" id="detector_rows_other_text" placeholder="Specify detector rows">
+                            <p class="field-hint">Enter the detector row count</p>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Year of installation -->
+                    {% if form.year_of_installation %}
+                    <div class="field-wrap" id="wrap-year_of_installation">
+                        <label for="{{ form.year_of_installation.id_for_label }}">{{ form.year_of_installation.label }}</label>
+                        {{ form.year_of_installation }}
+                        {% if form.year_of_installation.errors %}
+                        <ul class="field-errors">
+                            {% for e in form.year_of_installation.errors %}<li>{{ e }}</li>{% endfor %}
+                        </ul>
+                        {% endif %}
+                        <div class="other-input" id="other-year_of_installation">
+                            <input type="text" id="year_of_installation_other_text" placeholder="Specify year">
+                            <p class="field-hint">Enter a custom year value</p>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Any remaining fields not explicitly listed above -->
+                    {% for field in form %}
+                    {% if field.name != 'manufacturer' and field.name != 'scanner_model' and field.name != 'detector_rows' and field.name != 'year_of_installation' %}
+                    {% if not field.is_hidden %}
+                    <div class="field-wrap{% if field.name == 'notes' or field.name == 'description' %} full-width{% endif %}" id="wrap-{{ field.name }}">
+                        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                        {{ field }}
+                        {% if field.errors %}
+                        <ul class="field-errors">
+                            {% for e in field.errors %}<li>{{ e }}</li>{% endfor %}
+                        </ul>
+                        {% endif %}
+                        <div class="other-input" id="other-{{ field.name }}">
+                            <input type="text" id="{{ field.name }}_other_text" placeholder="Specify value">
+                            <p class="field-hint">Enter a custom value</p>
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% endif %}
+                    {% endfor %}
+
+                    {% for field in form %}
+                    {% if field.is_hidden %}{{ field }}{% endif %}
+                    {% endfor %}
+
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">{% if is_edit %}Save Changes{% else %}Register Scanner{% endif %}</button>
+                <a href="/scanners/" class="btn btn-secondary">Cancel</a>
+            </div>
+
+        </form>
+    </div>
+
+    <script>
+        function isOther(val) {
+            return val.toLowerCase().startsWith('other');
+        }
+
+        // ── "Other" select handler ──
+        function initOtherHandlers() {
+            var selects = document.querySelectorAll('select');
+            selects.forEach(function(sel) {
+                var name = sel.name;
+                if (!name) return;
+
+                var otherPanel = document.getElementById('other-' + name);
+                if (!otherPanel) return;
+
+                function check() {
+                    if (isOther(sel.value)) {
+                        otherPanel.classList.add('visible');
+                    } else {
+                        otherPanel.classList.remove('visible');
+                    }
+                }
+
+                sel.addEventListener('change', check);
+                check();
+            });
+
+            // Also handle plain text inputs whose value starts with "Other" in edit mode
+            var textInputs = document.querySelectorAll('input[type="text"]');
+            textInputs.forEach(function(inp) {
+                var name = inp.name;
+                if (!name) return;
+                var otherPanel = document.getElementById('other-' + name);
+                if (!otherPanel) return;
+                if (isOther(inp.value)) {
+                    otherPanel.classList.add('visible');
+                }
+            });
+        }
+
+        // ── Copy "Other" text back into select before submit ──
+        function hookFormSubmit() {
+            var form = document.querySelector('form[method="post"]');
+            if (!form) return;
+            form.addEventListener('submit', function() {
+                var selects = form.querySelectorAll('select');
+                selects.forEach(function(sel) {
+                    if (isOther(sel.value)) {
+                        var textInput = document.getElementById(sel.name + '_other_text');
+                        if (textInput && textInput.value.trim()) {
+                            sel.value = textInput.value.trim();
+                        }
+                    }
+                });
+            });
+        }
+
+        // ── Manufacturer → Model cascade ──
+        function initManufacturerCascade() {
+            var mfgSel = document.querySelector('select[name="manufacturer"]') ||
+                         document.querySelector('select[id*="manufacturer"]');
+            var modelSel = document.querySelector('select[name="scanner_model"]') ||
+                           document.querySelector('select[id*="scanner_model"]');
+            if (!mfgSel || !modelSel) return;
+
+            mfgSel.addEventListener('change', function() {
+                var mfgId = mfgSel.value;
+                if (!mfgId) return;
+
+                fetch('/api/v1/scanners/models/?manufacturer_id=' + encodeURIComponent(mfgId))
+                    .then(function(r) { return r.json(); })
+                    .then(function(data) {
+                        var current = modelSel.value;
+                        modelSel.innerHTML = '<option value="">---------</option>';
+                        (data.models || data).forEach(function(item) {
+                            var opt = document.createElement('option');
+                            opt.value = item.id;
+                            opt.textContent = item.name;
+                            if (String(item.id) === String(current)) {
+                                opt.selected = true;
+                            }
+                            modelSel.appendChild(opt);
+                        });
+                        // Append "Other: Please Specify" after catalogue models
+                        var otherOpt = document.createElement('option');
+                        otherOpt.value = 'Other: Please Specify';
+                        otherOpt.textContent = 'Other: Please Specify';
+                        modelSel.appendChild(otherOpt);
+                        // Re-check "Other" state after repopulation
+                        var otherPanel = document.getElementById('other-scanner_model');
+                        if (otherPanel) {
+                            if (isOther(modelSel.value)) {
+                                otherPanel.classList.add('visible');
+                            } else {
+                                otherPanel.classList.remove('visible');
+                            }
+                        }
+                    })
+                    .catch(function(err) {
+                        console.warn('Model cascade failed:', err);
+                    });
+            });
+        }
+
+        initOtherHandlers();
+        hookFormSubmit();
+        initManufacturerCascade();
+    </script>
+
+    </div>
+    </div>
+
+</body>
+</html>

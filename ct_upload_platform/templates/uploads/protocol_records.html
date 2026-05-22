@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Saved Protocol Records – CT Upload Platform</title>
+    {% include 'uploads/_styles.html' %}
+    <style>
+        .page-body { max-width: 1400px; }
+        .filter-row { display: flex; gap: 12px; align-items: center; margin-bottom: 20px; flex-wrap: wrap; }
+        .filter-row select { padding: 8px 12px; border: 1px solid #bdc3c7; border-radius: 6px; font-size: 14px; }
+        .filter-row input { padding: 8px 12px; border: 1px solid #bdc3c7; border-radius: 6px; font-size: 14px; min-width: 260px; }
+        .badge-type { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 700; }
+        .badge-PEDIATRIC_HEAD { background: #e8f1ff; color: #1e3a5f; }
+        .badge-PEDIATRIC_BODY { background: #e8f7ee; color: #067647; }
+        .badge-YOUNG_ADULT { background: #fff7e6; color: #b54708; }
+    </style>
+</head>
+<body>
+<div class="app-container">
+    {% include 'uploads/_sidebar.html' with active_nav='protocol-records' %}
+    <div class="main-content">
+    <div class="page-body">
+        <div class="page-header">
+            <h1>Saved Protocol Records</h1>
+            <a href="/protocols/gui/" class="btn btn-primary">+ Add Protocol</a>
+        </div>
+
+        <form method="get" class="filter-row">
+            <select name="protocol_type" onchange="this.form.submit()">
+                <option value="">All types</option>
+                {% for key, label in protocol_type_choices %}
+                <option value="{{ key }}"{% if key == selected_type %} selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+            <input type="text" name="q" value="{{ request.GET.q }}" placeholder="Search by indication, region, scanner..." />
+            <button type="submit" class="btn btn-secondary">Filter</button>
+            {% if selected_type or request.GET.q %}<a href="/protocols/records/" class="btn btn-secondary">Clear</a>{% endif %}
+        </form>
+
+        <div class="card">
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Type</th>
+                            <th>Scanner</th>
+                            <th>Anatomical Region</th>
+                            <th>Clinical Indication</th>
+                            <th>IV Contrast</th>
+                            <th>Examination Group</th>
+                            <th>Age / Weight</th>
+                            <th>Protocol Name</th>
+                            <th>kVp</th>
+                            <th>Scan Type</th>
+                            <th>Created</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for p in protocols %}
+                        <tr>
+                            <td>{{ forloop.counter }}</td>
+                            <td><span class="badge-type badge-{{ p.protocol_type }}">{{ p.get_protocol_type_display }}</span></td>
+                            <td>{{ p.scanner.manufacturer.name }} – {{ p.scanner.scanner_model.name }}</td>
+                            <td>{{ p.anatomical_region|default:"—" }}</td>
+                            <td>{{ p.clinical_indication|default:"—" }}</td>
+                            <td>{{ p.contrast|default:"—" }}</td>
+                            <td>{{ p.examination_group|default:"—" }}</td>
+                            <td>{{ p.age_group|default:"—" }}</td>
+                            <td>{{ p.protocol_name|default:"—" }}</td>
+                            <td>{{ p.kvp|default:"—" }}</td>
+                            <td>{{ p.scan_type|default:"—" }}</td>
+                            <td>{{ p.created_at|date:"Y-m-d" }}</td>
+                            <td>
+                                <div class="actions-cell">
+                                    <a href="/protocols/{{ p.protocol_type }}/{{ p.pk }}/" class="btn btn-secondary btn-sm">View</a>
+                                    <a href="/protocols/{{ p.protocol_type }}/{{ p.pk }}/edit/" class="btn btn-secondary btn-sm">Edit</a>
+                                    <a href="/protocols/{{ p.protocol_type }}/{{ p.pk }}/delete/" class="btn btn-danger btn-sm">Delete</a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="13" class="text-muted" style="text-align:center;padding:32px;">No protocol records found.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    </div>
+</div>
+</body>
+</html>
