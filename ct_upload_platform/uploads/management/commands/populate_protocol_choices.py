@@ -716,11 +716,25 @@ class Command(BaseCommand):
             ("GE HealthCare",         "auto_kvp_selection", ["Off", "kV Assist", "Not Available", OTHER]),
             ("Philips",               "auto_kvp_selection", ["Off", "Dose Right", "Not Available", OTHER]),
             ("Siemens Healthineers",  "auto_kvp_selection", ["Off", "CarekV", "CarekV Semi", "Not Available", OTHER]),
+            ("Fujifilm / Hitachi",    "auto_kvp_selection", ["Off", "Auto kV", "Not Available", OTHER]),
+            ("MinFound Medical",      "auto_kvp_selection", ["Off", "Not Available", OTHER]),
+            ("Neusoft Medical",       "auto_kvp_selection", [
+                "Off", "AutoKV – Soft Tissue", "AutoKV – Bone", "AutoKV – Patient Size", "Not Available", OTHER,
+            ]),
+            ("Samsung NeuroLogica",   "auto_kvp_selection", ["Off", "Auto kV", "Not Available", OTHER]),
+            ("United Imaging",        "auto_kvp_selection", ["Off", "Auto kV", "Not Available", OTHER]),
 
             ("Canon Medical",         "auto_ma_modulation", ["Off", "SureExposure", "Not Available", OTHER]),
             ("GE HealthCare",         "auto_ma_modulation", ["Off", "AutomA", "SmartmA", "Not Available", OTHER]),
             ("Philips",               "auto_ma_modulation", ["Off", "Doseright", "3D Modulation", "Not Available", OTHER]),
             ("Siemens Healthineers",  "auto_ma_modulation", ["Off", "CareDose", "CareDose4D", "Not Available", OTHER]),
+            ("Fujifilm / Hitachi",    "auto_ma_modulation", ["Off", "Intelli EC", "Intelli EC Plus", "Not Available", OTHER]),
+            ("MinFound Medical",      "auto_ma_modulation", [
+                "Off", "imA Intelligent mA Modulation", "imA Intelligent Dose Control", "Not Available", OTHER,
+            ]),
+            ("Neusoft Medical",       "auto_ma_modulation", ["Off", "DoseRight", "DoseSave Level", "Not Available", OTHER]),
+            ("Samsung NeuroLogica",   "auto_ma_modulation", ["Off", "AEC", "Not Available", OTHER]),
+            ("United Imaging",        "auto_ma_modulation", ["Off", "uDose 3D", "Auto ALARA mA", "Not Available", OTHER]),
         ]
 
         created_count = 0
@@ -746,17 +760,30 @@ class Command(BaseCommand):
         """Seed the mA modulation value → required numeric inputs mapping."""
         specs: list[tuple[str, list[str]]] = [
             # (ma_modulation_value, [input_label, ...])
-            # Parsed from the Lists tab, col N → col O of CT_Protocols_Table.xlsx
-            ("Off",                  ["mA"]),
-            ("SureExposure",         ["min mA", "max mA", "Standard Deviation"]),
-            ("AutomA",               ["min mA", "max mA", "Noise Index"]),
-            ("SmartmA",              ["min mA", "max mA", "Noise Index"]),
-            ("Doseright",            ["Reference mAs", "Dose Right Index"]),
-            ("3D Modulation",        ["Reference mAs", "Dose Right Index"]),
-            ("CareDose",             ["Effective mAs"]),
-            ("CareDose4D",           ["Quality Reference mAs (QR mAs)"]),
-            ("Not Available",        ["mA"]),
-            ("Other: Please Specify", ["mA"]),
+            ("Off",                            ["mA"]),
+            ("SureExposure",                   ["min mA", "max mA", "Standard Deviation"]),
+            ("AutomA",                         ["min mA", "max mA", "Noise Index"]),
+            ("SmartmA",                        ["min mA", "max mA", "Noise Index"]),
+            ("Doseright",                      ["Reference mAs", "Dose Right Index"]),
+            ("3D Modulation",                  ["Reference mAs", "Dose Right Index"]),
+            ("CareDose",                       ["Effective mAs"]),
+            ("CareDose4D",                     ["Quality Reference mAs (QR mAs)"]),
+            # Fujifilm / Hitachi
+            ("Intelli EC",                     ["Noise SD target", "min mA", "max mA"]),
+            ("Intelli EC Plus",                ["Noise SD target", "min mA", "max mA"]),
+            # MinFound Medical
+            ("imA Intelligent mA Modulation",  ["min mA", "max mA"]),
+            ("imA Intelligent Dose Control",   ["min mA", "max mA"]),
+            # Neusoft Medical
+            ("DoseRight",                      ["Reference mAs", "Dose Right Index"]),
+            ("DoseSave Level",                 ["DoseSave Level", "min mA", "max mA", "Modulation type"]),
+            # Samsung NeuroLogica
+            ("AEC",                            ["Desired noise level", "min mA", "max mA"]),
+            # United Imaging
+            ("uDose 3D",                       ["min mA", "max mA"]),
+            ("Auto ALARA mA",                  ["min mA", "max mA"]),
+            ("Not Available",                  ["mA"]),
+            ("Other: Please Specify",          ["mA"]),
         ]
 
         created_count = 0

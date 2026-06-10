@@ -210,9 +210,9 @@ class ExaminationEntryViewTests(_ExamFixtures, TestCase):
         resp = self.client.get(reverse("examination-entry"))
         self.assertIn(b"SCANNERS", resp.content)
 
-    def test_page_contains_protocols_json(self) -> None:
+    def test_page_contains_clinical_rows_json(self) -> None:
         resp = self.client.get(reverse("examination-entry"))
-        self.assertIn(b"PROTOCOLS", resp.content)
+        self.assertIn(b"CLINICAL_ROWS", resp.content)
 
     def test_page_contains_manufacturers_json(self) -> None:
         resp = self.client.get(reverse("examination-entry"))

@@ -160,6 +160,14 @@ class SignupSerializer(serializers.Serializer):
     password2 = serializers.CharField(max_length=128, write_only=True, label='Confirm password')
     first_name = serializers.CharField(max_length=150, required=False, allow_blank=True, default='')
     last_name = serializers.CharField(max_length=150, required=False, allow_blank=True, default='')
+    institution = serializers.CharField(max_length=256)
+    department = serializers.CharField(max_length=256, required=False, allow_blank=True, default='')
+    professional_role = serializers.ChoiceField(choices=[
+        'radiologist', 'medical_physicist', 'radiographer', 'pacs_it',
+        'research_coordinator', 'principal_investigator', 'dpo', 'other',
+    ])
+    professional_role_other = serializers.CharField(max_length=256, required=False, allow_blank=True, default='')
+    terms_accepted = serializers.BooleanField()
 
     def validate_username(self, value):
         from django.contrib.auth.models import User
@@ -173,6 +181,11 @@ class SignupSerializer(serializers.Serializer):
             raise serializers.ValidationError('A user with this email already exists.')
         return value
 
+    def validate_terms_accepted(self, value):
+        if not value:
+            raise serializers.ValidationError('You must accept the terms of use to register.')
+        return value
+
     def validate(self, data):
         if data['password'] != data['password2']:
             raise serializers.ValidationError({'password2': 'Passwords do not match.'})
@@ -182,19 +195,42 @@ class SignupSerializer(serializers.Serializer):
             validate_password(data['password'], User())
         except Exception as exc:
             raise serializers.ValidationError({'password': list(exc.messages)})
+        if data.get('professional_role') == 'other' and not data.get('professional_role_other', '').strip():
+            raise serializers.ValidationError({'professional_role_other': 'Please specify your professional role.'})
         return data
 
     def create(self, validated_data):
         from django.contrib.auth.models import User
+        from django.utils import timezone
+        from .models import UserProfile
         validated_data.pop('password2')
         password = validated_data.pop('password')
-        return User.objects.create_user(
+        institution = validated_data.pop('institution')
+        department = validated_data.pop('department', '')
+        professional_role = validated_data.pop('professional_role')
+        professional_role_other = validated_data.pop('professional_role_other', '')
+        terms_accepted = validated_data.pop('terms_accepted')
+
+        site_code = UserProfile.assign_site_code(institution)
+
+        user = User.objects.create_user(
             username=validated_data['username'],
             email=validated_data['email'],
             password=password,
             first_name=validated_data.get('first_name', ''),
             last_name=validated_data.get('last_name', ''),
         )
+        UserProfile.objects.create(
+            user=user,
+            institution=institution,
+            department=department,
+            professional_role=professional_role,
+            professional_role_other=professional_role_other,
+            site_code=site_code,
+            terms_accepted=terms_accepted,
+            terms_accepted_at=timezone.now() if terms_accepted else None,
+        )
+        return user
 
 
 class LoginSerializer(serializers.Serializer):

@@ -23,7 +23,7 @@
 
         .signup-container {
             width: 100%;
-            max-width: 440px;
+            max-width: 520px;
             background: white;
             border-radius: 12px;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
@@ -75,7 +75,8 @@
 
         input[type="text"],
         input[type="email"],
-        input[type="password"] {
+        input[type="password"],
+        select {
             width: 100%;
             padding: 12px 15px;
             border: 2px solid #ecf0f1;
@@ -83,19 +84,71 @@
             font-size: 14px;
             transition: border-color 0.3s;
             font-family: inherit;
+            background: white;
+            color: #2c3e50;
         }
 
         input[type="text"]:focus,
         input[type="email"]:focus,
-        input[type="password"]:focus {
+        input[type="password"]:focus,
+        select:focus {
             outline: none;
             border-color: #667eea;
             background: #f8f9ff;
         }
 
-        input.error {
+        input.error, select.error {
             border-color: #e74c3c;
         }
+
+        .section-divider {
+            margin: 22px 0 18px;
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: #95a5a6;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .section-divider::before, .section-divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: #ecf0f1;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            margin-bottom: 18px;
+        }
+        .checkbox-group input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            margin-top: 2px;
+            accent-color: #667eea;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+        .checkbox-group label {
+            font-weight: 400;
+            font-size: 13px;
+            color: #2c3e50;
+            cursor: pointer;
+            margin-bottom: 0;
+            line-height: 1.5;
+        }
+        .checkbox-group label a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        .checkbox-group label a:hover { text-decoration: underline; }
+
+        #roleOtherGroup { display: none; }
 
         .field-error {
             color: #e74c3c;
@@ -293,6 +346,69 @@
                 <div id="password2Error" class="field-error"></div>
             </div>
 
+            <div class="section-divider">Institution &amp; Role</div>
+
+            <div class="form-group">
+                <label for="institution">Institution / Hospital / University</label>
+                <input
+                    type="text"
+                    id="institution"
+                    name="institution"
+                    required
+                    placeholder="e.g. University Hospital of Thessaloniki"
+                    autocomplete="organization"
+                >
+                <div id="institutionError" class="field-error"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="department">Department / Unit <span class="optional">(optional)</span></label>
+                <input
+                    type="text"
+                    id="department"
+                    name="department"
+                    placeholder="e.g. Radiology Department"
+                >
+            </div>
+
+            <div class="form-group">
+                <label for="professionalRole">Professional Role</label>
+                <select id="professionalRole" name="professional_role" required onchange="onRoleChange()">
+                    <option value="">Select your role…</option>
+                    <option value="radiologist">Radiologist</option>
+                    <option value="medical_physicist">Medical Physicist</option>
+                    <option value="radiographer">Radiographer / CT Technologist</option>
+                    <option value="pacs_it">PACS / IT Administrator</option>
+                    <option value="research_coordinator">Research Coordinator</option>
+                    <option value="principal_investigator">Principal Investigator</option>
+                    <option value="dpo">Data Protection Officer</option>
+                    <option value="other">Other: please specify</option>
+                </select>
+                <div id="professionalRoleError" class="field-error"></div>
+            </div>
+
+            <div class="form-group" id="roleOtherGroup">
+                <label for="roleOther">Please specify your role</label>
+                <input
+                    type="text"
+                    id="roleOther"
+                    name="professional_role_other"
+                    placeholder="Your professional role"
+                >
+                <div id="roleOtherError" class="field-error"></div>
+            </div>
+
+            <div class="section-divider">Terms of Use</div>
+
+            <div class="checkbox-group">
+                <input type="checkbox" id="termsAccepted" name="terms_accepted" required>
+                <label for="termsAccepted">
+                    I have read and agree to the <a href="#" target="_blank">RHYTHM Repository Policy</a>
+                    and the terms governing the submission, storage, and use of anonymised medical imaging data.
+                </label>
+            </div>
+            <div id="termsError" class="field-error" style="margin-top:-12px;margin-bottom:12px;"></div>
+
             <button type="submit" class="signup-btn" id="signupBtn">
                 Create Account
             </button>
@@ -316,17 +432,26 @@
             email: document.getElementById('emailError'),
             password: document.getElementById('passwordError'),
             password2: document.getElementById('password2Error'),
+            institution: document.getElementById('institutionError'),
+            professionalRole: document.getElementById('professionalRoleError'),
+            roleOther: document.getElementById('roleOtherError'),
+            terms: document.getElementById('termsError'),
         };
+
+        function onRoleChange() {
+            const role = document.getElementById('professionalRole').value;
+            document.getElementById('roleOtherGroup').style.display = role === 'other' ? 'block' : 'none';
+        }
 
         function clearErrors() {
             errorMessage.classList.remove('show');
             successMessage.classList.remove('show');
             Object.values(fieldErrors).forEach(el => {
-                el.classList.remove('show');
-                el.textContent = '';
+                if (el) { el.classList.remove('show'); el.textContent = ''; }
             });
-            ['username', 'email', 'password', 'password2'].forEach(id => {
-                document.getElementById(id).classList.remove('error');
+            ['username', 'email', 'password', 'password2', 'institution', 'professionalRole', 'roleOther'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.classList.remove('error');
             });
         }
 
@@ -350,23 +475,26 @@
             const password2 = document.getElementById('password2').value;
             const firstName = document.getElementById('firstName').value.trim();
             const lastName = document.getElementById('lastName').value.trim();
+            const institution = document.getElementById('institution').value.trim();
+            const department = document.getElementById('department').value.trim();
+            const professionalRole = document.getElementById('professionalRole').value;
+            const roleOther = document.getElementById('roleOther').value.trim();
+            const termsAccepted = document.getElementById('termsAccepted').checked;
 
-            if (!username) {
-                showFieldError('username', 'Username is required.');
-                return;
+            let hasError = false;
+            if (!username) { showFieldError('username', 'Username is required.'); hasError = true; }
+            if (!email) { showFieldError('email', 'Email is required.'); hasError = true; }
+            if (!password) { showFieldError('password', 'Password is required.'); hasError = true; }
+            if (password !== password2) { showFieldError('password2', 'Passwords do not match.'); hasError = true; }
+            if (!institution) { showFieldError('institution', 'Institution is required.'); hasError = true; }
+            if (!professionalRole) { showFieldError('professionalRole', 'Professional role is required.'); hasError = true; }
+            if (professionalRole === 'other' && !roleOther) { showFieldError('roleOther', 'Please specify your role.'); hasError = true; }
+            if (!termsAccepted) {
+                const el = fieldErrors['terms'];
+                if (el) { el.textContent = 'You must accept the terms of use to register.'; el.classList.add('show'); }
+                hasError = true;
             }
-            if (!email) {
-                showFieldError('email', 'Email is required.');
-                return;
-            }
-            if (!password) {
-                showFieldError('password', 'Password is required.');
-                return;
-            }
-            if (password !== password2) {
-                showFieldError('password2', 'Passwords do not match.');
-                return;
-            }
+            if (hasError) return;
 
             signupBtn.disabled = true;
             const originalText = signupBtn.innerHTML;
@@ -383,6 +511,11 @@
                         password2,
                         first_name: firstName,
                         last_name: lastName,
+                        institution,
+                        department,
+                        professional_role: professionalRole,
+                        professional_role_other: roleOther,
+                        terms_accepted: termsAccepted,
                     }),
                 });
 
@@ -400,18 +533,22 @@
                     const details = data.details || {};
                     let handled = false;
 
-                    // Show per-field errors from the API
-                    ['username', 'email', 'password', 'password2'].forEach(field => {
-                        if (details[field]) {
-                            const msg = Array.isArray(details[field])
-                                ? details[field].join(' ')
-                                : details[field];
-                            showFieldError(field, msg);
+                    const fieldMap = {
+                        username: 'username', email: 'email',
+                        password: 'password', password2: 'password2',
+                        institution: 'institution',
+                        professional_role: 'professionalRole',
+                        professional_role_other: 'roleOther',
+                        terms_accepted: 'terms',
+                    };
+                    Object.entries(fieldMap).forEach(([apiKey, formKey]) => {
+                        if (details[apiKey]) {
+                            const msg = Array.isArray(details[apiKey]) ? details[apiKey].join(' ') : details[apiKey];
+                            showFieldError(formKey, msg);
                             handled = true;
                         }
                     });
 
-                    // Handle non-field errors
                     if (details.non_field_errors) {
                         errorMessage.textContent = Array.isArray(details.non_field_errors)
                             ? details.non_field_errors.join(' ')
@@ -437,15 +574,14 @@
             }
         });
 
-        // Clear field error on input
-        ['username', 'email', 'password', 'password2'].forEach(id => {
-            document.getElementById(id).addEventListener('input', () => {
+        // Clear field error on input/change
+        ['username', 'email', 'password', 'password2', 'institution'].forEach(id => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.addEventListener('input', () => {
                 const errEl = fieldErrors[id];
-                if (errEl) {
-                    errEl.classList.remove('show');
-                    errEl.textContent = '';
-                }
-                document.getElementById(id).classList.remove('error');
+                if (errEl) { errEl.classList.remove('show'); errEl.textContent = ''; }
+                el.classList.remove('error');
                 errorMessage.classList.remove('show');
             });
         });

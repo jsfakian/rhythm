@@ -36,6 +36,9 @@ class SignupAPITestCase(APITestCase):
             'email': 'newuser@example.com',
             'password': 'StrongPass99!',
             'password2': 'StrongPass99!',
+            'institution': 'Test University Hospital',
+            'professional_role': 'radiologist',
+            'terms_accepted': True,
         }
 
     # --- happy path ---

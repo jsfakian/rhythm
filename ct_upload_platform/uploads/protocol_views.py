@@ -4,7 +4,10 @@ All views require authentication via LoginRequiredMixin.
 """
 
 import json
+import logging
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpRequest, HttpResponse, JsonResponse
@@ -652,7 +655,7 @@ class ExaminationEntryView(LoginRequiredMixin, View):
             ClinicalIndicationRow.objects
             .filter(is_active=True)
             .order_by("sort_order", "anatomical_region")
-            .values("anatomical_region", "clinical_indication")
+            .values("anatomical_region", "clinical_indication", "iv_contrast")
         )
 
     def _scanners_json(self, username: str) -> list:
@@ -702,13 +705,19 @@ class ExaminationEntryView(LoginRequiredMixin, View):
             for m in CTManufacturer.objects.filter(is_active=True).order_by("sort_order", "name")
         ]
 
+    def _site_code(self, user) -> str:
+        try:
+            return user.profile.site_code or "SITE"
+        except Exception:
+            return "SITE"
+
     def get(self, request: HttpRequest) -> HttpResponse:
         username = request.user.username
         return render(request, self.template_name, {
             "scanners_json": json.dumps(self._scanners_json(username)),
-            "protocols_json": json.dumps(self._protocols_json(username)),
             "manufacturers_json": json.dumps(self._manufacturers_json()),
             "clinical_rows_json": json.dumps(self._get_clinical_rows()),
+            "site_code": self._site_code(request.user),
         })
 
 
@@ -727,6 +736,9 @@ class ExaminationSaveAPIView(LoginRequiredMixin, View):
         scanner_id = data.get("scanner_id") or None
         anatomical_region = data.get("anatomical_region", "")
         clinical_indication = data.get("clinical_indication", "")
+        contrast = data.get("contrast", "")
+        protocol_type = data.get("protocol_type", "")
+        examination_group = data.get("examination_group", "")
         patient_weight = data.get("patient_weight") or None
         wed = data.get("water_equivalent_diameter") or None
         patient_age = data.get("patient_age") or None
@@ -749,14 +761,16 @@ class ExaminationSaveAPIView(LoginRequiredMixin, View):
             )
 
         errors = []
-        if not protocol_id:
-            errors.append("Protocol link is required.")
         if not scanner_id:
             errors.append("CT scanner is required.")
         if not anatomical_region:
             errors.append("Anatomical region is required.")
         if not clinical_indication:
             errors.append("Clinical indication is required.")
+        if not protocol_type:
+            errors.append("Protocol type is required.")
+        if not examination_group:
+            errors.append("Examination group is required.")
         if not patient_age:
             errors.append("Patient's age is required.")
         if any(v in (None, "") for v in ctdi_vol):
@@ -770,21 +784,43 @@ class ExaminationSaveAPIView(LoginRequiredMixin, View):
         if errors:
             return JsonResponse({"error": " ".join(errors)}, status=400)
 
-        try:
-            protocol = CTProtocol.objects.get(pk=protocol_id)
-        except CTProtocol.DoesNotExist:
-            return JsonResponse({"error": "Protocol not found"}, status=404)
+        protocol = None
+        if protocol_id:
+            try:
+                protocol = CTProtocol.objects.get(pk=protocol_id)
+            except CTProtocol.DoesNotExist:
+                return JsonResponse({"error": "Protocol not found"}, status=404)
 
         try:
             scanner = CTScannerProfile.objects.get(pk=scanner_id)
         except CTScannerProfile.DoesNotExist:
             return JsonResponse({"error": "Scanner not found"}, status=404)
 
+        # Generate the RHYTHM pseudo-ID if we have enough data.
+        rhythm_id = ""
+        try:
+            from .rhythm_pseudo_id import generate_repository_pseudo_id
+            site_code = getattr(getattr(request.user, "profile", None), "site_code", "") or "SITE"
+            indication_key = f"{anatomical_region} / {clinical_indication}"
+            rhythm_id = generate_repository_pseudo_id(
+                site_code=site_code,
+                clinical_indication=indication_key,
+                contrast=contrast,
+                protocol_type=protocol_type,
+                examination_group=examination_group,
+            )
+        except Exception as exc:
+            logger.warning("Could not generate RHYTHM pseudo-ID: %s", exc)
+
         exam = CTExamination.objects.create(
             protocol=protocol,
             scanner=scanner,
             anatomical_region=anatomical_region,
             clinical_indication=clinical_indication,
+            contrast=contrast,
+            protocol_type=protocol_type,
+            examination_group=examination_group,
+            rhythm_pseudo_id=rhythm_id,
             patient_weight=patient_weight,
             water_equivalent_diameter=wed,
             patient_age=patient_age,
@@ -798,6 +834,7 @@ class ExaminationSaveAPIView(LoginRequiredMixin, View):
         return JsonResponse({
             "status": "created",
             "id": str(exam.pk),
+            "rhythm_pseudo_id": rhythm_id,
             "message": "Examination data saved successfully.",
         })
 

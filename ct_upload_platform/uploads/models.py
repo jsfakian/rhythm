@@ -4,7 +4,8 @@ No PHI (Personally Identifiable Health Information) is stored directly.
 """
 
 import uuid
-from django.db import models
+from django.db import models, transaction
+from django.contrib.auth.models import User
 from django.core.validators import MaxValueValidator, MinValueValidator
 
 
@@ -772,7 +773,15 @@ class CTExamination(models.Model):
         ('POOR', 'Poor'),
     ]
 
+    PROTOCOL_TYPE_CHOICES = [
+        ('PEDIATRIC_HEAD', 'Pediatric Head'),
+        ('PEDIATRIC_BODY', 'Pediatric Body'),
+        ('YOUNG_ADULT', 'Young Adult'),
+    ]
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    rhythm_pseudo_id = models.CharField(max_length=64, blank=True, db_index=True,
+                                        help_text='Auto-generated RHYTHM repository pseudo-ID')
     protocol = models.ForeignKey(
         CTProtocol,
         on_delete=models.SET_NULL,
@@ -789,6 +798,11 @@ class CTExamination(models.Model):
     )
     anatomical_region = models.CharField(max_length=256, blank=True)
     clinical_indication = models.CharField(max_length=512, blank=True)
+    contrast = models.CharField(max_length=128, blank=True)
+    protocol_type = models.CharField(
+        max_length=32, choices=PROTOCOL_TYPE_CHOICES, blank=True,
+    )
+    examination_group = models.CharField(max_length=128, blank=True)
     patient_weight = models.DecimalField(max_digits=7, decimal_places=2, null=True, blank=True)
     water_equivalent_diameter = models.DecimalField(max_digits=7, decimal_places=2, null=True, blank=True)
     patient_age = models.PositiveIntegerField(null=True, blank=True)
@@ -817,3 +831,104 @@ class CTExamination(models.Model):
     @property
     def total_dlp(self) -> float:
         return sum(float(v) for v in self.dlp_per_phase if v is not None)
+
+
+class UserProfile(models.Model):
+    """Extended profile for registered users — institution, role, terms acceptance."""
+
+    PROFESSIONAL_ROLE_CHOICES = [
+        ('radiologist', 'Radiologist'),
+        ('medical_physicist', 'Medical Physicist'),
+        ('radiographer', 'Radiographer / CT Technologist'),
+        ('pacs_it', 'PACS / IT Administrator'),
+        ('research_coordinator', 'Research Coordinator'),
+        ('principal_investigator', 'Principal Investigator'),
+        ('dpo', 'Data Protection Officer'),
+        ('other', 'Other: please specify'),
+    ]
+
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
+    institution = models.CharField(max_length=256)
+    department = models.CharField(max_length=256, blank=True)
+    professional_role = models.CharField(max_length=64, choices=PROFESSIONAL_ROLE_CHOICES)
+    professional_role_other = models.CharField(max_length=256, blank=True)
+    # Short site code assigned by the repository admin (e.g. "S001").
+    # Used as the SITE segment of RHYTHM pseudo-IDs.
+    site_code = models.CharField(max_length=16, blank=True, default='')
+    terms_accepted = models.BooleanField(default=False)
+    terms_accepted_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['institution']),
+            models.Index(fields=['site_code']),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.user.username} – {self.institution}"
+
+    @classmethod
+    def assign_site_code(cls, institution: str) -> str:
+        """Return the canonical site code for *institution*, minting one if needed.
+
+        Within a transaction: if any profile for the same institution already has
+        a site code, that code is reused (one code per institution).  Otherwise
+        the next sequential ``S001`` … ``S999`` code is assigned.
+
+        Thread-safety: the query runs inside ``transaction.atomic()``.  Concurrent
+        registrations from the *same* new institution are protected by locking the
+        matching rows with ``SELECT FOR UPDATE``.  The unlikely race where two
+        *different* new institutions receive the same number is handled by catching
+        the ``IntegrityError`` raised by the unique index and retrying once.
+        """
+        normalized = institution.strip()
+        with transaction.atomic():
+            # Existing profiles for this institution — lock them to prevent
+            # another concurrent registration from the same institution slipping
+            # through without a code.
+            existing_qs = (
+                cls.objects
+                .filter(institution__iexact=normalized)
+                .exclude(site_code='')
+                .select_for_update()
+            )
+            existing_code = existing_qs.values_list('site_code', flat=True).first()
+            if existing_code:
+                return existing_code
+
+            # No code yet for this institution — compute the next free number.
+            used_nums = set()
+            for code in cls.objects.exclude(site_code='').values_list('site_code', flat=True):
+                if len(code) >= 2 and code[0] == 'S' and code[1:].isdigit():
+                    used_nums.add(int(code[1:]))
+
+            next_num = 1
+            while next_num in used_nums:
+                next_num += 1
+
+            return f"S{next_num:03d}"
+
+
+class RhythmPseudoIDCounter(models.Model):
+    """
+    Per-prefix atomic sequence counter for RHYTHM pseudo-IDs.
+
+    Each distinct ``RHY-{SITE}-{INDICATION}-{CONTRAST}-{GROUP}`` prefix has
+    one row here.  ``last_seq`` is incremented under a ``SELECT … FOR UPDATE``
+    lock so concurrent uploads never receive the same sequence number.
+    """
+
+    prefix = models.CharField(
+        max_length=64,
+        unique=True,
+        help_text="RHY-SITE-INDICATION-CONTRAST-GROUP prefix",
+    )
+    last_seq = models.PositiveIntegerField(default=0)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        indexes = [models.Index(fields=["prefix"])]
+
+    def __str__(self) -> str:
+        return f"{self.prefix} (seq={self.last_seq})"
