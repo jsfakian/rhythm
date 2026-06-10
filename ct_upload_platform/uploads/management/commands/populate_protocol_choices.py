@@ -2,7 +2,10 @@ from django.core.management.base import BaseCommand
 
 from uploads.models import (
     CTManufacturer,
+    CTManufacturerFieldOption,
     CTScannerModel,
+    ClinicalIndicationRow,
+    MaModulationInputSpec,
     ProtocolChoiceCategory,
     ProtocolChoiceOption,
 )
@@ -15,6 +18,9 @@ class Command(BaseCommand):
         self.populate_manufacturers()
         self.populate_scanner_models()
         self.populate_choice_categories()
+        self.populate_manufacturer_field_options()
+        self.populate_ma_modulation_input_specs()
+        self.populate_clinical_indication_rows()
         self.stdout.write(self.style.SUCCESS("Done."))
 
     def populate_manufacturers(self) -> None:
@@ -622,6 +628,37 @@ class Command(BaseCommand):
                     {"value": "gt_80kg", "display": "> 80 kg"},
                 ],
             },
+            {
+                "key": "examination_group_pediatric_head",
+                "label": "Examination Group – Pediatric Head",
+                "applicable_protocol_types": ["PEDIATRIC_HEAD"],
+                "options": [
+                    "Group 1 – Neonate",
+                    "Group 2 – Infant",
+                    "Group 3 – Early Childhood",
+                    "Group 4 – Childhood",
+                ],
+            },
+            {
+                "key": "examination_group_pediatric_body",
+                "label": "Examination Group – Pediatric Body",
+                "applicable_protocol_types": ["PEDIATRIC_BODY"],
+                "options": [
+                    "Group 1 – Neonate",
+                    "Group 2 – Infant, Toddler and Early Childhood",
+                    "Group 3 – Childhood",
+                    "Group 4 – Early Adolescence",
+                    "Group 5 – Adolescence",
+                ],
+            },
+            {
+                "key": "examination_group_young_adult",
+                "label": "Examination Group – Young Adult",
+                "applicable_protocol_types": ["YOUNG_ADULT"],
+                "options": [
+                    "Group 6 – Young Adulthood",
+                ],
+            },
         ]
 
         cat_created = 0
@@ -668,4 +705,128 @@ class Command(BaseCommand):
         self.stdout.write(
             f"  Options: {opt_created} created, "
             f"{opt_total - opt_created} already existed."
+        )
+
+    def populate_manufacturer_field_options(self) -> None:
+        """Seed manufacturer-specific options for auto_kvp_selection and auto_ma_modulation."""
+        OTHER = "Other: Please Specify"
+        data: list[tuple[str, str, list[str]]] = [
+            # (manufacturer_db_name, field_key, [values...])
+            ("Canon Medical",         "auto_kvp_selection", ["Off", "Sure kV", "Not Available", OTHER]),
+            ("GE HealthCare",         "auto_kvp_selection", ["Off", "kV Assist", "Not Available", OTHER]),
+            ("Philips",               "auto_kvp_selection", ["Off", "Dose Right", "Not Available", OTHER]),
+            ("Siemens Healthineers",  "auto_kvp_selection", ["Off", "CarekV", "CarekV Semi", "Not Available", OTHER]),
+
+            ("Canon Medical",         "auto_ma_modulation", ["Off", "SureExposure", "Not Available", OTHER]),
+            ("GE HealthCare",         "auto_ma_modulation", ["Off", "AutomA", "SmartmA", "Not Available", OTHER]),
+            ("Philips",               "auto_ma_modulation", ["Off", "Doseright", "3D Modulation", "Not Available", OTHER]),
+            ("Siemens Healthineers",  "auto_ma_modulation", ["Off", "CareDose", "CareDose4D", "Not Available", OTHER]),
+        ]
+
+        created_count = 0
+        for manufacturer_name, field_key, values in data:
+            try:
+                manufacturer = CTManufacturer.objects.get(name=manufacturer_name)
+            except CTManufacturer.DoesNotExist:
+                self.stdout.write(self.style.WARNING(f"  Manufacturer '{manufacturer_name}' not found, skipping."))
+                continue
+            for sort_order, value in enumerate(values):
+                _, created = CTManufacturerFieldOption.objects.get_or_create(
+                    manufacturer=manufacturer,
+                    field_key=field_key,
+                    value=value,
+                    defaults={"sort_order": sort_order},
+                )
+                if created:
+                    created_count += 1
+
+        self.stdout.write(f"  Manufacturer field options: {created_count} created.")
+
+    def populate_ma_modulation_input_specs(self) -> None:
+        """Seed the mA modulation value → required numeric inputs mapping."""
+        specs: list[tuple[str, list[str]]] = [
+            # (ma_modulation_value, [input_label, ...])
+            # Parsed from the Lists tab, col N → col O of CT_Protocols_Table.xlsx
+            ("Off",                  ["mA"]),
+            ("SureExposure",         ["min mA", "max mA", "Standard Deviation"]),
+            ("AutomA",               ["min mA", "max mA", "Noise Index"]),
+            ("SmartmA",              ["min mA", "max mA", "Noise Index"]),
+            ("Doseright",            ["Reference mAs", "Dose Right Index"]),
+            ("3D Modulation",        ["Reference mAs", "Dose Right Index"]),
+            ("CareDose",             ["Effective mAs"]),
+            ("CareDose4D",           ["Quality Reference mAs (QR mAs)"]),
+            ("Not Available",        ["mA"]),
+            ("Other: Please Specify", ["mA"]),
+        ]
+
+        created_count = 0
+        for sort_order, (value, labels) in enumerate(specs):
+            _, created = MaModulationInputSpec.objects.get_or_create(
+                ma_modulation_value=value,
+                defaults={"input_labels": labels, "sort_order": sort_order},
+            )
+            if created:
+                created_count += 1
+
+        self.stdout.write(f"  mA modulation input specs: {created_count} created.")
+
+    def populate_clinical_indication_rows(self) -> None:
+        rows: list[dict] = [
+            {
+                "anatomical_region": "Head",
+                "clinical_indication": "Trauma",
+                "iv_contrast": "Non-contrast",
+                "comments": "Can include anatomical based protocol",
+            },
+            {
+                "anatomical_region": "Mastoid bone/Inner Ear",
+                "clinical_indication": "Hearing loss; congenital malformations, infection, cholesteatoma, cochlear implants",
+                "iv_contrast": "Non-contrast",
+                "comments": "Only dedicated mastoid bone protocol",
+            },
+            {
+                "anatomical_region": "Chest",
+                "clinical_indication": "Complicated and fungal infections",
+                "iv_contrast": "Non-contrast, Contrast-enhanced",
+                "comments": "Can be anatomical based protocol",
+            },
+            {
+                "anatomical_region": "Chest/HRCT (Inspiration/Expiration)",
+                "clinical_indication": (
+                    "Interstitial lung diseases, small airways disease, cystic fibrosis, "
+                    "asthma, primary ciliary dyskinesia, chronic lung disease of prematurity"
+                ),
+                "iv_contrast": "Non-contrast",
+                "comments": "Can be anatomical based protocol",
+            },
+            {
+                "anatomical_region": "Abdomen",
+                "clinical_indication": "Acute abdomen",
+                "iv_contrast": "Contrast-enhanced",
+                "comments": "Can be anatomical based protocol",
+            },
+            {
+                "anatomical_region": "Neck-Chest-Abdomen",
+                "clinical_indication": "Lymphoma",
+                "iv_contrast": "Contrast-enhanced",
+                "comments": "Can be anatomical based protocol",
+            },
+        ]
+        created_count = 0
+        for sort_order, row in enumerate(rows):
+            _, created = ClinicalIndicationRow.objects.get_or_create(
+                anatomical_region=row["anatomical_region"],
+                clinical_indication=row["clinical_indication"],
+                defaults={
+                    "iv_contrast": row["iv_contrast"],
+                    "comments": row["comments"],
+                    "sort_order": sort_order,
+                    "is_active": True,
+                },
+            )
+            if created:
+                created_count += 1
+        self.stdout.write(
+            f"  Clinical indication rows: {created_count} created, "
+            f"{len(rows) - created_count} already existed."
         )

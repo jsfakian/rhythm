@@ -234,13 +234,58 @@ python chunked_upload_client.py \
 ### Running Tests
 
 ```bash
-make test           # 237 Django unit tests (fast, keeps test DB)
+make test           # Django unit tests (fast, keeps test DB)
 make test-coverage  # unit tests + coverage report
 make test-e2e       # Playwright E2E tests (requires running stack)
 make test-all       # unit + E2E
 ```
 
-Tests use an in-memory SQLite database and mocked Celery / Orthanc. Settings are in [ct_upload_platform/test_settings.py](ct_upload_platform/ct_upload_platform/test_settings.py).
+Unit tests use an in-memory SQLite database and mocked Celery / Orthanc. Settings are in [ct_upload_platform/test_settings.py](ct_upload_platform/ct_upload_platform/test_settings.py).
+
+#### Playwright E2E Tests
+
+The E2E suite (`tests/e2e/`) tests the full browser UI against the real running application. It requires:
+
+1. **Node.js** and the Playwright browsers installed:
+   ```bash
+   cd ct_upload_platform
+   npm install
+   npx playwright install chromium
+   ```
+
+2. **A running Docker stack** (`make up && make migrate`) and a test user:
+   ```bash
+   docker compose exec web python manage.py shell -c "
+   from django.contrib.auth import get_user_model
+   U = get_user_model()
+   U.objects.filter(username='testqa').delete()
+   U.objects.create_superuser('testqa', 'testqa@test.com', 'TestQA123!')
+   "
+   ```
+
+3. **Run against the Docker web container** (mapped to port 8003 by default):
+   ```bash
+   cd ct_upload_platform
+   BASE_URL=http://localhost:8003 TEST_USERNAME=testqa TEST_PASSWORD="TestQA123!" \
+     npx playwright test --project=chromium
+   ```
+
+   Run with a visible browser for debugging:
+   ```bash
+   BASE_URL=http://localhost:8003 TEST_USERNAME=testqa TEST_PASSWORD="TestQA123!" \
+     npx playwright test --project=chromium --headed
+   ```
+
+**E2E test files and coverage:**
+
+| File | Pages covered |
+|------|---------------|
+| `signup.spec.ts` | `/signup/` — form validation, registration, error handling |
+| `upload.spec.ts` | `/` — file upload, progress, status polling |
+| `examination.spec.ts` | `/examinations/entry/`, `/examinations/` — CRUD, phases table, cascade dropdowns, delete confirmation |
+| `protocol_gui.spec.ts` | `/protocols/gui/` — 3-step wizard, tabs, save/duplicate/clear |
+| `protocol_records.spec.ts` | `/protocols/records/` — filters, table headers, type badges, delete confirmation, CRUD flow |
+| `protocols.spec.ts` | `/protocols/<type>/`, `/scanners/` — list and form pages |
 
 ### Linting
 
@@ -345,12 +390,11 @@ EMAIL_HOST_PASSWORD=<app password>
 
 ```
 eutempe-repo/
-├── ARCHITECTURE.md           # Full system design document
 ├── README.md                 # This file
 ├── CLAUDE.md                 # Developer notes and codebase guide
 ├── GDPR-strict.json          # DICOM anonymization rule set
 ├── chunked_upload_client.py  # Standalone upload client
-├── design_document.md        # Original detailed design spec
+├── design_document.md        # System design spec
 ├── manifest.json             # Example manifest
 └── ct_upload_platform/       # Django project root
     ├── manage.py
@@ -359,26 +403,38 @@ eutempe-repo/
     ├── requirements.txt
     ├── Dockerfile
     ├── .env.example
+    ├── package.json           # Node deps for Playwright
+    ├── tsconfig.json          # TypeScript config for E2E tests
+    ├── playwright.config.ts   # Playwright configuration
     ├── ct_upload_platform/   # Django settings package
     │   ├── settings.py
     │   ├── test_settings.py
     │   ├── celery.py
     │   ├── middleware.py
     │   └── urls.py
-    └── uploads/              # Main Django app
-        ├── models.py
-        ├── views.py
-        ├── tasks.py
-        ├── serializers.py
-        ├── auth.py
-        ├── gdpr_validator.py
-        ├── gdpr_anonymizer.py
-        ├── orthanc_client.py
-        ├── chunk_manager.py
-        ├── chunked_upload_views.py
-        ├── file_manager.py
-        ├── pseudo_id_validator.py
-        ├── manifest_schema.py
-        ├── migrations/
-        └── tests/            # 237 unit tests
+    ├── uploads/              # Main Django app
+    │   ├── models.py
+    │   ├── views.py
+    │   ├── tasks.py
+    │   ├── serializers.py
+    │   ├── auth.py
+    │   ├── gdpr_validator.py
+    │   ├── gdpr_anonymizer.py
+    │   ├── orthanc_client.py
+    │   ├── chunk_manager.py
+    │   ├── chunked_upload_views.py
+    │   ├── file_manager.py
+    │   ├── pseudo_id_validator.py
+    │   ├── manifest_schema.py
+    │   ├── migrations/
+    │   └── tests/            # Django unit tests
+    └── tests/e2e/            # Playwright E2E tests
+        ├── fixtures.ts        # Shared helpers and page objects
+        ├── signup.spec.ts
+        ├── upload.spec.ts
+        ├── examination.spec.ts
+        ├── protocol_gui.spec.ts
+        ├── protocol_records.spec.ts
+        ├── protocols.spec.ts
+        └── README.md
 ```

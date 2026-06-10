@@ -23,6 +23,7 @@ from uploads.protocol_views import (
     ExaminationSaveAPIView,
     ExaminationListView,
     ExaminationDeleteView,
+    JSONValidatorView,
 )
 
 urlpatterns = [
@@ -31,6 +32,8 @@ urlpatterns = [
     path('logout/', LogoutView.as_view(), name='logout'),
     path('signup/', SignupPageView.as_view(), name='signup-page'),
     path('', UploadAdvancedView.as_view(), name='index'),
+    path('upload/', UploadAdvancedView.as_view(), name='upload'),
+    path('json-validator/', JSONValidatorView.as_view(), name='json-validator'),
     path('simple/', UploadIndexView.as_view(), name='simple'),
     path('api/v1/', include('uploads.urls')),
 

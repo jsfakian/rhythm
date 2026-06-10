@@ -14,11 +14,14 @@ from django.views import View
 from django.views.generic import DeleteView, DetailView, ListView
 
 from .models import (
+    ClinicalIndicationRow,
     CTExamination,
     CTManufacturer,
+    CTManufacturerFieldOption,
     CTProtocol,
     CTScannerModel,
     CTScannerProfile,
+    MaModulationInputSpec,
     ProtocolChoiceOption,
 )
 from .protocol_forms import CTProtocolForm, CTScannerProfileForm
@@ -117,12 +120,67 @@ class ProtocolCreateView(LoginRequiredMixin, View):
     login_url = _LOGIN_URL
     template_name = "uploads/protocol_form.html"
 
+    @staticmethod
+    def _clinical_rows_json() -> str:
+        qs = (
+            ClinicalIndicationRow.objects.filter(is_active=True)
+            .order_by("sort_order", "anatomical_region")
+            .values("anatomical_region", "clinical_indication", "iv_contrast", "comments")
+        )
+        return json.dumps(list(qs))
+
+    @staticmethod
+    def _ma_input_specs_json() -> str:
+        specs = {s.ma_modulation_value: s.input_labels for s in MaModulationInputSpec.objects.all()}
+        return json.dumps(specs)
+
+    @staticmethod
+    def _manufacturer_options_json() -> str:
+        """Return {manufacturer_name: {field_key: [values]}} for manufacturer-specific fields."""
+        qs = (
+            CTManufacturerFieldOption.objects
+            .select_related("manufacturer")
+            .order_by("manufacturer__sort_order", "field_key", "sort_order")
+        )
+        result: dict = {}
+        for opt in qs:
+            mfr = opt.manufacturer.name
+            result.setdefault(mfr, {}).setdefault(opt.field_key, []).append(opt.value)
+        return json.dumps(result)
+
+    @staticmethod
+    def _scanners_for_form_json() -> str:
+        """Return [{id, manufacturer}] so the form JS can resolve scanner → manufacturer."""
+        qs = (
+            CTScannerProfile.objects
+            .select_related("manufacturer")
+            .values("id", "manufacturer__name")
+        )
+        return json.dumps([
+            {"id": str(s["id"]), "manufacturer": s["manufacturer__name"] or ""}
+            for s in qs
+        ])
+
+    @staticmethod
+    def _base_context() -> dict:
+        return {
+            "clinical_rows_json": ProtocolCreateView._clinical_rows_json(),
+            "ma_input_specs_json": ProtocolCreateView._ma_input_specs_json(),
+            "manufacturer_options_json": ProtocolCreateView._manufacturer_options_json(),
+            "scanners_for_form_json": ProtocolCreateView._scanners_for_form_json(),
+        }
+
     def get(self, request: HttpRequest, protocol_type: str) -> HttpResponse:
         form = CTProtocolForm(protocol_type=protocol_type)
         return render(
             request,
             self.template_name,
-            {"form": form, "protocol_type": protocol_type, "is_update": False},
+            {
+                "form": form,
+                "protocol_type": protocol_type,
+                "is_update": False,
+                **ProtocolCreateView._base_context(),
+            },
         )
 
     def post(self, request: HttpRequest, protocol_type: str) -> HttpResponse:
@@ -140,7 +198,12 @@ class ProtocolCreateView(LoginRequiredMixin, View):
         return render(
             request,
             self.template_name,
-            {"form": form, "protocol_type": protocol_type, "is_update": False},
+            {
+                "form": form,
+                "protocol_type": protocol_type,
+                "is_update": False,
+                **ProtocolCreateView._base_context(),
+            },
         )
 
 
@@ -162,6 +225,7 @@ class ProtocolUpdateView(LoginRequiredMixin, View):
                 "protocol": obj,
                 "protocol_type": obj.protocol_type,
                 "is_update": True,
+                **ProtocolCreateView._base_context(),
             },
         )
 
@@ -187,6 +251,7 @@ class ProtocolUpdateView(LoginRequiredMixin, View):
                 "protocol": obj,
                 "protocol_type": obj.protocol_type,
                 "is_update": True,
+                **ProtocolCreateView._base_context(),
             },
         )
 
@@ -290,9 +355,9 @@ class ScannerProfileListView(LoginRequiredMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        return CTScannerProfile.objects.select_related(
-            "manufacturer", "scanner_model"
-        ).order_by("-created_at")
+        return CTScannerProfile.objects.filter(
+            created_by=self.request.user.username
+        ).select_related("manufacturer", "scanner_model").order_by("-created_at")
 
 
 class ScannerModelsByManufacturerView(View):
@@ -322,7 +387,8 @@ class ProtocolsHubView(LoginRequiredMixin, View):
 
     def get(self, request: HttpRequest) -> HttpResponse:
         scanners = (
-            CTScannerProfile.objects.select_related("manufacturer", "scanner_model")
+            CTScannerProfile.objects.filter(created_by=request.user.username)
+            .select_related("manufacturer", "scanner_model")
             .order_by("manufacturer__name", "scanner_model__name", "-created_at")
         )
 
@@ -354,50 +420,72 @@ class ProtocolGUIView(LoginRequiredMixin, View):
     login_url = _LOGIN_URL
     template_name = "uploads/protocol_clinical_gui.html"
 
-    CLINICAL_ROWS = [
-        {"anatomical_region": "Head", "clinical_indication": "Trauma", "iv_contrast": "Non-contrast", "comments": "Can include anatomical based protocol"},
-        {"anatomical_region": "Mastoid bone/Inner Ear", "clinical_indication": "Hearing loss; congenital malformations, infection, cholesteatoma, cochlear implants", "iv_contrast": "Non-contrast", "comments": "Only dedicated mastoid bone protocol"},
-        {"anatomical_region": "Chest", "clinical_indication": "Complicated and fungal infections", "iv_contrast": "Non-contrast, Contrast-enhanced", "comments": "Can be anatomical based protocol"},
-        {"anatomical_region": "Chest/HRCT (Inspiration/Expiration)", "clinical_indication": "Interstitial lung diseases, small airways disease, cystic fibrosis, asthma, primary ciliary dyskinesia, chronic lung disease of prematurity", "iv_contrast": "Non-contrast", "comments": "Can be anatomical based protocol"},
-        {"anatomical_region": "Abdomen", "clinical_indication": "Acute abdomen", "iv_contrast": "Contrast-enhanced", "comments": "Can be anatomical based protocol"},
-        {"anatomical_region": "Neck-Chest-Abdomen", "clinical_indication": "Lymphoma", "iv_contrast": "Contrast-enhanced", "comments": "Can be anatomical based protocol"},
-    ]
-
-    PROTOCOL_TABS = {
+    # Static tab structure: keys match CTProtocol.PROTOCOL_TYPE_CHOICES.
+    # Examination groups and age groups are pulled from ProtocolChoiceOption (DB).
+    _PROTOCOL_TAB_META: dict = {
         "PEDIATRIC_HEAD": {
-            "label": "Pediatric HEAD",
-            "examination_groups": ["Group 1 - Neonate", "Group 2 - Infant, Toddler and Early childhood", "Group 3 - Childhood", "Group 4 - Early Adolescence", "Group 5 - Adolescence"],
-            "age_groups": ["< 5 kg", "5 kg - 15 kg", "15 kg - 30 kg", "30 kg - 50 kg", "50 kg - 80 kg"],
+            "label": "Pediatric Head",
+            "age_label": "Age group",
+            "examination_group_key": "examination_group_pediatric_head",
+            "age_group_key": "age_group_pediatric_head",
         },
         "PEDIATRIC_BODY": {
             "label": "Pediatric Body",
-            "examination_groups": ["Group 1 - Neonate", "Group 2 - Infant, Toddler and Early childhood", "Group 3 - Childhood", "Group 4 - Early Adolescence", "Group 5 - Adolescence"],
-            "age_groups": ["< 5 kg", "5 kg - 15 kg", "15 kg - 30 kg", "30 kg - 50 kg", "50 kg - 80 kg"],
+            "age_label": "Age / weight group",
+            "examination_group_key": "examination_group_pediatric_body",
+            "age_group_key": "age_group_pediatric_body",
         },
         "YOUNG_ADULT": {
             "label": "Young Adult",
-            "examination_groups": ["Group 6 - Young Adulthood"],
-            "age_groups": ["> 80 kg"],
+            "age_label": "Adult size / weight group",
+            "examination_group_key": "examination_group_young_adult",
+            "age_group_key": "age_group_young_adult",
         },
     }
 
     def _get_protocol_choices(self) -> dict:
-        qs = ProtocolChoiceOption.objects.filter(is_active=True).select_related("category").order_by("sort_order", "display")
+        qs = (
+            ProtocolChoiceOption.objects
+            .filter(is_active=True)
+            .select_related("category")
+            .order_by("sort_order", "display")
+        )
         choices: dict = {}
         for opt in qs:
             key = opt.category.key
-            if key not in choices:
-                choices[key] = []
-            choices[key].append({"value": opt.value, "display": opt.display})
+            choices.setdefault(key, []).append({"value": opt.value, "display": opt.display})
         return choices
 
-    def get(self, request: HttpRequest) -> HttpResponse:
-        scanners = list(
-            CTScannerProfile.objects.select_related("manufacturer", "scanner_model")
+    def _build_protocol_tabs(self, choices: dict) -> dict:
+        tabs: dict = {}
+        for tab_key, meta in self._PROTOCOL_TAB_META.items():
+            eg_opts = choices.get(meta["examination_group_key"], [])
+            ag_opts = choices.get(meta["age_group_key"], [])
+            tabs[tab_key] = {
+                "label": meta["label"],
+                "age_label": meta["age_label"],
+                "examination_groups": [o["display"] for o in eg_opts],
+                "age_groups": [o["display"] for o in ag_opts],
+            }
+        return tabs
+
+    def _get_clinical_rows(self) -> list:
+        qs = (
+            ClinicalIndicationRow.objects
+            .filter(is_active=True)
+            .order_by("sort_order", "anatomical_region")
+            .values("anatomical_region", "clinical_indication", "iv_contrast", "comments")
+        )
+        return list(qs)
+
+    def _get_user_scanners(self, request: HttpRequest) -> list:
+        qs = (
+            CTScannerProfile.objects.filter(created_by=request.user.username)
+            .select_related("manufacturer", "scanner_model")
             .order_by("manufacturer__name", "scanner_model__name", "-created_at")
             .values("id", "manufacturer__name", "scanner_model__name", "detector_rows", "year_of_installation", "local_protocol_note")
         )
-        scanner_list = [
+        return [
             {
                 "id": str(s["id"]),
                 "display": f"{s['manufacturer__name']} – {s['scanner_model__name']}",
@@ -407,13 +495,39 @@ class ProtocolGUIView(LoginRequiredMixin, View):
                 "year": s["year_of_installation"] or "",
                 "note": s["local_protocol_note"] or "",
             }
-            for s in scanners
+            for s in qs
         ]
+
+    def _get_manufacturer_options(self) -> dict:
+        """Return {manufacturer_name: {field_key: [values]}} for all manufacturers with entries."""
+        qs = (
+            CTManufacturerFieldOption.objects
+            .select_related('manufacturer')
+            .order_by('manufacturer__sort_order', 'field_key', 'sort_order')
+        )
+        result: dict = {}
+        for opt in qs:
+            mfr = opt.manufacturer.name
+            result.setdefault(mfr, {}).setdefault(opt.field_key, []).append(opt.value)
+        return result
+
+    @staticmethod
+    def _get_ma_input_specs() -> dict:
+        """Return {ma_modulation_value: [input_label, ...]} for all seeded specs."""
+        return {
+            spec.ma_modulation_value: spec.input_labels
+            for spec in MaModulationInputSpec.objects.all()
+        }
+
+    def get(self, request: HttpRequest) -> HttpResponse:
+        choices = self._get_protocol_choices()
         return render(request, self.template_name, {
-            "clinical_rows_json": json.dumps(self.CLINICAL_ROWS),
-            "scanners_json": json.dumps(scanner_list),
-            "protocol_tabs_json": json.dumps(self.PROTOCOL_TABS),
-            "protocol_choices_json": json.dumps(self._get_protocol_choices()),
+            "clinical_rows_json": json.dumps(self._get_clinical_rows()),
+            "scanners_json": json.dumps(self._get_user_scanners(request)),
+            "protocol_tabs_json": json.dumps(self._build_protocol_tabs(choices)),
+            "protocol_choices_json": json.dumps(choices),
+            "manufacturer_options_json": json.dumps(self._get_manufacturer_options()),
+            "ma_input_specs_json": json.dumps(self._get_ma_input_specs()),
         })
 
 
@@ -474,8 +588,7 @@ class ProtocolSaveAPIView(LoginRequiredMixin, View):
             "auto_kvp_selection": protocol_fields.get("auto_kvp_selection", ""),
             "kvp": protocol_fields.get("kvp", ""),
             "auto_ma_modulation": protocol_fields.get("auto_ma_modulation", ""),
-            "exposure_metric": protocol_fields.get("exposure_metric", ""),
-            "mas_value": protocol_fields.get("mas_value", ""),
+            "mas_inputs": protocol_fields.get("mas_inputs", {}),
             "pitch": protocol_fields.get("pitch", ""),
             "rotation_time": protocol_fields.get("rotation_time", ""),
             "slice_thickness": protocol_fields.get("slice_thickness", ""),
@@ -510,8 +623,12 @@ class ProtocolRecordsView(LoginRequiredMixin, View):
     template_name = "uploads/protocol_records.html"
 
     def get(self, request: HttpRequest) -> HttpResponse:
+        user_scanner_ids = CTScannerProfile.objects.filter(
+            created_by=request.user.username
+        ).values_list("pk", flat=True)
         qs = (
-            CTProtocol.objects.select_related("scanner__manufacturer", "scanner__scanner_model")
+            CTProtocol.objects.filter(scanner_id__in=user_scanner_ids)
+            .select_related("scanner__manufacturer", "scanner__scanner_model")
             .order_by("-created_at")
         )
         protocol_type = request.GET.get("protocol_type", "")
@@ -530,31 +647,18 @@ class ExaminationEntryView(LoginRequiredMixin, View):
     login_url = _LOGIN_URL
     template_name = "uploads/examination_entry.html"
 
-    CLINICAL_ROWS = [
-        {"anatomical_region": "Head", "clinical_indication": "Trauma"},
-        {"anatomical_region": "Mastoid bone/Inner Ear", "clinical_indication": "Hearing loss; congenital malformations, infection, cholesteatoma, cochlear implants"},
-        {"anatomical_region": "Chest", "clinical_indication": "Complicated and fungal infections"},
-        {"anatomical_region": "Chest/HRCT (Inspiration/Expiration)", "clinical_indication": "Interstitial lung diseases, small airways disease, cystic fibrosis, asthma, primary ciliary dyskinesia, chronic lung disease of prematurity"},
-        {"anatomical_region": "Abdomen", "clinical_indication": "Acute abdomen"},
-        {"anatomical_region": "Neck-Chest-Abdomen", "clinical_indication": "Lymphoma"},
-    ]
+    def _get_clinical_rows(self) -> list:
+        return list(
+            ClinicalIndicationRow.objects
+            .filter(is_active=True)
+            .order_by("sort_order", "anatomical_region")
+            .values("anatomical_region", "clinical_indication")
+        )
 
-    ANATOMICAL_REGIONS = [
-        "Head",
-        "Chest",
-        "Chest-Abdomen",
-        "Neck-Chest-Abdomen",
-        "Mastoid bone/Inner Ear",
-        "Chest/HRCT (Inspiration/Expiration)",
-        "Abdomen",
-        "Pelvis",
-        "Abdomen and pelvis",
-    ]
-
-    def _scanners_json(self) -> list:
-        scanners = CTScannerProfile.objects.select_related(
-            "manufacturer", "scanner_model"
-        ).order_by("manufacturer__name", "scanner_model__name")
+    def _scanners_json(self, username: str) -> list:
+        scanners = CTScannerProfile.objects.filter(
+            created_by=username
+        ).select_related("manufacturer", "scanner_model").order_by("manufacturer__name", "scanner_model__name")
         return [
             {
                 "id": str(s.pk),
@@ -568,10 +672,13 @@ class ExaminationEntryView(LoginRequiredMixin, View):
             for s in scanners
         ]
 
-    def _protocols_json(self) -> list:
-        protocols = CTProtocol.objects.select_related(
-            "scanner__manufacturer", "scanner__scanner_model"
-        ).order_by("-created_at")
+    def _protocols_json(self, username: str) -> list:
+        user_scanner_ids = CTScannerProfile.objects.filter(
+            created_by=username
+        ).values_list("pk", flat=True)
+        protocols = CTProtocol.objects.filter(
+            scanner_id__in=user_scanner_ids
+        ).select_related("scanner__manufacturer", "scanner__scanner_model").order_by("-created_at")
         return [
             {
                 "id": str(p.pk),
@@ -595,25 +702,13 @@ class ExaminationEntryView(LoginRequiredMixin, View):
             for m in CTManufacturer.objects.filter(is_active=True).order_by("sort_order", "name")
         ]
 
-    def _choice_options(self, key: str) -> list[str]:
-        return list(
-            ProtocolChoiceOption.objects.filter(
-                category__key=key, is_active=True
-            ).order_by("sort_order", "display").values_list("value", flat=True)
-        )
-
     def get(self, request: HttpRequest) -> HttpResponse:
-        anatomical_options = self._choice_options("anatomical_region") or self.ANATOMICAL_REGIONS
-        clinical_options = list({r["clinical_indication"] for r in self.CLINICAL_ROWS})
-        clinical_options.sort()
-
+        username = request.user.username
         return render(request, self.template_name, {
-            "scanners_json": json.dumps(self._scanners_json()),
-            "protocols_json": json.dumps(self._protocols_json()),
+            "scanners_json": json.dumps(self._scanners_json(username)),
+            "protocols_json": json.dumps(self._protocols_json(username)),
             "manufacturers_json": json.dumps(self._manufacturers_json()),
-            "anatomical_options_json": json.dumps(anatomical_options),
-            "clinical_options_json": json.dumps(clinical_options),
-            "clinical_rows_json": json.dumps(self.CLINICAL_ROWS),
+            "clinical_rows_json": json.dumps(self._get_clinical_rows()),
         })
 
 
@@ -653,19 +748,37 @@ class ExaminationSaveAPIView(LoginRequiredMixin, View):
                 status=400,
             )
 
-        protocol = None
-        if protocol_id:
-            try:
-                protocol = CTProtocol.objects.get(pk=protocol_id)
-            except CTProtocol.DoesNotExist:
-                return JsonResponse({"error": "Protocol not found"}, status=404)
+        errors = []
+        if not protocol_id:
+            errors.append("Protocol link is required.")
+        if not scanner_id:
+            errors.append("CT scanner is required.")
+        if not anatomical_region:
+            errors.append("Anatomical region is required.")
+        if not clinical_indication:
+            errors.append("Clinical indication is required.")
+        if not patient_age:
+            errors.append("Patient's age is required.")
+        if any(v in (None, "") for v in ctdi_vol):
+            errors.append("CTDI vol is required for every phase.")
+        if any(v in (None, "") for v in dlp):
+            errors.append("DLP is required for every phase.")
+        if not patient_weight and not wed:
+            errors.append("At least one of patient weight or water equivalent diameter (WED) must be provided.")
+        if not image_quality:
+            errors.append("Image quality is required.")
+        if errors:
+            return JsonResponse({"error": " ".join(errors)}, status=400)
 
-        scanner = None
-        if scanner_id:
-            try:
-                scanner = CTScannerProfile.objects.get(pk=scanner_id)
-            except CTScannerProfile.DoesNotExist:
-                return JsonResponse({"error": "Scanner not found"}, status=404)
+        try:
+            protocol = CTProtocol.objects.get(pk=protocol_id)
+        except CTProtocol.DoesNotExist:
+            return JsonResponse({"error": "Protocol not found"}, status=404)
+
+        try:
+            scanner = CTScannerProfile.objects.get(pk=scanner_id)
+        except CTScannerProfile.DoesNotExist:
+            return JsonResponse({"error": "Scanner not found"}, status=404)
 
         exam = CTExamination.objects.create(
             protocol=protocol,
@@ -676,8 +789,8 @@ class ExaminationSaveAPIView(LoginRequiredMixin, View):
             water_equivalent_diameter=wed,
             patient_age=patient_age,
             number_of_phases=number_of_phases,
-            ctdi_vol_per_phase=[float(v) if v not in (None, "") else None for v in ctdi_vol],
-            dlp_per_phase=[float(v) if v not in (None, "") else None for v in dlp],
+            ctdi_vol_per_phase=[float(v) for v in ctdi_vol],
+            dlp_per_phase=[float(v) for v in dlp],
             image_quality=image_quality,
             created_by=request.user.username,
         )
@@ -697,9 +810,9 @@ class ExaminationListView(LoginRequiredMixin, View):
 
     def get(self, request: HttpRequest) -> HttpResponse:
         qs = (
-            CTExamination.objects.select_related(
-                "scanner__manufacturer", "scanner__scanner_model", "protocol"
-            ).order_by("-created_at")
+            CTExamination.objects.filter(created_by=request.user.username)
+            .select_related("scanner__manufacturer", "scanner__scanner_model", "protocol")
+            .order_by("-created_at")
         )
         image_quality = request.GET.get("image_quality", "")
         if image_quality:
@@ -724,3 +837,13 @@ class ExaminationDeleteView(LoginRequiredMixin, View):
     def get(self, request: HttpRequest, pk: str) -> HttpResponse:
         exam = get_object_or_404(CTExamination, pk=pk)
         return render(request, "uploads/examination_confirm_delete.html", {"examination": exam})
+
+
+class JSONValidatorView(LoginRequiredMixin, View):
+    """Client-side JSON validator page — validates JSON syntax and schema (anonymization tool or manifest)."""
+
+    login_url = _LOGIN_URL
+    template_name = "uploads/json_validator.html"
+
+    def get(self, request: HttpRequest) -> HttpResponse:
+        return render(request, self.template_name)

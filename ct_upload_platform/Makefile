@@ -1,4 +1,4 @@
-.PHONY: help build up down logs migrate createsuperuser test test-all test-e2e test-e2e-ui test-e2e-headed shell clean stop
+.PHONY: help build up down logs migrate seed createsuperuser test test-all test-e2e test-e2e-ui test-e2e-headed shell clean stop
 
 help:
 	@echo "CT Upload Platform - Available Commands"
@@ -13,6 +13,7 @@ help:
 	@echo ""
 	@echo "Database:"
 	@echo "  make migrate            - Run Django migrations"
+	@echo "  make seed               - Seed protocol choices and scanner catalogue"
 	@echo "  make createsuperuser    - Create a Django superuser"
 	@echo ""
 	@echo "Development:"
@@ -65,6 +66,11 @@ ps:
 
 migrate:
 	docker compose exec web python manage.py migrate
+
+seed:
+	docker compose exec web python manage.py populate_protocol_choices
+	docker compose exec web python manage.py create_scanner_profiles
+	@echo "✓ Protocol choices and scanner catalogue seeded"
 
 createsuperuser:
 	docker compose exec -it web python manage.py createsuperuser

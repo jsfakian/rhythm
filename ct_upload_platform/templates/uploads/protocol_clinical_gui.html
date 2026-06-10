@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CT Protocol Repository GUI – CT Upload Platform</title>
+    <title>CT Protocol Repository GUI – RHYTHM Repository Upload Tool</title>
     {% include 'uploads/_styles.html' %}
     <style>
         :root {
@@ -83,7 +83,7 @@
     <div class="main-content">
         <div class="gui-header">
             <h1>CT Protocol Repository GUI</h1>
-            <p>Clinical indication / region-centered workflow. Step 1 selects the anatomical region and clinical indication. Step 2 selects the CT scanner. Step 3 records protocol parameters.</p>
+            <p>Clinical indication / region-centred workflow. Step 1 selects the anatomical region and clinical indication from the RHYTHM partner list. Step 2 selects your registered CT scanner. Step 3 records protocol parameters.</p>
         </div>
         <div class="gui-layout">
             <!-- Left sticky column -->
@@ -93,12 +93,8 @@
                     <h2>1. Select Clinical Indication / Region</h2>
                     <p class="desc">Select the anatomical region and clinical indication to populate scanner and protocol fields.</p>
                     <div class="field-row">
-                        <label>Anatomical Region</label>
-                        <select id="cl_region" onchange="onRegionChange()"><option value="">Select anatomical region...</option></select>
-                    </div>
-                    <div class="field-row">
                         <label>Clinical Indication</label>
-                        <select id="cl_indication" onchange="onIndicationChange()"><option value="">Select region first...</option></select>
+                        <select id="cl_clinical" onchange="onClinicalChange()"><option value="">Select region / indication...</option></select>
                     </div>
                     <div class="field-row">
                         <label>IV Contrast?</label>
@@ -106,10 +102,7 @@
                     </div>
                     <div class="field-row">
                         <label>Comments / Protocol Guidance</label>
-                        <select id="cl_comments" onchange="onStep1Change()"><option value="">Select indication first...</option></select>
-                        <div id="cl_comments_other_wrap" style="display:none;margin-top:6px;">
-                            <input id="cl_comments_other" placeholder="Type custom guidance..." oninput="onStep1Change()" />
-                        </div>
+                        <select id="cl_comments" onchange="onStep1Change()"><option value="">None</option></select>
                     </div>
                     <div id="clinicalPreview" class="info-box" style="display:none;"></div>
                 </div>
@@ -176,7 +169,12 @@ const CLINICAL_ROWS = {{ clinical_rows_json|safe }};
 const SCANNERS = {{ scanners_json|safe }};
 const PROTOCOL_TABS = {{ protocol_tabs_json|safe }};
 const PROTOCOL_CHOICES = {{ protocol_choices_json|safe }};
+const MANUFACTURER_OPTIONS = {{ manufacturer_options_json|safe }};
+const MA_INPUT_SPECS = {{ ma_input_specs_json|safe }};
 const CSRF_TOKEN = '{{ csrf_token }}';
+// Derived lookup helpers populated from CLINICAL_ROWS for convenience
+const ANATOMICAL_REGIONS = [...new Set(CLINICAL_ROWS.map(r => r.anatomical_region))];
+const CLINICAL_INDICATIONS = [...new Set(CLINICAL_ROWS.map(r => r.clinical_indication))];
 
 const OTHER_VAL = "Other: Please Specify";
 
@@ -197,51 +195,47 @@ function setSelect(el, options, placeholder, current) {
 
 /* ── Step 1 ── */
 function initStep1() {
-    const regions = unique(CLINICAL_ROWS.map(r => r.anatomical_region));
-    setSelect(document.getElementById('cl_region'), regions, 'Select anatomical region...', state.region);
+    const pairs = unique(CLINICAL_ROWS.map(r => `${r.anatomical_region} / ${r.clinical_indication}`));
+    const current = state.region && state.indication ? `${state.region} / ${state.indication}` : '';
+    setSelect(document.getElementById('cl_clinical'), pairs, 'Select region / indication...', current);
 }
 
-function onRegionChange() {
-    state.region = document.getElementById('cl_region').value;
-    state.indication = ""; state.contrast = ""; state.comments = "";
-    const rows = CLINICAL_ROWS.filter(r => r.anatomical_region === state.region);
-    const inds = unique(rows.map(r => r.clinical_indication));
-    setSelect(document.getElementById('cl_indication'), inds, inds.length ? 'Select clinical indication...' : 'No indications available', '');
-    setSelect(document.getElementById('cl_contrast'), ['Non-contrast','Contrast-enhanced'], 'Select contrast option...', '');
-    setSelect(document.getElementById('cl_comments'), [], 'Select indication first...', '');
-    hideOtherInput('cl_comments_other_wrap');
-    updatePreview(); updateProtocolContext();
-}
-
-function onIndicationChange() {
-    state.indication = document.getElementById('cl_indication').value;
+function onClinicalChange() {
+    const val = document.getElementById('cl_clinical').value;
+    if (val) {
+        const sep = val.indexOf(' / ');
+        state.region = val.substring(0, sep);
+        state.indication = val.substring(sep + 3);
+    } else {
+        state.region = ""; state.indication = "";
+    }
     state.contrast = ""; state.comments = "";
-    const rows = CLINICAL_ROWS.filter(r => r.anatomical_region === state.region && r.clinical_indication === state.indication);
-    setSelect(document.getElementById('cl_contrast'), ['Non-contrast','Contrast-enhanced'], 'Select contrast option...', '');
-    const comments = unique(rows.map(r => r.comments));
-    const withOther = [...comments, OTHER_VAL];
-    setSelect(document.getElementById('cl_comments'), withOther, 'Select comments / protocol guidance...', comments.length === 1 ? comments[0] : '');
-    if (comments.length === 1) state.comments = comments[0];
-    hideOtherInput('cl_comments_other_wrap');
+    const matches = CLINICAL_ROWS.filter(r => r.anatomical_region === state.region && r.clinical_indication === state.indication);
+    // IV contrast options — auto-select when only one option available
+    const contrastOpts = unique(matches.flatMap(r => r.iv_contrast.split(',').map(s => s.trim())));
+    setSelect(document.getElementById('cl_contrast'), contrastOpts, 'Select contrast option...', '');
+    if (contrastOpts.length === 1) {
+        document.getElementById('cl_contrast').value = contrastOpts[0];
+        state.contrast = contrastOpts[0];
+    }
+    // Comments from data
+    const commentOpts = unique(matches.map(r => r.comments).filter(Boolean));
+    setSelect(document.getElementById('cl_comments'), commentOpts, 'None', '');
+    if (commentOpts.length === 1) {
+        document.getElementById('cl_comments').value = commentOpts[0];
+        state.comments = commentOpts[0];
+    }
     updatePreview(); updateProtocolContext();
 }
 
 function onStep1Change() {
     state.contrast = document.getElementById('cl_contrast').value;
-    const commSel = document.getElementById('cl_comments');
-    if (commSel.value === OTHER_VAL) {
-        document.getElementById('cl_comments_other_wrap').style.display = 'block';
-        state.comments = document.getElementById('cl_comments_other').value.trim();
-    } else {
-        hideOtherInput('cl_comments_other_wrap');
-        state.comments = commSel.value;
-    }
+    state.comments = document.getElementById('cl_comments').value;
     updatePreview(); updateProtocolContext();
-}
-
-function hideOtherInput(id) {
-    const el = document.getElementById(id);
-    if (el) el.style.display = 'none';
+    // Re-sync the locked contrast field if the protocol form is already visible
+    const mappedContrast = mapContrastFromIV(state.contrast);
+    const sel = document.getElementById('fld_contrast');
+    if (sel) { sel.value = mappedContrast; state.fields['contrast'] = mappedContrast; }
 }
 
 function updatePreview() {
@@ -268,6 +262,9 @@ function initStep2() {
 
 function onScannerChange() {
     state.scannerId = document.getElementById('scanner_select').value;
+    // Clear manufacturer-specific fields so stale values from a previous scanner don't carry over
+    delete state.fields['auto_kvp_selection'];
+    delete state.fields['auto_ma_modulation'];
     const scanner = SCANNERS.find(s => s.id === state.scannerId);
     const preview = document.getElementById('scannerPreview');
     if (scanner) {
@@ -310,15 +307,24 @@ function getOptions(categoryKey) {
     return (PROTOCOL_CHOICES[categoryKey] || []).map(o => o.value);
 }
 
-function makeSelect(fieldKey, options, label, fullWidth) {
-    const allOpts = [...options, OTHER_VAL];
+function getManufacturerFieldOptions(fieldKey) {
+    const scanner = SCANNERS.find(s => s.id === state.scannerId);
+    if (!scanner) return null;
+    const mfrOpts = MANUFACTURER_OPTIONS[scanner.manufacturer];
+    if (!mfrOpts) return null;
+    return mfrOpts[fieldKey] || null;
+}
+
+function makeSelect(fieldKey, options, label, fullWidth, noOther) {
+    const dedupedOpts = options.filter(o => o !== OTHER_VAL);
+    const allOpts = noOther ? dedupedOpts : [...dedupedOpts, OTHER_VAL];
     const val = state.fields[fieldKey] || '';
-    const isOther = val && !options.includes(val);
+    const isOther = !noOther && val && !dedupedOpts.includes(val);
     return `<div class="field-row${fullWidth?' full':''}">
         <label>${esc(label)}</label>
         <select id="fld_${fieldKey}" onchange="onFieldChange('${fieldKey}')">
             <option value="">Select...</option>
-            ${allOpts.map(o => `<option value="${esc(o)}"${o===val||o===OTHER_VAL&&isOther?' selected':''}>${esc(o)}</option>`).join('')}
+            ${allOpts.map(o => `<option value="${esc(o)}"${o===val||(!noOther&&o===OTHER_VAL&&isOther)?' selected':''}>${esc(o)}</option>`).join('')}
         </select>
         <div id="fld_${fieldKey}_other" style="margin-top:6px;${isOther?'':'display:none;'}">
             <input type="text" id="fld_${fieldKey}_other_txt" value="${esc(isOther?val:'')}" placeholder="Specify value..." oninput="onOtherInput('${fieldKey}')" />
@@ -335,51 +341,122 @@ function makeInput(fieldKey, label, fullWidth, isTextarea) {
     return `<div class="${cls}"><label>${esc(label)}</label><input type="text" id="fld_${fieldKey}" value="${val}" oninput="onFieldChange('${fieldKey}')" /></div>`;
 }
 
+function mapContrastFromIV(ivContrast) {
+    if (!ivContrast) return '';
+    return /non/i.test(ivContrast) ? 'No Contrast' : 'Contrast-Enhanced';
+}
+
+function onCombinedEgAgChange() {
+    const idx = parseInt(document.getElementById('fld_eg_ag').value);
+    const tab = PROTOCOL_TABS[state.activeTab];
+    if (!isNaN(idx) && idx >= 0 && tab) {
+        state.fields['examination_group'] = tab.examination_groups[idx] || '';
+        state.fields['age_group'] = tab.age_groups[idx] || '';
+    } else {
+        state.fields['examination_group'] = '';
+        state.fields['age_group'] = '';
+    }
+    updateCompletion();
+}
+
 function renderFields() {
     const tab = PROTOCOL_TABS[state.activeTab];
     if (!tab) return;
     const container = document.getElementById('protocolFields');
     const egVal = state.fields['examination_group'] || '';
-    const agVal = state.fields['age_group'] || '';
+    const selectedIdx = egVal ? tab.examination_groups.indexOf(egVal) : -1;
+    const egAgPairs = tab.examination_groups.map((g, i) => `${g} (${tab.age_groups[i] || ''})`);
+    const egAgLabel = `Examination Group / ${tab.age_label || 'Age / Weight Group'}`;
+
+    const contrastOpts = ['No Contrast', 'Contrast-Enhanced'];
+    const contrastVal = mapContrastFromIV(state.contrast);
+    state.fields['contrast'] = contrastVal;
+    const contrastHtml = `<div class="field-row">
+        <label>Contrast</label>
+        <select id="fld_contrast" disabled style="opacity:.6;cursor:not-allowed;">
+            <option value="">—</option>
+            ${contrastOpts.map(o => `<option value="${esc(o)}"${o===contrastVal?' selected':''}>${esc(o)}</option>`).join('')}
+        </select>
+    </div>`;
+
+    if (!state.fields['number_of_phases']) state.fields['number_of_phases'] = '1';
+
+    const scanTypeOpts = getOptions('scan_type').filter(o => /sequential|axial|helical|spiral/i.test(o));
+    const scanFovOpts = ['Ped Head', 'Ped Body', 'Small Head', 'Head', 'Small Body', 'Medium Body', 'Large Body'];
+    const pitchVal = esc(state.fields['pitch'] || '');
+    const pitchHtml = `<div class="field-row">
+        <label>Pitch</label>
+        <input type="number" id="fld_pitch" min="0" max="3" step="0.01" value="${pitchVal}"
+               placeholder="e.g. 0.98" oninput="onFieldChange('pitch')" style="width:100%;border:1px solid var(--border);border-radius:10px;padding:9px 11px;font-size:14px;font-family:inherit;color:var(--text);" />
+    </div>`;
 
     let html = `<div class="fields-grid" style="margin-bottom:16px;">
-        <div class="field-row">
-            <label>Examination Group</label>
-            <select id="fld_examination_group" onchange="onFieldChange('examination_group')">
+        <div class="field-row half">
+            <label>${esc(egAgLabel)}</label>
+            <select id="fld_eg_ag" onchange="onCombinedEgAgChange()">
                 <option value="">Select...</option>
-                ${tab.examination_groups.map(g => `<option value="${esc(g)}"${g===egVal?' selected':''}>${esc(g)}</option>`).join('')}
-            </select>
-        </div>
-        <div class="field-row">
-            <label>Age / Weight Group</label>
-            <select id="fld_age_group" onchange="onFieldChange('age_group')">
-                <option value="">Select...</option>
-                ${tab.age_groups.map(a => `<option value="${esc(a)}"${a===agVal?' selected':''}>${esc(a)}</option>`).join('')}
+                ${egAgPairs.map((label, i) => `<option value="${i}"${i===selectedIdx?' selected':''}>${esc(label)}</option>`).join('')}
             </select>
         </div>
     </div>
     <div class="fields-grid">
         ${makeInput('protocol_name', 'Protocol Name', false, false)}
-        ${makeSelect('scan_type', getOptions('scan_type'), 'Scan Type', false)}
-        ${makeSelect('contrast', getOptions('contrast'), 'Contrast', false)}
+        ${makeSelect('scan_type', scanTypeOpts, 'Scan Type', false, true)}
+        ${contrastHtml}
         ${makeSelect('number_of_phases', getOptions('number_of_phases'), 'Number of Phases', false)}
-        ${makeSelect('auto_kvp_selection', getOptions('auto_kvp_selection'), 'Automatic kVp Selection', false)}
+        ${makeSelect('auto_kvp_selection', getManufacturerFieldOptions('auto_kvp_selection') || getOptions('auto_kvp_selection'), 'Automatic kVp Selection', false)}
         ${makeSelect('kvp', getOptions('kvp'), 'kVp', false)}
-        ${makeSelect('auto_ma_modulation', getOptions('auto_ma_modulation'), 'Automatic mA Modulation', false)}
-        ${makeSelect('exposure_metric', getOptions('exposure_metric'), 'mAs / Reference Exposure Metric', false)}
-        ${makeInput('mas_value', 'mAs Value', false, false)}
-        ${makeSelect('pitch', getOptions('pitch'), 'Pitch', false)}
+        ${makeSelect('auto_ma_modulation', getManufacturerFieldOptions('auto_ma_modulation') || getOptions('auto_ma_modulation'), 'Automatic mA Modulation', false)}
+        <div id="mas_inputs_slot" style="grid-column:span 2;">${renderMasInputs()}</div>
+        ${pitchHtml}
         ${makeSelect('rotation_time', getOptions('rotation_time'), 'Rotation Time (s)', false)}
         ${makeSelect('slice_thickness', getOptions('slice_thickness'), 'Slice Thickness 1st Recon (mm)', false)}
-        ${makeSelect('scan_fov', getOptions('scan_fov'), 'Scan Field of View', false)}
+        ${makeSelect('scan_fov', scanFovOpts, 'Scan Field of View', false)}
         ${makeSelect('kernel_class', getOptions('kernel_class'), 'Generic Kernel Class', false)}
         ${makeSelect('reconstruction_algorithm', getOptions('reconstruction_algorithm'), 'Reconstruction Algorithm', false)}
-        ${makeSelect('protocol_intent', getOptions('protocol_intent'), 'Protocol Intent / Optimization Goal', false)}
-        ${makeSelect('dose_metadata', getOptions('dose_metadata'), 'Dose-Relevant Metadata', false)}
         ${makeInput('notes', 'Additional Free-Text Notes', true, true)}
     </div>`;
 
     container.innerHTML = html;
+    updateCompletion();
+}
+
+function renderMasInputs() {
+    const maValue = state.fields['auto_ma_modulation'] || '';
+    const sel = document.getElementById('fld_auto_ma_modulation');
+    const dropdownIsOther = sel && sel.value === OTHER_VAL;
+    let labels;
+    if (!maValue && !dropdownIsOther) {
+        labels = [];
+    } else if (dropdownIsOther || !Object.prototype.hasOwnProperty.call(MA_INPUT_SPECS, maValue)) {
+        // "Other: Please Specify" selected (text input may still be empty) or custom free-text
+        labels = MA_INPUT_SPECS['Other: Please Specify'] || ['mA'];
+    } else {
+        // Known value — use the seeded spec (may be empty list for "Not Available")
+        labels = MA_INPUT_SPECS[maValue];
+    }
+    if (!labels.length) return '';
+    const stored = state.fields['mas_inputs'] || {};
+    return `<div style="display:flex;gap:10px;align-items:flex-end;">` +
+        labels.map(label => {
+            const key = 'mas_' + label.replace(/[^a-zA-Z0-9]/g, '_');
+            const val = esc(stored[label] || '');
+            return `<div class="field-row" style="flex:1;min-width:70px;margin-bottom:0;">
+                <label>${esc(label)}</label>
+                <input type="number" id="${key}" value="${val}" min="0" step="any"
+                       placeholder="${esc(label)}" oninput="onMasInput('${esc(label)}')"
+                       style="width:100%;border:1px solid var(--border);border-radius:10px;padding:9px 11px;font-size:14px;font-family:inherit;color:var(--text);" />
+            </div>`;
+        }).join('') +
+        `</div>`;
+}
+
+function onMasInput(label) {
+    const key = 'mas_' + label.replace(/[^a-zA-Z0-9]/g, '_');
+    const el = document.getElementById(key);
+    if (!el) return;
+    if (!state.fields['mas_inputs']) state.fields['mas_inputs'] = {};
+    state.fields['mas_inputs'][label] = el.value;
     updateCompletion();
 }
 
@@ -395,6 +472,17 @@ function onFieldChange(key) {
         if (otherDiv) otherDiv.style.display = 'none';
         state.fields[key] = el.value;
     }
+    // When mA modulation changes, reset stored mAs values and re-render the fields
+    if (key === 'auto_ma_modulation') {
+        state.fields['mas_inputs'] = {};
+        const container = document.getElementById('protocolFields');
+        if (container) {
+            // Re-render only the mAs inputs section without a full renderFields()
+            // to preserve other field values already entered.
+            const masSlot = document.getElementById('mas_inputs_slot');
+            if (masSlot) masSlot.innerHTML = renderMasInputs();
+        }
+    }
     updateCompletion();
 }
 
@@ -405,7 +493,7 @@ function onOtherInput(key) {
 
 function updateCompletion() {
     const keys = ['examination_group', 'age_group', 'protocol_name', 'scan_type', 'contrast',
-        'number_of_phases', 'auto_kvp_selection', 'kvp', 'auto_ma_modulation', 'exposure_metric',
+        'number_of_phases', 'auto_kvp_selection', 'kvp', 'auto_ma_modulation',
         'pitch', 'rotation_time', 'slice_thickness', 'scan_fov', 'kernel_class', 'reconstruction_algorithm'];
     const filled = keys.filter(k => state.fields[k] && String(state.fields[k]).trim()).length;
     const pct = Math.round((filled / keys.length) * 100);
@@ -418,6 +506,14 @@ function clearProtocolForm() {
     renderFields();
     document.getElementById('existsBanner').classList.remove('visible');
     document.getElementById('successBanner').style.display = 'none';
+}
+
+function resetStep1() {
+    state = { region: "", indication: "", contrast: "", comments: "", scannerId: "", activeTab: Object.keys(PROTOCOL_TABS)[0], fields: {} };
+    initStep1();
+    setSelect(document.getElementById('cl_contrast'), [], 'Select contrast option...', '');
+    setSelect(document.getElementById('cl_comments'), [], 'None', '');
+    updatePreview(); updateProtocolContext();
 }
 
 /* ── Save ── */

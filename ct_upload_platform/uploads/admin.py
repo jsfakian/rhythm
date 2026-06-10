@@ -5,6 +5,7 @@ Admin configuration for the uploads app.
 from django.contrib import admin
 from .models import (
     Patient, UploadJob, StudyMapping, Annotation, AuditLog,
+    ClinicalIndicationRow,
     CTManufacturer, CTScannerModel, ProtocolChoiceCategory,
     ProtocolChoiceOption, CTScannerProfile, CTProtocol,
 )
@@ -53,6 +54,15 @@ class AuditLogAdmin(admin.ModelAdmin):
     search_fields = ('actor_id', 'upload_job__id')
     readonly_fields = ('id', 'occurred_at')
     fields = ('id', 'upload_job', 'event_type', 'actor_id', 'detail', 'occurred_at')
+
+
+@admin.register(ClinicalIndicationRow)
+class ClinicalIndicationRowAdmin(admin.ModelAdmin):
+    list_display = ('anatomical_region', 'clinical_indication', 'iv_contrast', 'sort_order', 'is_active')
+    list_filter = ('anatomical_region', 'is_active')
+    search_fields = ('anatomical_region', 'clinical_indication', 'comments')
+    readonly_fields = ('id',)
+    ordering = ('sort_order', 'anatomical_region')
 
 
 @admin.register(CTManufacturer)

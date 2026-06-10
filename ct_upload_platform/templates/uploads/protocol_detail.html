@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ protocol.age_group }} – {{ protocol_type_display }} – CT Upload Platform</title>
+    <title>{{ protocol.age_group }} – {{ protocol_type_display }} – RHYTHM Repository Upload Tool</title>
     {% include 'uploads/_styles.html' %}
     <style>
         .page-body { max-width: 960px; }
@@ -103,9 +103,23 @@
                         <span class="info-value">{{ protocol_type_display }}</span>
                     </div>
                     <div class="info-item full-width">
-                        <span class="info-label">Clinical Indication</span>
-                        <span class="info-value">{{ protocol.clinical_indication|default:"—" }}</span>
+                        <span class="info-label">Anatomical Region</span>
+                        <span class="info-value{% if not protocol.anatomical_region %} empty{% endif %}">{{ protocol.anatomical_region|default:"—" }}</span>
                     </div>
+                    <div class="info-item full-width">
+                        <span class="info-label">Clinical Indication</span>
+                        <span class="info-value{% if not protocol.clinical_indication %} empty{% endif %}">{{ protocol.clinical_indication|default:"—" }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Examination Group</span>
+                        <span class="info-value{% if not protocol.examination_group %} empty{% endif %}">{{ protocol.examination_group|default:"—" }}</span>
+                    </div>
+                    {% if protocol.clinical_comments %}
+                    <div class="info-item full-width">
+                        <span class="info-label">Clinical Comments</span>
+                        <span class="info-value">{{ protocol.clinical_comments }}</span>
+                    </div>
+                    {% endif %}
                     <div class="info-item full-width">
                         <span class="info-label">Protocol Name</span>
                         <span class="info-value">{{ protocol.protocol_name|default:"—" }}</span>
@@ -137,10 +151,6 @@
                         <span class="info-label">Number of Phases</span>
                         <span class="info-value">{{ protocol.number_of_phases|default:"—" }}</span>
                     </div>
-                    <div class="info-item">
-                        <span class="info-label">Anatomical Region</span>
-                        <span class="info-value">{{ protocol.anatomical_region|default:"—" }}</span>
-                    </div>
                 </div>
             </div>
         </div>
@@ -152,13 +162,7 @@
                 <div class="info-grid">
                     <div class="info-item">
                         <span class="info-label">Auto kVp Selection</span>
-                        <span class="info-value">
-                            {% if protocol.auto_kvp_selection %}
-                                <span class="badge-yes">Enabled</span>
-                            {% else %}
-                                <span class="badge-no">Disabled</span>
-                            {% endif %}
-                        </span>
+                        <span class="info-value{% if not protocol.auto_kvp_selection %} empty{% endif %}">{{ protocol.auto_kvp_selection|default:"—" }}</span>
                     </div>
                     <div class="info-item">
                         <span class="info-label">kVp</span>
@@ -166,22 +170,16 @@
                     </div>
                     <div class="info-item">
                         <span class="info-label">Auto mA Modulation</span>
-                        <span class="info-value">
-                            {% if protocol.auto_ma_modulation %}
-                                <span class="badge-yes">Enabled</span>
-                            {% else %}
-                                <span class="badge-no">Disabled</span>
-                            {% endif %}
-                        </span>
+                        <span class="info-value{% if not protocol.auto_ma_modulation %} empty{% endif %}">{{ protocol.auto_ma_modulation|default:"—" }}</span>
                     </div>
+                    {% if protocol.mas_inputs %}
+                    {% for label, value in protocol.mas_inputs.items %}
                     <div class="info-item">
-                        <span class="info-label">Exposure Metric</span>
-                        <span class="info-value">{{ protocol.exposure_metric|default:"—" }}</span>
+                        <span class="info-label">{{ label }}</span>
+                        <span class="info-value{% if not value %} empty{% endif %}">{{ value|default:"—" }}</span>
                     </div>
-                    <div class="info-item">
-                        <span class="info-label">mAs Value</span>
-                        <span class="info-value">{{ protocol.mas_value|default:"—" }}</span>
-                    </div>
+                    {% endfor %}
+                    {% endif %}
                     <div class="info-item">
                         <span class="info-label">Pitch</span>
                         <span class="info-value">{{ protocol.pitch|default:"—" }}</span>

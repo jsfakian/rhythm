@@ -1428,7 +1428,136 @@ The system validates that each DICOM file **is already anonymized** according to
 
 ---
 
-## 12. Key Dependencies
+## 12. Browser UI
+
+The platform ships a server-rendered, JavaScript-enhanced browser interface in addition to the REST API. All browser pages require session authentication (login redirects unauthenticated users to `/login/`).
+
+### 12.1 Page Map
+
+| URL | View | Purpose |
+|-----|------|---------|
+| `/login/` | `LoginPageView` | AJAX login form; stores token in `localStorage` and redirects to `/` |
+| `/signup/` | `SignupPageView` | Self-service account creation; token stored on success |
+| `/` | `UploadAdvancedView` | Primary file-upload interface (single and chunked), status polling |
+| `/examinations/entry/` | `ExaminationEntryView` | AJAX data-entry form for CT dose/quality records |
+| `/examinations/` | `ExaminationListView` | Paginated list with image-quality filter |
+| `/examinations/<pk>/delete/` | `ExaminationDeleteView` | POST-confirm delete for one examination record |
+| `/protocols/` | `ProtocolsHubView` | Landing page linking to GUI and records |
+| `/protocols/gui/` | `ProtocolGUIView` | 3-step clinical-indication → scanner → protocol-fields wizard |
+| `/protocols/records/` | `ProtocolRecordsView` | Table of saved protocols with type filter |
+| `/protocols/<type>/` | `ProtocolListView` | Protocols by type (PEDIATRIC_HEAD, PEDIATRIC_BODY, YOUNG_ADULT) |
+| `/protocols/<type>/create/` | `ProtocolCreateView` | Django ModelForm for a new protocol |
+| `/protocols/<type>/<pk>/` | `ProtocolDetailView` | Read-only protocol detail |
+| `/protocols/<type>/<pk>/edit/` | `ProtocolUpdateView` | Edit an existing protocol |
+| `/protocols/<type>/<pk>/delete/` | `ProtocolDeleteView` | POST-confirm delete |
+| `/scanners/` | `ScannerProfileListView` | List of registered CT scanner profiles |
+| `/scanners/create/` | `ScannerProfileCreateView` | Create a scanner profile |
+| `/scanners/<pk>/edit/` | `ScannerProfileEditView` | Edit a scanner profile |
+
+### 12.2 Key UI Patterns
+
+**Cascading dropdowns**: Manufacturer → scanner model (via `GET /api/v1/scanners/models/?manufacturer_id=`) and anatomical region → clinical indication (client-side, from inline JSON data).
+
+**Dynamic phases table**: The examination entry form renders one CTDI / DLP row per acquisition phase; the number of rows updates live as the "Number of phases" input changes.
+
+**AJAX form submission**: Examination save (`POST /examinations/api/save/`) and protocol save (`POST /protocols/api/save/`) are non-navigating AJAX requests. Success shows an inline banner and optionally clears the form; duplicates show an "Update existing record" prompt.
+
+**Upload progress**: Single-file uploads display a progress bar during upload. After submission the UI polls `GET /api/v1/uploads/<job_id>/` until the job reaches a terminal state and shows per-image error details if any images fail GDPR validation.
+
+**Token management**: The upload page stores the API token in `sessionStorage` so it survives page reloads. Login and signup pages store it in `localStorage`.
+
+### 12.3 Browser-Facing API Endpoints (non-page)
+
+| Method | Endpoint | Used by |
+|--------|----------|---------|
+| `POST` | `/api/v1/auth/login/` | Login form |
+| `POST` | `/api/v1/auth/signup/` | Signup form |
+| `GET` | `/api/v1/scanners/models/?manufacturer_id=` | Manufacturer → model cascade |
+| `POST` | `/examinations/api/save/` | Examination entry form |
+| `POST` | `/protocols/api/save/` | Protocol GUI form |
+
+---
+
+## 13. E2E Testing
+
+### 13.1 Test Stack
+
+End-to-end tests use **Playwright** (TypeScript) and live in `ct_upload_platform/tests/e2e/`. All tests run against a real Django instance via HTTP — no mocking of the database or Django views.
+
+**Dependencies** (in `ct_upload_platform/package.json`):
+- `@playwright/test` — test runner, assertions, browser drivers
+- `@types/node` — Node.js type definitions for TypeScript
+
+**TypeScript configuration** (`ct_upload_platform/tsconfig.json`): compiles to ES2020, includes DOM and Node types, strict mode.
+
+### 13.2 Test Spec Files
+
+| File | Pages under test | Test count (approx.) |
+|------|-----------------|---------------------|
+| `signup.spec.ts` | `/signup/` | 15 |
+| `upload.spec.ts` | `/` | 40 |
+| `examination.spec.ts` | `/examinations/entry/`, `/examinations/`, `/examinations/<pk>/delete/` | 65 |
+| `protocol_gui.spec.ts` | `/protocols/gui/`, `/protocols/records/` | 55 |
+| `protocol_records.spec.ts` | `/protocols/records/`, `/protocols/<type>/<pk>/delete/` | 55 |
+| `protocols.spec.ts` | `/protocols/<type>/`, `/scanners/` | 30 |
+
+### 13.3 Test Infrastructure
+
+**`fixtures.ts`** provides shared helpers:
+- `createTestTarArchive()` / `createOversizedTarArchive()` — generate minimal `.tar` archives for upload tests
+- `UploadPageHelper` — page-object wrapper for the upload page (fill token, select file, read status)
+- `TEST_CREDENTIALS` — reads `TEST_API_TOKEN` from env, falls back to a default
+
+**Login helper** (`login(page)`) in each authenticated spec:
+```typescript
+await page.fill('#username', TEST_USER.username);
+await page.fill('#password', TEST_USER.password);
+await page.click('#loginBtn');
+// Login form uses AJAX + 2 s redirect; wait with a 10 s timeout
+await page.waitForURL((url) => !url.pathname.includes('/login'), { timeout: 10000 });
+```
+
+**`ensureLoggedIn(page)`** first navigates to the target page; only calls `login()` if the server redirects to `/login/`. This avoids a login round-trip when tests share a browser context.
+
+### 13.4 Running the Suite
+
+Prerequisites: Docker stack up, test user created, Playwright browsers installed.
+
+```bash
+# Install Node deps and browsers (once)
+cd ct_upload_platform
+npm install
+npx playwright install chromium
+
+# Create a test superuser (once per DB wipe)
+docker compose exec web python manage.py shell -c "
+from django.contrib.auth import get_user_model; U = get_user_model()
+U.objects.filter(username='testqa').delete()
+U.objects.create_superuser('testqa', 'testqa@test.com', 'TestQA123!')
+"
+
+# Run all tests (headless, Chromium only for speed)
+BASE_URL=http://localhost:8003 TEST_USERNAME=testqa TEST_PASSWORD="TestQA123!" \
+  npx playwright test --project=chromium
+
+# Run a single spec with visible browser
+BASE_URL=http://localhost:8003 TEST_USERNAME=testqa TEST_PASSWORD="TestQA123!" \
+  npx playwright test tests/e2e/examination.spec.ts --project=chromium --headed
+
+# View last HTML report
+npx playwright show-report
+```
+
+Playwright is also wired to `make test-e2e` (uses `localhost:8000`; adjust `BASE_URL` for Docker port mapping).
+
+### 13.5 Known Limitations
+
+- **`q` full-text search on `/protocols/records/`** is accepted as a form input and appended to the URL but the `ProtocolRecordsView` does not yet filter by it server-side. The tests verify the UI structure but use `protocol_type=NONEXISTENT_TYPE` to trigger the empty-state message.
+- Tests that create or delete records leave no cleanup in the database by default; run against a disposable test database or use `make clean` to reset.
+
+---
+
+## 14. Key Dependencies
 
 | Package | Role |
 |---|---|

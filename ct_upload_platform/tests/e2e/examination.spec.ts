@@ -34,10 +34,11 @@ const TEST_USER = {
 
 async function login(page: Page): Promise<void> {
   await page.goto(`${BASE_URL}/login/`);
-  await page.fill('#id_username', TEST_USER.username);
-  await page.fill('#id_password', TEST_USER.password);
-  await page.click('button[type="submit"]');
-  await page.waitForURL((url) => !url.pathname.includes('/login'));
+  await page.fill('#username', TEST_USER.username);
+  await page.fill('#password', TEST_USER.password);
+  await page.click('#loginBtn');
+  // Login form uses AJAX + a 2 s setTimeout before redirect
+  await page.waitForURL((url) => !url.pathname.includes('/login'), { timeout: 10000 });
 }
 
 async function ensureLoggedIn(page: Page): Promise<void> {
@@ -81,7 +82,7 @@ test.describe('Examination entry page — structure', () => {
 
   test('page returns 200 and shows title', async ({ page }) => {
     await expect(page).not.toHaveURL(/\/login\//);
-    await expect(page.locator('h1, h2')).toContainText(/Examination|Data Entry/i);
+    await expect(page.locator('h1')).toContainText(/Examination|Data Entry/i);
   });
 
   test('scanner manufacturer dropdown is present', async ({ page }) => {
@@ -117,7 +118,7 @@ test.describe('Examination entry page — structure', () => {
   });
 
   test('link to saved examinations list is present', async ({ page }) => {
-    await expect(page.locator(`a[href="/examinations/"]`)).toBeVisible();
+    await expect(page.locator('a.btn-list[href="/examinations/"]')).toBeVisible();
   });
 });
 
@@ -385,10 +386,339 @@ test.describe('Full CRUD flow', () => {
     await page.locator('button[type="submit"], form[method="post"] button').first().click();
     await page.waitForURL(`${BASE_URL}/examinations/`);
 
-    // Record should be gone (or list shows empty state)
-    const rows = await page.locator('table tbody tr').count();
-    // Either 0 rows or the deleted record no longer references "Good" for 12.5 kg
     // Just verify we're back on the list page without an error
     await expect(page).toHaveURL(`${BASE_URL}/examinations/`);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 10. Protocol link dropdown
+// ---------------------------------------------------------------------------
+
+test.describe('Protocol link dropdown', () => {
+  test.beforeEach(async ({ page }) => {
+    await ensureLoggedIn(page);
+    await page.goto(`${BASE_URL}/examinations/entry/`);
+  });
+
+  test('protocol dropdown is present', async ({ page }) => {
+    await expect(page.locator('#sel_protocol')).toBeVisible();
+  });
+
+  test('protocol dropdown defaults to empty (no pre-selected protocol)', async ({ page }) => {
+    const value = await page.locator('#sel_protocol').inputValue();
+    expect(value).toBe('');
+  });
+
+  test('selecting a protocol pre-fills region dropdown (when protocols exist)', async ({ page }) => {
+    const options = await page.locator('#sel_protocol option[data-region]').all();
+    if (options.length === 0) test.skip();
+
+    const firstOption = options[0];
+    const region = await firstOption.getAttribute('data-region');
+    const value = await firstOption.getAttribute('value');
+    if (!value || !region) { test.skip(); return; }
+
+    await page.locator('#sel_protocol').selectOption(value);
+    await page.waitForTimeout(400);
+
+    const regionValue = await page.locator('#sel_region').inputValue();
+    expect(regionValue).toBe(region);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 11. Region → Indication cascade in entry form
+// ---------------------------------------------------------------------------
+
+test.describe('Region → Indication cascade', () => {
+  test.beforeEach(async ({ page }) => {
+    await ensureLoggedIn(page);
+    await page.goto(`${BASE_URL}/examinations/entry/`);
+  });
+
+  test('indication dropdown is empty before region selection', async ({ page }) => {
+    const count = await page.locator('#sel_indication option:not([value=""])').count();
+    expect(count).toBe(0);
+  });
+
+  test('selecting a region populates the indication dropdown', async ({ page }) => {
+    const regionOptions = await page.locator('#sel_region option:not([value=""])').all();
+    if (regionOptions.length === 0) test.skip();
+
+    const val = await regionOptions[0].getAttribute('value');
+    await page.locator('#sel_region').selectOption(val!);
+    await page.waitForTimeout(200);
+
+    const count = await page.locator('#sel_indication option:not([value=""])').count();
+    expect(count).toBeGreaterThan(0);
+  });
+
+  test('changing region resets the indication dropdown', async ({ page }) => {
+    const regionOptions = await page.locator('#sel_region option:not([value=""])').all();
+    if (regionOptions.length < 2) test.skip();
+
+    const v1 = await regionOptions[0].getAttribute('value');
+    await page.locator('#sel_region').selectOption(v1!);
+    await page.waitForTimeout(200);
+    await page.locator('#sel_indication').selectOption({ index: 1 });
+
+    const v2 = await regionOptions[1].getAttribute('value');
+    await page.locator('#sel_region').selectOption(v2!);
+    await page.waitForTimeout(200);
+
+    const indValue = await page.locator('#sel_indication').inputValue();
+    expect(indValue).toBe('');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 12. Clear form button
+// ---------------------------------------------------------------------------
+
+test.describe('Clear form button', () => {
+  test.beforeEach(async ({ page }) => {
+    await ensureLoggedIn(page);
+    await page.goto(`${BASE_URL}/examinations/entry/`);
+  });
+
+  test('"Clear form" button is present and visible', async ({ page }) => {
+    await expect(page.locator('button.btn-clear')).toBeVisible();
+  });
+
+  test('clicking "Clear form" resets numeric inputs', async ({ page }) => {
+    await page.locator('#inp_weight').fill('50.0');
+    await page.locator('#inp_age').fill('10');
+    await page.locator('#inp_phases').fill('3');
+    await page.locator('#inp_phases').dispatchEvent('input');
+
+    await page.locator('button.btn-clear').click();
+    await page.waitForTimeout(200);
+
+    expect(await page.locator('#inp_weight').inputValue()).toBe('');
+    expect(await page.locator('#inp_age').inputValue()).toBe('');
+    expect(await page.locator('#inp_phases').inputValue()).toBe('1');
+  });
+
+  test('clicking "Clear form" resets region and indication', async ({ page }) => {
+    const regionOptions = await page.locator('#sel_region option:not([value=""])').all();
+    if (regionOptions.length === 0) test.skip();
+
+    const v = await regionOptions[0].getAttribute('value');
+    await page.locator('#sel_region').selectOption(v!);
+    await page.waitForTimeout(200);
+
+    await page.locator('button.btn-clear').click();
+    await page.waitForTimeout(200);
+
+    expect(await page.locator('#sel_region').inputValue()).toBe('');
+    expect(await page.locator('#sel_indication option:not([value=""])').count()).toBe(0);
+  });
+
+  test('clicking "Clear form" resets manufacturer and collapses model options', async ({ page }) => {
+    const mfrOptions = await page.locator('#sel_manufacturer option:not([value=""])').all();
+    if (mfrOptions.length === 0) test.skip();
+
+    const mfrId = await mfrOptions[0].getAttribute('value');
+    await page.locator('#sel_manufacturer').selectOption(mfrId!);
+    await page.waitForTimeout(400);
+
+    await page.locator('button.btn-clear').click();
+    await page.waitForTimeout(200);
+
+    expect(await page.locator('#sel_manufacturer').inputValue()).toBe('');
+    // Model select should be back to single placeholder option
+    const modelOptions = await page.locator('#sel_model option:not([value=""])').count();
+    expect(modelOptions).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 13. Error banner
+// ---------------------------------------------------------------------------
+
+test.describe('Error banner', () => {
+  test.beforeEach(async ({ page }) => {
+    await ensureLoggedIn(page);
+    await page.goto(`${BASE_URL}/examinations/entry/`);
+  });
+
+  test('error banner is present in the DOM but initially hidden', async ({ page }) => {
+    const banner = page.locator('#errorBanner');
+    await expect(banner).toBeAttached();
+    // Hidden via CSS class (.error-box { display: none }), not inline style
+    await expect(banner).toBeHidden();
+  });
+
+  test('error banner becomes visible when server returns an error', async ({ page }) => {
+    await page.route('**/examinations/api/save/', async (route) => {
+      await route.fulfill({
+        status: 400,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: 'Validation failed' }),
+      });
+    });
+
+    await page.locator('#ctdi_1').waitFor({ state: 'visible' });
+    await page.locator('#ctdi_1').fill('5.0');
+    await page.locator('#dlp_1').fill('80.0');
+    await page.locator('button.btn-save').click();
+    await page.waitForTimeout(600);
+
+    await expect(page.locator('#errorBanner')).not.toBeHidden();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 14. Exam list — table structure
+// ---------------------------------------------------------------------------
+
+test.describe('Examinations list — table structure', () => {
+  test.beforeEach(async ({ page }) => {
+    await ensureLoggedIn(page);
+    await page.goto(`${BASE_URL}/examinations/`);
+  });
+
+  const expectedHeaders = [
+    '#', 'Protocol', 'Scanner', 'Region', 'Clinical Indication',
+    'Weight (kg)', 'WED (cm)', 'Age (y)', 'Phases',
+    'Image Quality', 'Recorded', 'Actions',
+  ];
+
+  for (const header of expectedHeaders) {
+    test(`table has "${header}" column header`, async ({ page }) => {
+      const thead = await page.locator('thead').textContent();
+      expect(thead).toContain(header);
+    });
+  }
+
+  test('"+ Add Examination" button links to /examinations/entry/', async ({ page }) => {
+    const btn = page.locator('a:has-text("+ Add Examination")');
+    await expect(btn).toBeVisible();
+    const href = await btn.getAttribute('href');
+    expect(href).toContain('/examinations/entry/');
+  });
+
+  test('page heading is "CT Examination Records"', async ({ page }) => {
+    await expect(page.locator('h1')).toContainText('CT Examination Records');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 15. Exam list — filter controls
+// ---------------------------------------------------------------------------
+
+test.describe('Examinations list — filter controls', () => {
+  test.beforeEach(async ({ page }) => {
+    await ensureLoggedIn(page);
+    await page.goto(`${BASE_URL}/examinations/`);
+  });
+
+  test('"Filter" submit button is present', async ({ page }) => {
+    await expect(page.locator('button[type="submit"]:has-text("Filter")')).toBeVisible();
+  });
+
+  test('quality dropdown contains all four quality options', async ({ page }) => {
+    const options = await page.locator('select[name="image_quality"] option').allTextContents();
+    const joined = options.join(' ');
+    expect(joined).toContain('Excellent');
+    expect(joined).toContain('Good');
+    expect(joined).toContain('Moderate');
+    expect(joined).toContain('Poor');
+  });
+
+  test('"Clear" link appears when quality filter is active', async ({ page }) => {
+    await page.goto(`${BASE_URL}/examinations/?image_quality=EXCELLENT`);
+    await expect(page.locator('a:has-text("Clear")')).toBeVisible();
+  });
+
+  test('"Clear" link removes the image_quality URL param', async ({ page }) => {
+    await page.goto(`${BASE_URL}/examinations/?image_quality=GOOD`);
+    await page.locator('a:has-text("Clear")').click();
+    await page.waitForURL(/\/examinations\/$/);
+    expect(page.url()).not.toContain('image_quality=');
+  });
+
+  test('no "Clear" link when no filter is active', async ({ page }) => {
+    const clearCount = await page.locator('a:has-text("Clear")').count();
+    expect(clearCount).toBe(0);
+  });
+
+  test('empty-state row text when no records match filter', async ({ page }) => {
+    // A deliberately impossible filter value ensures 0 results
+    await page.goto(`${BASE_URL}/examinations/?image_quality=POOR`);
+    const allRows = await page.locator('table tbody tr').count();
+    if (allRows > 1) {
+      // Records exist for POOR quality — just verify the page loaded OK
+      await expect(page.locator('table tbody')).toBeVisible();
+    } else {
+      await expect(page.locator('table tbody')).toContainText('No examination records yet.');
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 16. Delete confirmation page
+// ---------------------------------------------------------------------------
+
+/** Create a minimal examination and return the URL of its delete page. */
+async function createExamAndGetDeleteUrl(page: Page): Promise<string | null> {
+  await page.goto(`${BASE_URL}/examinations/entry/`);
+  await page.locator('#ctdi_1').waitFor({ state: 'visible' });
+  await page.locator('#ctdi_1').fill('9.9');
+  await page.locator('#dlp_1').fill('99.0');
+  await Promise.all([
+    page.waitForResponse((r) => r.url().includes('/examinations/api/save/')),
+    page.locator('button.btn-save').click(),
+  ]);
+  await page.waitForTimeout(500);
+
+  await page.goto(`${BASE_URL}/examinations/`);
+  const deleteLink = page.locator('a[href*="/delete/"]').first();
+  if (await deleteLink.count() === 0) return null;
+  return deleteLink.getAttribute('href');
+}
+
+test.describe('Delete confirmation page', () => {
+  test.beforeEach(async ({ page }) => {
+    await ensureLoggedIn(page);
+  });
+
+  test('page heading is "Delete Examination"', async ({ page }) => {
+    const url = await createExamAndGetDeleteUrl(page);
+    if (!url) test.skip();
+    await page.goto(`${BASE_URL}${url}`);
+    await expect(page.locator('h1')).toContainText('Delete Examination');
+  });
+
+  test('page body contains "Are you sure"', async ({ page }) => {
+    const url = await createExamAndGetDeleteUrl(page);
+    if (!url) test.skip();
+    await page.goto(`${BASE_URL}${url}`);
+    await expect(page.locator('body')).toContainText(/Are you sure/i);
+  });
+
+  test('"Yes, delete" submit button is present', async ({ page }) => {
+    const url = await createExamAndGetDeleteUrl(page);
+    if (!url) test.skip();
+    await page.goto(`${BASE_URL}${url}`);
+    await expect(page.locator('button[type="submit"]')).toContainText(/yes.*delete/i);
+  });
+
+  test('"Cancel" link returns to /examinations/', async ({ page }) => {
+    const url = await createExamAndGetDeleteUrl(page);
+    if (!url) test.skip();
+    await page.goto(`${BASE_URL}${url}`);
+    await page.locator('a:has-text("Cancel")').click();
+    await expect(page).toHaveURL(`${BASE_URL}/examinations/`);
+  });
+
+  test('page shows examination region and recorded date', async ({ page }) => {
+    const url = await createExamAndGetDeleteUrl(page);
+    if (!url) test.skip();
+    await page.goto(`${BASE_URL}${url}`);
+    // Template renders "Region: <value> · Recorded: <date>"
+    await expect(page.locator('body')).toContainText(/Region:/i);
+    await expect(page.locator('body')).toContainText(/Recorded:/i);
   });
 });

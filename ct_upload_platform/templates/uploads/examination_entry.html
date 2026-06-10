@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CT Examination Data Entry – CT Upload Platform</title>
+    <title>CT Examination Data Entry – RHYTHM Repository Upload Tool</title>
     {% include 'uploads/_styles.html' %}
     <style>
         :root {
@@ -80,9 +80,9 @@
             <div id="successBanner" class="success-box"></div>
             <div id="errorBanner" class="error-box"></div>
 
-            <!-- Protocol (optional) -->
+            <!-- Protocol -->
             <div class="section-card">
-                <h2>Protocol Link (optional)</h2>
+                <h2>Protocol Link</h2>
                 <p class="sdesc">Select a saved protocol to pre-fill scanner, anatomical region and clinical indication.</p>
                 <div class="frow">
                     <label for="sel_protocol">Protocol</label>
@@ -138,12 +138,12 @@
                     <div class="frow">
                         <label for="inp_weight">Patient's Weight (kg)</label>
                         <input type="number" id="inp_weight" min="0" step="0.1" placeholder="e.g. 3.5" oninput="onWeightInput()" />
-                        <span class="hint">Leave blank if not available.</span>
+                        <span class="hint">At least one of weight or WED must be provided.</span>
                     </div>
                     <div class="frow" id="wed_row">
                         <label for="inp_wed">Water Equivalent Diameter — WED (cm)</label>
                         <input type="number" id="inp_wed" min="0" step="0.1" placeholder="e.g. 12.4" />
-                        <span class="hint">Used when patient weight is not available.</span>
+                        <span class="hint">At least one of weight or WED must be provided.</span>
                     </div>
                     <div class="frow">
                         <label for="inp_age">Patient's Age (years)</label>
@@ -199,31 +199,33 @@
 const SCANNERS        = {{ scanners_json|safe }};
 const PROTOCOLS       = {{ protocols_json|safe }};
 const MANUFACTURERS   = {{ manufacturers_json|safe }};
-const ANATOMICAL_OPTS = {{ anatomical_options_json|safe }};
 const CLINICAL_ROWS   = {{ clinical_rows_json|safe }};
 const CSRF_TOKEN      = '{{ csrf_token }}';
+
+function unique(arr) { return [...new Set(arr.filter(Boolean))]; }
 
 // ---------------------------------------------------------------------------
 // Init
 // ---------------------------------------------------------------------------
 function init() {
-    // Manufacturers dropdown
+    // Manufacturers — filtered to those with user scanners
+    const userMfgIds = new Set(SCANNERS.map(s => s.manufacturer_id));
     const mfgSel = document.getElementById('sel_manufacturer');
-    MANUFACTURERS.forEach(m => {
+    MANUFACTURERS.filter(m => userMfgIds.has(m.id)).forEach(m => {
         const o = document.createElement('option');
         o.value = m.id; o.textContent = m.name;
         mfgSel.appendChild(o);
     });
 
-    // Anatomical regions
+    // Anatomical regions from CLINICAL_ROWS
     const regSel = document.getElementById('sel_region');
-    ANATOMICAL_OPTS.forEach(r => {
+    unique(CLINICAL_ROWS.map(r => r.anatomical_region)).forEach(r => {
         const o = document.createElement('option');
         o.value = r; o.textContent = r;
         regSel.appendChild(o);
     });
 
-    // Protocols
+    // Protocols (already filtered to user's scanners by server)
     const pSel = document.getElementById('sel_protocol');
     PROTOCOLS.forEach(p => {
         const o = document.createElement('option');
@@ -266,35 +268,22 @@ function onProtocolChange() {
 }
 
 // ---------------------------------------------------------------------------
-// Manufacturer → Model cascade
+// Manufacturer → Model cascade (uses user's own SCANNERS, no extra API call)
 // ---------------------------------------------------------------------------
 function onManufacturerChange(preSelectScannerId) {
     const mfgId = document.getElementById('sel_manufacturer').value;
     const modelSel = document.getElementById('sel_model');
-    modelSel.innerHTML = '<option value="">Loading…</option>';
-
-    fetch('/api/v1/scanners/models/?manufacturer_id=' + encodeURIComponent(mfgId))
-        .then(r => r.json())
-        .then(data => {
-            modelSel.innerHTML = '<option value="">Select model…</option>';
-            data.models.forEach(m => {
-                const o = document.createElement('option');
-                o.value = m.id; o.textContent = m.name;
-                modelSel.appendChild(o);
-            });
-            if (preSelectScannerId) {
-                const scanner = SCANNERS.find(s => s.id === preSelectScannerId);
-                if (scanner) {
-                    // Find model option by name
-                    const opts = Array.from(modelSel.options);
-                    const match = opts.find(o => o.textContent === scanner.model);
-                    if (match) modelSel.value = match.value;
-                }
-            }
-        })
-        .catch(() => {
-            modelSel.innerHTML = '<option value="">— failed to load —</option>';
-        });
+    modelSel.innerHTML = '<option value="">Select model…</option>';
+    // Filter from user's already-loaded scanners
+    const userModels = SCANNERS.filter(s => s.manufacturer_id === mfgId);
+    userModels.forEach(s => {
+        const o = document.createElement('option');
+        o.value = s.id; o.textContent = s.model;
+        modelSel.appendChild(o);
+    });
+    if (preSelectScannerId) {
+        modelSel.value = preSelectScannerId;
+    }
 }
 
 function onModelChange() { /* no-op; value captured on save */ }
@@ -307,9 +296,7 @@ function onRegionChange(preSelectIndication) {
     const indSel = document.getElementById('sel_indication');
     indSel.innerHTML = '<option value="">Select indication…</option>';
     const rows = CLINICAL_ROWS.filter(r => r.anatomical_region === region);
-    const inds = rows.length
-        ? [...new Set(rows.map(r => r.clinical_indication))]
-        : [...new Set(CLINICAL_ROWS.map(r => r.clinical_indication))].sort();
+    const inds = unique(rows.map(r => r.clinical_indication));
     inds.forEach(ind => {
         const o = document.createElement('option');
         o.value = ind; o.textContent = ind;
@@ -355,20 +342,54 @@ async function saveExamination() {
     document.getElementById('successBanner').style.display = 'none';
     document.getElementById('errorBanner').style.display = 'none';
 
-    const n = Math.max(1, Math.min(10, parseInt(document.getElementById('inp_phases').value) || 1));
-    const ctdiVol = [], dlp = [];
-    for (let i = 1; i <= n; i++) {
-        ctdiVol.push(parseFloat(document.getElementById('ctdi_' + i)?.value) || null);
-        dlp.push(parseFloat(document.getElementById('dlp_' + i)?.value) || null);
+    const errors = [];
+
+    if (!document.getElementById('sel_protocol').value) {
+        errors.push('Protocol link is required.');
+    }
+    const scannerId = document.getElementById('sel_model').value || null;
+    if (!scannerId) {
+        errors.push('CT scanner (manufacturer and model) is required.');
+    }
+    if (!document.getElementById('sel_region').value) {
+        errors.push('Anatomical region is required.');
+    }
+    if (!document.getElementById('sel_indication').value) {
+        errors.push('Clinical indication is required.');
+    }
+    if (!document.getElementById('inp_age').value) {
+        errors.push("Patient's age is required.");
     }
 
-    // Resolve scanner id from selected manufacturer + model
-    const modelSelVal = document.getElementById('sel_model').value;
-    const mfgSelVal   = document.getElementById('sel_manufacturer').value;
-    let scannerId = null;
-    if (modelSelVal) {
-        const scanner = SCANNERS.find(s => s.manufacturer_id === mfgSelVal && s.model === document.getElementById('sel_model').options[document.getElementById('sel_model').selectedIndex]?.textContent);
-        if (scanner) scannerId = scanner.id;
+    const rawPhases = parseInt(document.getElementById('inp_phases').value);
+    const n = (isNaN(rawPhases) || rawPhases < 1) ? 0 : Math.min(10, rawPhases);
+    if (n < 1) {
+        errors.push('Number of phases must be at least 1.');
+    }
+
+    const ctdiVol = [], dlp = [];
+    for (let i = 1; i <= n; i++) {
+        const ctdiRaw = document.getElementById('ctdi_' + i)?.value;
+        const dlpRaw  = document.getElementById('dlp_' + i)?.value;
+        if (!ctdiRaw && ctdiRaw !== '0') errors.push(`CTDI vol for phase ${i} is required.`);
+        if (!dlpRaw  && dlpRaw  !== '0') errors.push(`DLP for phase ${i} is required.`);
+        ctdiVol.push(ctdiRaw !== '' && ctdiRaw != null ? parseFloat(ctdiRaw) : null);
+        dlp.push(dlpRaw !== '' && dlpRaw != null ? parseFloat(dlpRaw) : null);
+    }
+
+    const weightVal = document.getElementById('inp_weight').value || null;
+    const wedVal    = document.getElementById('inp_wed').value || null;
+    if (!weightVal && !wedVal) {
+        errors.push('At least one of patient weight or water equivalent diameter (WED) must be provided.');
+    }
+
+    if (!document.getElementById('sel_quality').value) {
+        errors.push('Image quality is required.');
+    }
+
+    if (errors.length > 0) {
+        showError(errors.join('\n'));
+        return;
     }
 
     const payload = {
@@ -376,8 +397,8 @@ async function saveExamination() {
         scanner_id:               scannerId,
         anatomical_region:        document.getElementById('sel_region').value,
         clinical_indication:      document.getElementById('sel_indication').value,
-        patient_weight:           document.getElementById('inp_weight').value || null,
-        water_equivalent_diameter: document.getElementById('inp_wed').value || null,
+        patient_weight:           weightVal,
+        water_equivalent_diameter: wedVal,
         patient_age:              document.getElementById('inp_age').value || null,
         number_of_phases:         n,
         ctdi_vol_per_phase:       ctdiVol,
@@ -407,7 +428,13 @@ async function saveExamination() {
 
 function showError(msg) {
     const box = document.getElementById('errorBanner');
-    box.textContent = msg;
+    const lines = msg.split('\n').filter(Boolean);
+    if (lines.length === 1) {
+        box.textContent = lines[0];
+    } else {
+        box.innerHTML = '<ul style="margin:0;padding-left:18px;">' +
+            lines.map(l => `<li>${l}</li>`).join('') + '</ul>';
+    }
     box.style.display = 'block';
 }
 

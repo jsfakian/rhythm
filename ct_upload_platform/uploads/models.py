@@ -551,6 +551,30 @@ class UploadChunk(models.Model):
         return self.verification_status in [self.VERIFICATION_CORRUPTED, self.VERIFICATION_NEEDS_REUPLOAD]
 
 
+class ClinicalIndicationRow(models.Model):
+    """
+    A single row from the partner clinical indication / region table (table.xlsx).
+    All protocol GUI dropdowns in Step 1 are driven by these rows.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    anatomical_region = models.CharField(max_length=256)
+    clinical_indication = models.TextField()
+    iv_contrast = models.CharField(max_length=256)
+    comments = models.TextField(blank=True)
+    sort_order = models.PositiveIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['sort_order', 'anatomical_region']
+        indexes = [
+            models.Index(fields=['anatomical_region']),
+            models.Index(fields=['is_active']),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.anatomical_region} – {self.clinical_indication}"
+
+
 class CTManufacturer(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=128, unique=True)
@@ -562,6 +586,48 @@ class CTManufacturer(models.Model):
 
     def __str__(self) -> str:
         return self.name
+
+
+class CTManufacturerFieldOption(models.Model):
+    """Manufacturer-specific allowed values for auto_kvp_selection and auto_ma_modulation."""
+
+    FIELD_KEY_CHOICES = [
+        ('auto_kvp_selection', 'Automatic kVp Selection'),
+        ('auto_ma_modulation', 'Automatic mA Modulation'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    manufacturer = models.ForeignKey(
+        CTManufacturer,
+        on_delete=models.CASCADE,
+        related_name='field_options',
+    )
+    field_key = models.CharField(max_length=64, choices=FIELD_KEY_CHOICES)
+    value = models.CharField(max_length=256)
+    sort_order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ['manufacturer__sort_order', 'field_key', 'sort_order']
+        unique_together = [['manufacturer', 'field_key', 'value']]
+
+    def __str__(self) -> str:
+        return f"{self.manufacturer.name} / {self.field_key}: {self.value}"
+
+
+class MaModulationInputSpec(models.Model):
+    """Maps each Automatic mA Modulation value to the set of numeric inputs it requires."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    ma_modulation_value = models.CharField(max_length=256, unique=True)
+    # Ordered list of input-field labels, e.g. ["min mA", "max mA", "Standard Deviation"]
+    input_labels = models.JSONField(default=list)
+    sort_order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ['sort_order', 'ma_modulation_value']
+
+    def __str__(self) -> str:
+        return f"{self.ma_modulation_value} → {self.input_labels}"
 
 
 class CTScannerModel(models.Model):
@@ -673,8 +739,7 @@ class CTProtocol(models.Model):
     auto_kvp_selection = models.CharField(max_length=256, blank=True)
     kvp = models.CharField(max_length=64, blank=True)
     auto_ma_modulation = models.CharField(max_length=256, blank=True)
-    exposure_metric = models.CharField(max_length=256, blank=True)
-    mas_value = models.CharField(max_length=128, blank=True)
+    mas_inputs = models.JSONField(default=dict, blank=True)
     pitch = models.CharField(max_length=64, blank=True)
     rotation_time = models.CharField(max_length=32, blank=True)
     slice_thickness = models.CharField(max_length=32, blank=True)

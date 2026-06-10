@@ -1,35 +1,9 @@
 <div class="sidebar">
-    <div class="sidebar-title">
+    <div class="sidebar-title" style="font-size:15px;line-height:1.25;">
         <span>🏥</span>
-        <span>CT Upload</span>
+        <span>RHYTHM Repository<br><small style="font-size:11px;font-weight:400;opacity:.8;">Upload Tool</small></span>
     </div>
     <div class="nav-items">
-        <a class="nav-item nav-link{% if active_nav == 'upload' %} active{% endif %}"
-           href="/" data-page="home">
-            <span class="nav-icon">📤</span>
-            <span>Upload</span>
-        </a>
-        <a class="nav-item nav-link{% if active_nav == 'manifest' %} active{% endif %}"
-           href="/" data-page="manifest">
-            <span class="nav-icon">✅</span>
-            <span>Validate Manifest</span>
-        </a>
-        <a class="nav-item nav-link{% if active_nav == 'uploads' %} active{% endif %}"
-           href="/" data-page="uploads">
-            <span class="nav-icon">📋</span>
-            <span>My Uploads</span>
-        </a>
-        <a class="nav-item nav-link{% if active_nav == 'studies' %} active{% endif %}"
-           href="/" data-page="studies">
-            <span class="nav-icon">📊</span>
-            <span>Studies</span>
-        </a>
-        <a class="nav-item nav-link{% if active_nav == 'settings' %} active{% endif %}"
-           href="/" data-page="settings">
-            <span class="nav-icon">⚙️</span>
-            <span>Settings</span>
-        </a>
-        <div class="nav-divider"></div>
         <div class="nav-section-label">CT Protocols</div>
         <a class="nav-item nav-link{% if active_nav == 'protocols' %} active{% endif %}"
            href="/protocols/">
@@ -63,6 +37,23 @@
             <span class="nav-icon">📋</span>
             <span>Examinations</span>
         </a>
+        <div class="nav-divider"></div>
+        <span class="nav-item" style="opacity:.4;cursor:not-allowed;pointer-events:none;" title="Coming soon">
+            <span class="nav-icon">📤</span>
+            <span>Upload <small style="font-size:10px;background:rgba(255,255,255,.15);padding:1px 5px;border-radius:4px;margin-left:4px;">soon</small></span>
+        </span>
+        <span class="nav-item" style="opacity:.4;cursor:not-allowed;pointer-events:none;" title="Coming soon">
+            <span class="nav-icon">✅</span>
+            <span>JSON Validator <small style="font-size:10px;background:rgba(255,255,255,.15);padding:1px 5px;border-radius:4px;margin-left:4px;">soon</small></span>
+        </span>
+        <span class="nav-item" style="opacity:.4;cursor:not-allowed;pointer-events:none;" title="Coming soon">
+            <span class="nav-icon">📋</span>
+            <span>My Uploads <small style="font-size:10px;background:rgba(255,255,255,.15);padding:1px 5px;border-radius:4px;margin-left:4px;">soon</small></span>
+        </span>
+        <span class="nav-item" style="opacity:.4;cursor:not-allowed;pointer-events:none;" title="Coming soon">
+            <span class="nav-icon">⚙️</span>
+            <span>Settings <small style="font-size:10px;background:rgba(255,255,255,.15);padding:1px 5px;border-radius:4px;margin-left:4px;">soon</small></span>
+        </span>
         <div style="margin-top: auto; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.1);">
             <a class="nav-item nav-link" href="/logout/">
                 <span class="nav-icon">🚪</span>

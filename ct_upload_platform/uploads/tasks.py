@@ -182,7 +182,7 @@ def process_upload_job(self, job_id: str):
             error_msg = f"Tar file not found at {tar_path}"
             logger.error(error_msg)
             job.status = "FAILED"
-            job.error_report = [{"error": error_msg}]
+            job.error_report = [{"field": "-", "code": "pipeline_error", "message": error_msg}]
             job.completed_at = timezone.now()
             job.save()
             return
@@ -194,7 +194,7 @@ def process_upload_job(self, job_id: str):
             error_msg = f"Tar validation failed: {str(e)}"
             logger.error(error_msg)
             job.status = "FAILED"
-            job.error_report = [{"error": error_msg}]
+            job.error_report = [{"field": "-", "code": "pipeline_error", "message": error_msg}]
             job.completed_at = timezone.now()
             job.save()
             return
@@ -210,7 +210,7 @@ def process_upload_job(self, job_id: str):
             error_msg = f"Failed to extract tar: {str(e)}"
             logger.error(error_msg)
             job.status = "FAILED"
-            job.error_report = [{"error": error_msg}]
+            job.error_report = [{"field": "-", "code": "pipeline_error", "message": error_msg}]
             job.completed_at = timezone.now()
             job.save()
             return
@@ -220,7 +220,7 @@ def process_upload_job(self, job_id: str):
             error_msg = "manifest.json not found at archive root"
             logger.error(error_msg)
             job.status = "FAILED"
-            job.error_report = [{"error": error_msg}]
+            job.error_report = [{"field": "-", "code": "pipeline_error", "message": error_msg}]
             job.completed_at = timezone.now()
             job.save()
             return
@@ -233,7 +233,7 @@ def process_upload_job(self, job_id: str):
             error_msg = f"Failed to parse manifest.json: {str(e)}"
             logger.error(error_msg)
             job.status = "FAILED"
-            job.error_report = [{"error": error_msg}]
+            job.error_report = [{"field": "-", "code": "json_parse_error", "message": error_msg}]
             job.completed_at = timezone.now()
             job.save()
             return
@@ -313,7 +313,7 @@ def process_upload_job(self, job_id: str):
             error_msg = f"Unexpected error in anonymization pipeline: {str(e)}"
             logger.error(error_msg, exc_info=True)
             job.status = "FAILED"
-            job.error_report = [{"error": error_msg}]
+            job.error_report = [{"field": "-", "code": "pipeline_error", "message": error_msg}]
             job.completed_at = timezone.now()
             job.save()
             return
@@ -340,7 +340,7 @@ def process_upload_job(self, job_id: str):
             error_msg = f"Failed to get or create patient: {patient_error}"
             logger.error(error_msg)
             job.status = "FAILED"
-            job.error_report = [{"error": error_msg}]
+            job.error_report = [{"field": "-", "code": "pipeline_error", "message": error_msg}]
             job.completed_at = timezone.now()
             job.save()
             return

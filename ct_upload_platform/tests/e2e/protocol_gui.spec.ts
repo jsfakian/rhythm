@@ -35,10 +35,11 @@ const TEST_USER = {
 
 async function login(page: Page): Promise<void> {
   await page.goto(`${BASE_URL}/login/`);
-  await page.fill('#id_username', TEST_USER.username);
-  await page.fill('#id_password', TEST_USER.password);
-  await page.click('button[type="submit"]');
-  await page.waitForURL((url) => !url.pathname.includes('/login'));
+  await page.fill('#username', TEST_USER.username);
+  await page.fill('#password', TEST_USER.password);
+  await page.click('#loginBtn');
+  // Login form uses AJAX + a 2 s setTimeout before redirect
+  await page.waitForURL((url) => !url.pathname.includes('/login'), { timeout: 10000 });
 }
 
 async function ensureLoggedIn(page: Page): Promise<void> {
@@ -108,7 +109,7 @@ test.describe('Protocol GUI authentication', () => {
 
   test('unauthenticated POST to /protocols/api/save/ redirects to login', async ({ page }) => {
     await page.context().clearCookies();
-    const resp = await page.goto(`${BASE_URL}/protocols/api/save/`);
+    await page.goto(`${BASE_URL}/protocols/api/save/`);
     // A GET to a POST-only view also redirects without session
     expect(page.url()).toContain('/login');
   });
@@ -512,7 +513,6 @@ test.describe('Save protocol (AJAX)', () => {
     await page.locator('button:has-text("Save Protocol")').click();
     await page.waitForTimeout(800);
 
-    const existsBannerVisible = await page.locator('#existsBanner').isVisible();
     // The banner may or may not appear depending on whether the key matches;
     // we just assert no crash (page still 200)
     const status = await page.evaluate(() => document.readyState);

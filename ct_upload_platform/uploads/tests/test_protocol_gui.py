@@ -27,7 +27,7 @@ class _ProtocolGUIFixtures:
     """Creates the DB objects needed by every test class below."""
 
     @classmethod
-    def _make_scanner(cls) -> CTScannerProfile:
+    def _make_scanner(cls, created_by: str = "") -> CTScannerProfile:
         mfr, _ = CTManufacturer.objects.get_or_create(
             name="Siemens Healthineers",
             defaults={"is_active": True, "sort_order": 0},
@@ -42,6 +42,7 @@ class _ProtocolGUIFixtures:
             scanner_model=model,
             detector_rows="192",
             year_of_installation="2023",
+            created_by=created_by,
         )
 
     @classmethod
@@ -161,7 +162,7 @@ class ProtocolGUIViewTests(_ProtocolGUIFixtures, TestCase):
         )
         self.user.set_password("pass123")
         self.user.save()
-        self.scanner = self._make_scanner()
+        self.scanner = self._make_scanner(created_by=self.user.username)
         # Minimal choice options so the view doesn't crash
         for key, label in [
             ("kvp", "KVP"),
@@ -190,9 +191,9 @@ class ProtocolGUIViewTests(_ProtocolGUIFixtures, TestCase):
     def test_gui_page_contains_clinical_rows_json(self) -> None:
         self.client.force_login(self.user)
         resp = self.client.get("/protocols/gui/")
-        # Template renders: const CLINICAL_ROWS = [...]
-        self.assertIn(b"CLINICAL_ROWS", resp.content)
-        self.assertIn(b"anatomical_region", resp.content)
+        # Template renders ANATOMICAL_REGIONS and CLINICAL_INDICATIONS (replaced CLINICAL_ROWS)
+        self.assertIn(b"ANATOMICAL_REGIONS", resp.content)
+        self.assertIn(b"CLINICAL_INDICATIONS", resp.content)
 
     def test_gui_page_contains_scanners_json(self) -> None:
         self.client.force_login(self.user)
@@ -467,7 +468,7 @@ class ProtocolRecordsViewTests(_ProtocolGUIFixtures, TestCase):
         )
         self.user.set_password("pass123")
         self.user.save()
-        self.scanner = self._make_scanner()
+        self.scanner = self._make_scanner(created_by=self.user.username)
 
     def _seed_protocols(self) -> list:
         p1 = self._make_protocol(
