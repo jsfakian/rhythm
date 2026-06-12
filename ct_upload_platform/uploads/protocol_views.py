@@ -718,6 +718,7 @@ class ExaminationEntryView(LoginRequiredMixin, View):
             "manufacturers_json": json.dumps(self._manufacturers_json()),
             "clinical_rows_json": json.dumps(self._get_clinical_rows()),
             "site_code": self._site_code(request.user),
+            "exam_count": CTExamination.objects.filter(created_by=username).count(),
         })
 
 
@@ -726,11 +727,41 @@ class ExaminationSaveAPIView(LoginRequiredMixin, View):
 
     login_url = _LOGIN_URL
 
+    # Accepted archive MIME types and extensions for the study-set upload.
+    _ALLOWED_STUDY_SET_EXTENSIONS = frozenset({
+        '.zip', '.tar', '.gz', '.bz2', '.tgz', '.tar.gz', '.tar.bz2',
+    })
+
+    def _is_valid_study_set_file(self, f) -> bool:
+        name = (f.name or '').lower()
+        return any(name.endswith(ext) for ext in self._ALLOWED_STUDY_SET_EXTENSIONS)
+
     def post(self, request: HttpRequest) -> JsonResponse:
-        try:
-            data = json.loads(request.body)
-        except (json.JSONDecodeError, AttributeError):
-            return JsonResponse({"error": "Invalid JSON"}, status=400)
+        content_type = request.content_type or ''
+        if 'application/json' in content_type:
+            try:
+                data = json.loads(request.body)
+            except (json.JSONDecodeError, AttributeError):
+                return JsonResponse({"error": "Invalid JSON"}, status=400)
+            study_set_file = None
+        else:
+            # Multipart/form-data — all fields arrive as strings; array fields
+            # are JSON-encoded strings sent by the client.
+            data = dict(request.POST)
+            # Unwrap single-value lists that QueryDict wraps everything in.
+            data = {k: (v[0] if isinstance(v, list) and len(v) == 1 else v) for k, v in data.items()}
+            for list_field in ('ctdi_vol_per_phase', 'dlp_per_phase'):
+                raw = data.get(list_field, '[]')
+                try:
+                    data[list_field] = json.loads(raw) if isinstance(raw, str) else raw
+                except json.JSONDecodeError:
+                    data[list_field] = []
+            study_set_file = request.FILES.get('study_set_file') or None
+            if study_set_file and not self._is_valid_study_set_file(study_set_file):
+                return JsonResponse(
+                    {"error": "Unsupported file type. Please upload a .zip, .tar, .tar.gz, or .tar.bz2 archive."},
+                    status=400,
+                )
 
         protocol_id = data.get("protocol_id") or None
         scanner_id = data.get("scanner_id") or None
@@ -821,6 +852,7 @@ class ExaminationSaveAPIView(LoginRequiredMixin, View):
             protocol_type=protocol_type,
             examination_group=examination_group,
             rhythm_pseudo_id=rhythm_id,
+            study_set_file=study_set_file,
             patient_weight=patient_weight,
             water_equivalent_diameter=wed,
             patient_age=patient_age,

@@ -814,6 +814,12 @@ class CTExamination(models.Model):
         choices=IMAGE_QUALITY_CHOICES,
         blank=True,
     )
+    study_set_file = models.FileField(
+        upload_to='examination_study_sets/',
+        null=True,
+        blank=True,
+        help_text='Optional compressed study set archive (zip, tar, tar.gz, etc.)',
+    )
     created_by = models.CharField(max_length=128, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

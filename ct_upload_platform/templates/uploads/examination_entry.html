@@ -95,7 +95,7 @@
                     <span class="pid-label">Patient ID</span>
                     <span class="pid-value" id="pid_display">—</span>
                     <span class="pid-pending" id="pid_pending">Complete the form below to preview the ID prefix</span>
-                    <span class="pid-seq" id="pid_seq" style="display:none;">Sequence number assigned on save</span>
+                    <span class="pid-seq" id="pid_seq" style="display:none;">Preview — final number assigned on save</span>
                 </div>
             </div>
 
@@ -201,6 +201,18 @@
                 </div>
             </div>
 
+            <!-- Study Set Upload -->
+            <div class="section-card">
+                <h2>Study Set (optional)</h2>
+                <p class="sdesc">Attach the corresponding image archive for this examination. Accepted formats: .zip, .tar, .tar.gz, .tar.bz2.</p>
+                <div class="frow">
+                    <label for="inp_study_set">Compressed Study Set</label>
+                    <input type="file" id="inp_study_set" accept=".zip,.tar,.gz,.bz2,.tgz"
+                           onchange="document.getElementById('study_set_hint').textContent = this.files[0] ? this.files[0].name + ' (' + (this.files[0].size / 1048576).toFixed(1) + ' MB)' : '';" />
+                    <span class="hint" id="study_set_hint"></span>
+                </div>
+            </div>
+
             <!-- Actions -->
             <div class="section-card">
                 <div class="form-actions">
@@ -219,6 +231,7 @@ const SCANNERS      = {{ scanners_json|safe }};
 const CLINICAL_ROWS = {{ clinical_rows_json|safe }};
 const SITE_CODE     = '{{ site_code }}';
 const CSRF_TOKEN    = '{{ csrf_token }}';
+let examCount       = {{ exam_count }};
 
 // INDICATION_CODES mirrors rhythm_pseudo_id.py
 const INDICATION_CODES = {
@@ -351,7 +364,8 @@ function updatePidPreview() {
     const groupCode   = getGroupCode(ptype, grp);
     const prefix      = `RHY-${SITE_CODE}-${indCode}-${contCode}-${groupCode}`;
 
-    pidDisplay.textContent = `${prefix}-??????`;
+    const nextSeq = String(examCount + 1).padStart(6, '0');
+    pidDisplay.textContent = `${prefix}-${nextSeq}`;
     pidPending.style.display = 'none';
     pidSeq.style.display = '';
 }
@@ -428,31 +442,33 @@ async function saveExamination() {
 
     if (errors.length > 0) { showError(errors.join('\n')); return; }
 
-    const payload = {
-        scanner_id:               scannerId,
-        anatomical_region:        anatomicalRegion,
-        clinical_indication:      clinicalIndication,
-        contrast:                 contrast,
-        protocol_type:            protocolType,
-        examination_group:        examGroup,
-        patient_weight:           weightVal,
-        water_equivalent_diameter: wedVal,
-        patient_age:              document.getElementById('inp_age').value || null,
-        number_of_phases:         n,
-        ctdi_vol_per_phase:       ctdiVol,
-        dlp_per_phase:            dlp,
-        image_quality:            document.getElementById('sel_quality').value,
-    };
+    const fd = new FormData();
+    fd.append('scanner_id',               scannerId);
+    fd.append('anatomical_region',        anatomicalRegion);
+    fd.append('clinical_indication',      clinicalIndication);
+    fd.append('contrast',                 contrast);
+    fd.append('protocol_type',            protocolType);
+    fd.append('examination_group',        examGroup);
+    if (weightVal) fd.append('patient_weight', weightVal);
+    if (wedVal)    fd.append('water_equivalent_diameter', wedVal);
+    const ageVal = document.getElementById('inp_age').value;
+    if (ageVal)    fd.append('patient_age', ageVal);
+    fd.append('number_of_phases',         String(n));
+    fd.append('ctdi_vol_per_phase',       JSON.stringify(ctdiVol));
+    fd.append('dlp_per_phase',            JSON.stringify(dlp));
+    fd.append('image_quality',            document.getElementById('sel_quality').value);
+    const studyFile = document.getElementById('inp_study_set').files[0];
+    if (studyFile) fd.append('study_set_file', studyFile);
 
     try {
         const resp = await fetch('/examinations/api/save/', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
-            body: JSON.stringify(payload),
+            headers: { 'X-CSRFToken': CSRF_TOKEN },
+            body: fd,
         });
         const data = await resp.json();
         if (data.status === 'created') {
-            // Show the assigned pseudo-ID
+            examCount++;
             if (data.rhythm_pseudo_id) {
                 document.getElementById('pid_display').textContent = data.rhythm_pseudo_id;
                 document.getElementById('pid_seq').style.display = 'none';
@@ -494,6 +510,8 @@ function clearForm() {
     document.getElementById('inp_age').value = '';
     document.getElementById('inp_phases').value = '1';
     document.getElementById('sel_quality').value = '';
+    document.getElementById('inp_study_set').value = '';
+    document.getElementById('study_set_hint').textContent = '';
     renderPhasesTable();
     updatePidPreview();
 }
