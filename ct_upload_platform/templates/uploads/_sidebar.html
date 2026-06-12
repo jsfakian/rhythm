@@ -54,6 +54,15 @@
             <span class="nav-icon">⚙️</span>
             <span>Settings <small style="font-size:10px;background:rgba(255,255,255,.15);padding:1px 5px;border-radius:4px;margin-left:4px;">soon</small></span>
         </span>
+        {% if request.user.is_superuser %}
+        <div class="nav-divider"></div>
+        <div class="nav-section-label">Administration</div>
+        <a class="nav-item nav-link{% if active_nav == 'user-management' %} active{% endif %}"
+           href="/users/">
+            <span class="nav-icon">👥</span>
+            <span>User Management</span>
+        </a>
+        {% endif %}
         <div style="margin-top: auto; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.1);">
             <a class="nav-item nav-link" href="/logout/">
                 <span class="nav-icon">🚪</span>

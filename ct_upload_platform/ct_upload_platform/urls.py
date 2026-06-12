@@ -5,6 +5,12 @@ URL configuration for ct_upload_platform project.
 from django.contrib import admin
 from django.urls import path, include
 from uploads.views import UploadIndexView, UploadAdvancedView, LoginPageView, SignupPageView, LogoutView
+from uploads.user_management_views import (
+    UserManagementView,
+    UserCreateAPIView,
+    UserUpdateAPIView,
+    UserDeleteAPIView,
+)
 from uploads.protocol_views import (
     ProtocolListView,
     ProtocolDetailView,
@@ -58,4 +64,10 @@ urlpatterns = [
     path('scanners/create/', ScannerProfileCreateView.as_view(), name='scanner-profile-create'),
     path('scanners/models/', ScannerModelsByManufacturerView.as_view(), name='scanner-models-by-manufacturer'),
     path('scanners/<str:pk>/edit/', ScannerProfileEditView.as_view(), name='scanner-profile-edit'),
+
+    # User management (superuser only)
+    path('users/', UserManagementView.as_view(), name='user-management'),
+    path('users/api/create/', UserCreateAPIView.as_view(), name='user-create-api'),
+    path('users/api/<int:user_id>/update/', UserUpdateAPIView.as_view(), name='user-update-api'),
+    path('users/api/<int:user_id>/delete/', UserDeleteAPIView.as_view(), name='user-delete-api'),
 ]
