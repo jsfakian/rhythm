@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Manager – RHYTHM Repository Upload Tool</title>
+    {% include 'uploads/_styles.html' %}
+    <style>
+        .page-body { max-width: 1500px; }
+
+        /* ── Stats ── */
+        .stat-cards { display: flex; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
+        .stat-card {
+            background: white; border-radius: 8px;
+            box-shadow: 0 2px 6px rgba(0,0,0,.07);
+            padding: 16px 24px; min-width: 130px; flex: 1;
+        }
+        .stat-card .stat-value { font-size: 28px; font-weight: 700; color: #2c3e50; }
+        .stat-card .stat-label { font-size: 12px; color: #7f8c8d; margin-top: 2px; }
+
+        /* ── Filter bar ── */
+        .filter-bar {
+            display: flex; gap: 10px; align-items: center;
+            margin-bottom: 20px; flex-wrap: wrap;
+        }
+        .filter-bar select, .filter-bar input[type="text"] {
+            padding: 8px 12px; border: 1px solid #bdc3c7;
+            border-radius: 6px; font-size: 14px; font-family: inherit;
+        }
+        .filter-bar select:focus, .filter-bar input:focus {
+            outline: none; border-color: #3498db;
+        }
+
+        /* ── Tabs ── */
+        .tabs { display: flex; gap: 0; margin-bottom: -1px; }
+        .tab-btn {
+            padding: 10px 24px; font-size: 14px; font-weight: 600;
+            background: #ecf0f1; border: 1px solid #bdc3c7;
+            border-bottom: none; cursor: pointer; border-radius: 6px 6px 0 0;
+            color: #7f8c8d; transition: all .15s;
+        }
+        .tab-btn:hover { background: #dfe6e9; }
+        .tab-btn.active { background: white; color: #2c3e50; border-color: #bdc3c7; }
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; }
+
+        /* ── Table tweaks ── */
+        .file-badge {
+            display: inline-flex; align-items: center; gap: 5px;
+            padding: 3px 9px; border-radius: 12px; font-size: 11px; font-weight: 700;
+        }
+        .file-badge-yes { background: #d1fae5; color: #065f46; }
+        .file-badge-no  { background: #f2f3f4; color: #7f8c8d; }
+
+        .badge-type {
+            display: inline-block; padding: 2px 8px; border-radius: 10px;
+            font-size: 11px; font-weight: 600; background: #eef2ff; color: #3730a3;
+        }
+        .badge-PEDIATRIC_HEAD  { background: #fce7f3; color: #9d174d; }
+        .badge-PEDIATRIC_BODY  { background: #ede9fe; color: #5b21b6; }
+        .badge-YOUNG_ADULT     { background: #dbeafe; color: #1e40af; }
+
+        .institution-tag {
+            display: inline-block; padding: 2px 8px; border-radius: 10px;
+            font-size: 11px; font-weight: 600; background: #fef3c7; color: #92400e;
+        }
+
+        .search-input { min-width: 200px; }
+        .no-results { text-align: center; padding: 40px; color: #95a5a6; font-style: italic; }
+    </style>
+</head>
+<body>
+<div class="app-container">
+    {% include 'uploads/_sidebar.html' with active_nav='file-manager' %}
+    <div class="main-content">
+    <div class="page-body">
+
+        <div class="page-header">
+            <h1>File Manager</h1>
+        </div>
+
+        <!-- Stats -->
+        <div class="stat-cards">
+            <div class="stat-card">
+                <div class="stat-value">{{ total_exams }}</div>
+                <div class="stat-label">Examinations</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ total_protocols }}</div>
+                <div class="stat-label">Protocols</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ with_study_set }}</div>
+                <div class="stat-label">Study sets attached</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ institutions|length }}</div>
+                <div class="stat-label">Institutions</div>
+            </div>
+        </div>
+
+        <!-- Filter bar -->
+        <form method="get" class="filter-bar">
+            <select name="institution" onchange="this.form.submit()">
+                <option value="">All institutions</option>
+                {% for inst in institutions %}
+                <option value="{{ inst }}"{% if inst == selected_institution %} selected{% endif %}>{{ inst }}</option>
+                {% endfor %}
+            </select>
+            {% if selected_institution %}
+            <a href="/file-manager/" class="btn btn-secondary">Clear filter</a>
+            {% endif %}
+            <input type="text" class="search-input" id="global-search"
+                   placeholder="Search within results…" oninput="filterRows()" autocomplete="off">
+        </form>
+
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('exams', this)">
+                Examinations <span style="font-weight:400;opacity:.6">({{ total_exams }})</span>
+            </button>
+            <button class="tab-btn" onclick="switchTab('protocols', this)">
+                Protocols <span style="font-weight:400;opacity:.6">({{ total_protocols }})</span>
+            </button>
+        </div>
+
+        <!-- Examinations tab -->
+        <div class="tab-panel active card" id="tab-exams" style="border-radius:0 8px 8px 8px;">
+            <div class="table-wrap">
+                <table id="exam-table">
+                    <thead>
+                        <tr>
+                            <th>RHYTHM ID</th>
+                            <th>Created by</th>
+                            <th>Institution</th>
+                            <th>Region</th>
+                            <th>Clinical Indication</th>
+                            <th>Protocol type</th>
+                            <th>Scanner</th>
+                            <th>Study Set</th>
+                            <th>Date</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in examinations %}
+                        {% with e=item.obj %}
+                        <tr>
+                            <td><code style="font-size:12px;">{{ e.rhythm_pseudo_id|default:"—" }}</code></td>
+                            <td>{{ e.created_by|default:"—" }}</td>
+                            <td>
+                                {% if item.institution != '—' %}
+                                <span class="institution-tag">{{ item.institution }}</span>
+                                {% else %}—{% endif %}
+                            </td>
+                            <td>{{ e.anatomical_region|default:"—" }}</td>
+                            <td>{{ e.clinical_indication|default:"—" }}</td>
+                            <td>
+                                {% if e.protocol_type %}
+                                <span class="badge-type badge-{{ e.protocol_type }}">
+                                    {{ e.get_protocol_type_display }}
+                                </span>
+                                {% else %}—{% endif %}
+                            </td>
+                            <td>
+                                {% if e.scanner %}
+                                    {{ e.scanner.manufacturer.name }} – {{ e.scanner.scanner_model.name }}
+                                {% else %}—{% endif %}
+                            </td>
+                            <td>
+                                {% if e.study_set_file %}
+                                <span class="file-badge file-badge-yes">
+                                    &#x2713; {{ e.study_set_file.name|slice:"26:" }}
+                                </span>
+                                {% else %}
+                                <span class="file-badge file-badge-no">None</span>
+                                {% endif %}
+                            </td>
+                            <td style="white-space:nowrap;">{{ e.created_at|date:"Y-m-d" }}</td>
+                            <td>
+                                <div class="actions-cell">
+                                    {% if e.study_set_file %}
+                                    <a href="/file-manager/download/{{ e.pk }}/"
+                                       class="btn btn-primary btn-sm"
+                                       title="Download study set archive">
+                                        &#x2193; Download
+                                    </a>
+                                    {% else %}
+                                    <span class="btn btn-secondary btn-sm"
+                                          style="opacity:.4;cursor:not-allowed;">No file</span>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endwith %}
+                        {% empty %}
+                        <tr>
+                            <td colspan="10" class="no-results">No examinations found.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Protocols tab -->
+        <div class="tab-panel card" id="tab-protocols" style="border-radius:0 8px 8px 8px;">
+            <div class="table-wrap">
+                <table id="protocol-table">
+                    <thead>
+                        <tr>
+                            <th>Protocol name</th>
+                            <th>Type</th>
+                            <th>Created by</th>
+                            <th>Institution</th>
+                            <th>Scanner</th>
+                            <th>Region</th>
+                            <th>Clinical Indication</th>
+                            <th>Contrast</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in protocols %}
+                        {% with p=item.obj %}
+                        <tr>
+                            <td>{{ p.protocol_name|default:"—" }}</td>
+                            <td>
+                                {% if p.protocol_type %}
+                                <span class="badge-type badge-{{ p.protocol_type }}">
+                                    {{ p.get_protocol_type_display }}
+                                </span>
+                                {% else %}—{% endif %}
+                            </td>
+                            <td>{{ p.created_by|default:"—" }}</td>
+                            <td>
+                                {% if item.institution != '—' %}
+                                <span class="institution-tag">{{ item.institution }}</span>
+                                {% else %}—{% endif %}
+                            </td>
+                            <td>
+                                {% if p.scanner %}
+                                    {{ p.scanner.manufacturer.name }} – {{ p.scanner.scanner_model.name }}
+                                {% else %}—{% endif %}
+                            </td>
+                            <td>{{ p.anatomical_region|default:"—" }}</td>
+                            <td>{{ p.clinical_indication|default:"—" }}</td>
+                            <td>{{ p.contrast|default:"—" }}</td>
+                            <td style="white-space:nowrap;">{{ p.created_at|date:"Y-m-d" }}</td>
+                        </tr>
+                        {% endwith %}
+                        {% empty %}
+                        <tr>
+                            <td colspan="9" class="no-results">No protocols found.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+    </div>
+</div>
+
+<script>
+    // ── Tab switching ──────────────────────────────────────────────
+    function switchTab(name, btn) {
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById(`tab-${name}`).classList.add('active');
+        btn.classList.add('active');
+        activeTable = name === 'exams' ? 'exam-table' : 'protocol-table';
+        filterRows();
+    }
+
+    // ── Client-side text search across visible table ───────────────
+    let activeTable = 'exam-table';
+
+    function filterRows() {
+        const q = document.getElementById('global-search').value.toLowerCase();
+        const tbody = document.querySelector(`#${activeTable} tbody`);
+        tbody.querySelectorAll('tr').forEach(row => {
+            if (row.querySelector('td[colspan]')) return; // empty-state row
+            const text = row.textContent.toLowerCase();
+            row.style.display = (!q || text.includes(q)) ? '' : 'none';
+        });
+    }
+</script>
+</body>
+</html>

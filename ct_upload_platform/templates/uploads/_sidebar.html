@@ -57,6 +57,11 @@
         {% if request.user.is_superuser %}
         <div class="nav-divider"></div>
         <div class="nav-section-label">Administration</div>
+        <a class="nav-item nav-link{% if active_nav == 'file-manager' %} active{% endif %}"
+           href="/file-manager/">
+            <span class="nav-icon">🗂️</span>
+            <span>File Manager</span>
+        </a>
         <a class="nav-item nav-link{% if active_nav == 'user-management' %} active{% endif %}"
            href="/users/">
             <span class="nav-icon">👥</span>

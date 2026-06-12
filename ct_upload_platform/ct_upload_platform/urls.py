@@ -2,6 +2,8 @@
 URL configuration for ct_upload_platform project.
 """
 
+from django.conf import settings
+from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import path, include
 from uploads.views import UploadIndexView, UploadAdvancedView, LoginPageView, SignupPageView, LogoutView
@@ -11,6 +13,7 @@ from uploads.user_management_views import (
     UserUpdateAPIView,
     UserDeleteAPIView,
 )
+from uploads.file_management_views import FileManagerView, StudySetDownloadView
 from uploads.protocol_views import (
     ProtocolListView,
     ProtocolDetailView,
@@ -70,4 +73,8 @@ urlpatterns = [
     path('users/api/create/', UserCreateAPIView.as_view(), name='user-create-api'),
     path('users/api/<int:user_id>/update/', UserUpdateAPIView.as_view(), name='user-update-api'),
     path('users/api/<int:user_id>/delete/', UserDeleteAPIView.as_view(), name='user-delete-api'),
-]
+
+    # File manager (superuser only)
+    path('file-manager/', FileManagerView.as_view(), name='file-manager'),
+    path('file-manager/download/<str:exam_id>/', StudySetDownloadView.as_view(), name='study-set-download'),
+] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
