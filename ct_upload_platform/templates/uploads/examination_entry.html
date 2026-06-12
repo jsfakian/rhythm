@@ -139,18 +139,13 @@
             <div class="section-card">
                 <h2>CT Scanner</h2>
                 <p class="sdesc">Select or confirm the scanner used for this examination.</p>
-                <div class="fgrid">
-                    <div class="frow">
-                        <label for="sel_manufacturer">Manufacturer</label>
-                        <select id="sel_manufacturer" onchange="onManufacturerChange()">
-                            <option value="">Select manufacturer…</option>
+                <div class="frow">
+                    <label for="sel_scanner">CT Scanner</label>
+                    <div style="display:flex;gap:8px;align-items:flex-end;">
+                        <select id="sel_scanner" style="flex:1;">
+                            <option value="">Select scanner…</option>
                         </select>
-                    </div>
-                    <div class="frow">
-                        <label for="sel_model">Model</label>
-                        <select id="sel_model">
-                            <option value="">Select model…</option>
-                        </select>
+                        <a href="/scanners/create/?next=/examinations/entry/" style="white-space:nowrap;text-decoration:none;padding:9px 12px;background:#edf2f7;color:var(--text);border:1px solid var(--border);border-radius:10px;font-weight:700;font-size:14px;">+ Add scanner</a>
                     </div>
                 </div>
             </div>
@@ -221,7 +216,6 @@
 
 <script>
 const SCANNERS      = {{ scanners_json|safe }};
-const MANUFACTURERS = {{ manufacturers_json|safe }};
 const CLINICAL_ROWS = {{ clinical_rows_json|safe }};
 const SITE_CODE     = '{{ site_code }}';
 const CSRF_TOKEN    = '{{ csrf_token }}';
@@ -284,17 +278,15 @@ function init() {
         comboSel.appendChild(o);
     });
 
-    const userMfgIds = new Set(SCANNERS.map(s => s.manufacturer_id));
-    const mfgSel = document.getElementById('sel_manufacturer');
-    MANUFACTURERS.filter(m => userMfgIds.has(m.id)).forEach(m => {
+    const scannerSel = document.getElementById('sel_scanner');
+    SCANNERS.forEach(s => {
         const o = document.createElement('option');
-        o.value = m.id; o.textContent = m.name;
-        mfgSel.appendChild(o);
+        o.value = s.id;
+        o.textContent = s.display + (s.year ? ` (${s.year})` : '');
+        scannerSel.appendChild(o);
     });
-
     if (SCANNERS.length === 1) {
-        mfgSel.value = SCANNERS[0].manufacturer_id;
-        onManufacturerChange(SCANNERS[0].id);
+        scannerSel.value = SCANNERS[0].id;
     }
 
     renderPhasesTable();
@@ -365,26 +357,6 @@ function updatePidPreview() {
 }
 
 // ---------------------------------------------------------------------------
-// Manufacturer → Model cascade
-// ---------------------------------------------------------------------------
-function onManufacturerChange(preSelectScannerId) {
-    const mfgId = document.getElementById('sel_manufacturer').value;
-    const modelSel = document.getElementById('sel_model');
-    modelSel.innerHTML = '<option value="">Select model…</option>';
-    const userModels = SCANNERS.filter(s => s.manufacturer_id === mfgId);
-    userModels.forEach(s => {
-        const o = document.createElement('option');
-        o.value = s.id; o.textContent = s.model;
-        modelSel.appendChild(o);
-    });
-    if (preSelectScannerId) {
-        modelSel.value = preSelectScannerId;
-    } else if (userModels.length === 1) {
-        modelSel.value = userModels[0].id;
-    }
-}
-
-// ---------------------------------------------------------------------------
 // Phases table
 // ---------------------------------------------------------------------------
 function renderPhasesTable() {
@@ -429,8 +401,8 @@ async function saveExamination() {
     const examGroup = document.getElementById('sel_exam_group').value;
     if (!examGroup) errors.push('Examination group is required.');
 
-    const scannerId = document.getElementById('sel_model').value || null;
-    if (!scannerId) errors.push('CT scanner (manufacturer and model) is required.');
+    const scannerId = document.getElementById('sel_scanner').value || null;
+    if (!scannerId) errors.push('CT scanner is required.');
 
     if (!document.getElementById('inp_age').value) errors.push("Patient's age is required.");
 
@@ -516,8 +488,7 @@ function clearForm() {
     document.getElementById('contrast_display').style.display = 'none';
     document.getElementById('sel_protocol_type').value = '';
     document.getElementById('sel_exam_group').innerHTML = '<option value="">Select group…</option>';
-    document.getElementById('sel_manufacturer').value = '';
-    document.getElementById('sel_model').innerHTML = '<option value="">Select model…</option>';
+    document.getElementById('sel_scanner').value = '';
     document.getElementById('inp_weight').value = '';
     document.getElementById('inp_wed').value = '';
     document.getElementById('inp_age').value = '';
