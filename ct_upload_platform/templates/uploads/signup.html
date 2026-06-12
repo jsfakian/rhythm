@@ -272,24 +272,28 @@
         <form id="signupForm" novalidate>
             <div class="form-row">
                 <div class="form-group">
-                    <label for="firstName">First Name <span class="optional">(optional)</span></label>
+                    <label for="firstName">First Name</label>
                     <input
                         type="text"
                         id="firstName"
                         name="first_name"
+                        required
                         placeholder="Jane"
                         autocomplete="given-name"
                     >
+                    <div id="firstNameError" class="field-error"></div>
                 </div>
                 <div class="form-group">
-                    <label for="lastName">Last Name <span class="optional">(optional)</span></label>
+                    <label for="lastName">Last Name</label>
                     <input
                         type="text"
                         id="lastName"
                         name="last_name"
+                        required
                         placeholder="Smith"
                         autocomplete="family-name"
                     >
+                    <div id="lastNameError" class="field-error"></div>
                 </div>
             </div>
 
@@ -362,13 +366,15 @@
             </div>
 
             <div class="form-group">
-                <label for="department">Department / Unit <span class="optional">(optional)</span></label>
+                <label for="department">Department / Unit</label>
                 <input
                     type="text"
                     id="department"
                     name="department"
+                    required
                     placeholder="e.g. Radiology Department"
                 >
+                <div id="departmentError" class="field-error"></div>
             </div>
 
             <div class="form-group">
@@ -428,11 +434,14 @@
         const successMessage = document.getElementById('successMessage');
 
         const fieldErrors = {
+            firstName: document.getElementById('firstNameError'),
+            lastName: document.getElementById('lastNameError'),
             username: document.getElementById('usernameError'),
             email: document.getElementById('emailError'),
             password: document.getElementById('passwordError'),
             password2: document.getElementById('password2Error'),
             institution: document.getElementById('institutionError'),
+            department: document.getElementById('departmentError'),
             professionalRole: document.getElementById('professionalRoleError'),
             roleOther: document.getElementById('roleOtherError'),
             terms: document.getElementById('termsError'),
@@ -449,7 +458,7 @@
             Object.values(fieldErrors).forEach(el => {
                 if (el) { el.classList.remove('show'); el.textContent = ''; }
             });
-            ['username', 'email', 'password', 'password2', 'institution', 'professionalRole', 'roleOther'].forEach(id => {
+            ['firstName', 'lastName', 'username', 'email', 'password', 'password2', 'institution', 'department', 'professionalRole', 'roleOther'].forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.classList.remove('error');
             });
@@ -482,11 +491,14 @@
             const termsAccepted = document.getElementById('termsAccepted').checked;
 
             let hasError = false;
+            if (!firstName) { showFieldError('firstName', 'First name is required.'); hasError = true; }
+            if (!lastName) { showFieldError('lastName', 'Last name is required.'); hasError = true; }
             if (!username) { showFieldError('username', 'Username is required.'); hasError = true; }
             if (!email) { showFieldError('email', 'Email is required.'); hasError = true; }
             if (!password) { showFieldError('password', 'Password is required.'); hasError = true; }
             if (password !== password2) { showFieldError('password2', 'Passwords do not match.'); hasError = true; }
             if (!institution) { showFieldError('institution', 'Institution is required.'); hasError = true; }
+            if (!department) { showFieldError('department', 'Department / Unit is required.'); hasError = true; }
             if (!professionalRole) { showFieldError('professionalRole', 'Professional role is required.'); hasError = true; }
             if (professionalRole === 'other' && !roleOther) { showFieldError('roleOther', 'Please specify your role.'); hasError = true; }
             if (!termsAccepted) {
@@ -534,9 +546,10 @@
                     let handled = false;
 
                     const fieldMap = {
+                        first_name: 'firstName', last_name: 'lastName',
                         username: 'username', email: 'email',
                         password: 'password', password2: 'password2',
-                        institution: 'institution',
+                        institution: 'institution', department: 'department',
                         professional_role: 'professionalRole',
                         professional_role_other: 'roleOther',
                         terms_accepted: 'terms',
@@ -575,7 +588,7 @@
         });
 
         // Clear field error on input/change
-        ['username', 'email', 'password', 'password2', 'institution'].forEach(id => {
+        ['firstName', 'lastName', 'username', 'email', 'password', 'password2', 'institution', 'department'].forEach(id => {
             const el = document.getElementById(id);
             if (!el) return;
             el.addEventListener('input', () => {

@@ -158,10 +158,10 @@ class SignupSerializer(serializers.Serializer):
     email = serializers.EmailField()
     password = serializers.CharField(max_length=128, write_only=True)
     password2 = serializers.CharField(max_length=128, write_only=True, label='Confirm password')
-    first_name = serializers.CharField(max_length=150, required=False, allow_blank=True, default='')
-    last_name = serializers.CharField(max_length=150, required=False, allow_blank=True, default='')
+    first_name = serializers.CharField(max_length=150)
+    last_name = serializers.CharField(max_length=150)
     institution = serializers.CharField(max_length=256)
-    department = serializers.CharField(max_length=256, required=False, allow_blank=True, default='')
+    department = serializers.CharField(max_length=256)
     professional_role = serializers.ChoiceField(choices=[
         'radiologist', 'medical_physicist', 'radiographer', 'pacs_it',
         'research_coordinator', 'principal_investigator', 'dpo', 'other',
@@ -206,7 +206,7 @@ class SignupSerializer(serializers.Serializer):
         validated_data.pop('password2')
         password = validated_data.pop('password')
         institution = validated_data.pop('institution')
-        department = validated_data.pop('department', '')
+        department = validated_data.pop('department')
         professional_role = validated_data.pop('professional_role')
         professional_role_other = validated_data.pop('professional_role_other', '')
         terms_accepted = validated_data.pop('terms_accepted')
