@@ -728,13 +728,13 @@ class Command(BaseCommand):
             ("GE HealthCare",         "auto_ma_modulation", ["Off", "AutomA", "SmartmA", "Not Available", OTHER]),
             ("Philips",               "auto_ma_modulation", ["Off", "Doseright", "3D Modulation", "Not Available", OTHER]),
             ("Siemens Healthineers",  "auto_ma_modulation", ["Off", "CareDose", "CareDose4D", "Not Available", OTHER]),
-            ("Fujifilm / Hitachi",    "auto_ma_modulation", ["Off", "Intelli EC", "Intelli EC Plus", "Not Available", OTHER]),
+            ("Fujifilm / Hitachi",    "auto_ma_modulation", ["Off", "3D Modulation On", "3D Modulation Off", "Intelli EC", "Intelli EC Plus", "Not Available", OTHER]),
             ("MinFound Medical",      "auto_ma_modulation", [
                 "Off", "imA Intelligent mA Modulation", "imA Intelligent Dose Control", "Not Available", OTHER,
             ]),
             ("Neusoft Medical",       "auto_ma_modulation", ["Off", "DoseRight", "DoseSave Level", "Not Available", OTHER]),
             ("Samsung NeuroLogica",   "auto_ma_modulation", ["Off", "AEC", "Not Available", OTHER]),
-            ("United Imaging",        "auto_ma_modulation", ["Off", "uDose 3D", "Auto ALARA mA", "Not Available", OTHER]),
+            ("United Imaging",        "auto_ma_modulation", ["Off", "uDose 3D Dose Modulation", "Auto ALARA mA", "Not Available", OTHER]),
         ]
 
         created_count = 0
@@ -769,6 +769,8 @@ class Command(BaseCommand):
             ("CareDose",                       ["Effective mAs"]),
             ("CareDose4D",                     ["Quality Reference mAs (QR mAs)"]),
             # Fujifilm / Hitachi
+            ("3D Modulation On",               ["min mA", "max mA"]),
+            ("3D Modulation Off",              ["min mA", "max mA"]),
             ("Intelli EC",                     ["Noise SD target", "min mA", "max mA"]),
             ("Intelli EC Plus",                ["Noise SD target", "min mA", "max mA"]),
             # MinFound Medical
@@ -780,22 +782,26 @@ class Command(BaseCommand):
             # Samsung NeuroLogica
             ("AEC",                            ["Desired noise level", "min mA", "max mA"]),
             # United Imaging
-            ("uDose 3D",                       ["min mA", "max mA"]),
-            ("Auto ALARA mA",                  ["min mA", "max mA"]),
+            ("uDose 3D",                       ["min mA", "max mA", "Patient size / attenuation"]),
+            ("uDose 3D Dose Modulation",       ["min mA", "max mA", "Patient size / attenuation"]),
+            ("Auto ALARA mA",                  ["min mA", "max mA", "Patient size / attenuation"]),
             ("Not Available",                  ["mA"]),
             ("Other: Please Specify",          ["mA"]),
         ]
 
         created_count = 0
+        updated_count = 0
         for sort_order, (value, labels) in enumerate(specs):
-            _, created = MaModulationInputSpec.objects.get_or_create(
+            _, created = MaModulationInputSpec.objects.update_or_create(
                 ma_modulation_value=value,
                 defaults={"input_labels": labels, "sort_order": sort_order},
             )
             if created:
                 created_count += 1
+            else:
+                updated_count += 1
 
-        self.stdout.write(f"  mA modulation input specs: {created_count} created.")
+        self.stdout.write(f"  mA modulation input specs: {created_count} created, {updated_count} updated.")
 
     def populate_clinical_indication_rows(self) -> None:
         rows: list[dict] = [

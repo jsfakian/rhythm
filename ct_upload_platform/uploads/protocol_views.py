@@ -350,6 +350,19 @@ class ScannerProfileEditView(LoginRequiredMixin, View):
         return render(request, self.template_name, {"form": form, "is_edit": True})
 
 
+class ScannerProfileDeleteView(LoginRequiredMixin, View):
+    login_url = _LOGIN_URL
+
+    def post(self, request: HttpRequest, pk: str) -> HttpResponse:
+        profile = get_object_or_404(CTScannerProfile, pk=pk, created_by=request.user.username)
+        has_protocols = CTProtocol.objects.filter(scanner=profile).exists()
+        has_exams = CTExamination.objects.filter(scanner=profile).exists()
+        if has_protocols or has_exams:
+            return redirect(reverse("scanner-profile-list") + "?delete_error=1")
+        profile.delete()
+        return redirect(reverse("scanner-profile-list"))
+
+
 class ScannerProfileListView(LoginRequiredMixin, ListView):
     login_url = _LOGIN_URL
     model = CTScannerProfile
@@ -590,6 +603,7 @@ class ProtocolSaveAPIView(LoginRequiredMixin, View):
             "number_of_phases": protocol_fields.get("number_of_phases", ""),
             "auto_kvp_selection": protocol_fields.get("auto_kvp_selection", ""),
             "kvp": protocol_fields.get("kvp", ""),
+            "tissue_of_interest": protocol_fields.get("tissue_of_interest", ""),
             "auto_ma_modulation": protocol_fields.get("auto_ma_modulation", ""),
             "mas_inputs": protocol_fields.get("mas_inputs", {}),
             "pitch": protocol_fields.get("pitch", ""),
@@ -598,6 +612,7 @@ class ProtocolSaveAPIView(LoginRequiredMixin, View):
             "scan_fov": protocol_fields.get("scan_fov", ""),
             "kernel_class": protocol_fields.get("kernel_class", ""),
             "reconstruction_algorithm": protocol_fields.get("reconstruction_algorithm", ""),
+            "strength": protocol_fields.get("strength", ""),
             "protocol_intent": protocol_fields.get("protocol_intent", ""),
             "dose_metadata": protocol_fields.get("dose_metadata", []),
             "notes": protocol_fields.get("notes", ""),
@@ -830,10 +845,10 @@ class ExaminationSaveAPIView(LoginRequiredMixin, View):
         # Generate the RHYTHM pseudo-ID if we have enough data.
         rhythm_id = ""
         try:
-            from .rhythm_pseudo_id import generate_repository_pseudo_id
+            from .repository_study_id import generate_repository_study_id
             site_code = getattr(getattr(request.user, "profile", None), "site_code", "") or "SITE"
             indication_key = f"{anatomical_region} / {clinical_indication}"
-            rhythm_id = generate_repository_pseudo_id(
+            rhythm_id = generate_repository_study_id(
                 site_code=site_code,
                 clinical_indication=indication_key,
                 contrast=contrast,
@@ -841,7 +856,7 @@ class ExaminationSaveAPIView(LoginRequiredMixin, View):
                 examination_group=examination_group,
             )
         except Exception as exc:
-            logger.warning("Could not generate RHYTHM pseudo-ID: %s", exc)
+            logger.warning("Could not generate RHYTHM repository study ID: %s", exc)
 
         exam = CTExamination.objects.create(
             protocol=protocol,
@@ -851,7 +866,7 @@ class ExaminationSaveAPIView(LoginRequiredMixin, View):
             contrast=contrast,
             protocol_type=protocol_type,
             examination_group=examination_group,
-            rhythm_pseudo_id=rhythm_id,
+            repository_study_id=rhythm_id,
             study_set_file=study_set_file,
             patient_weight=patient_weight,
             water_equivalent_diameter=wed,
@@ -866,7 +881,7 @@ class ExaminationSaveAPIView(LoginRequiredMixin, View):
         return JsonResponse({
             "status": "created",
             "id": str(exam.pk),
-            "rhythm_pseudo_id": rhythm_id,
+            "repository_study_id": rhythm_id,
             "message": "Examination data saved successfully.",
         })
 

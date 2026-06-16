@@ -53,15 +53,15 @@
         .phases-table td input:focus { border-color: var(--primary2); box-shadow: 0 0 0 2px rgba(40,75,122,.1); }
         .phases-label { font-size: 13px; color: var(--muted); font-weight: 600; }
         /* patient ID box */
-        .pid-box {
+        .rsid-box {
             background: var(--accent); border: 1.5px solid #b3ccff;
             border-radius: 14px; padding: 16px 20px;
             display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
         }
-        .pid-label { font-size: 11px; font-weight: 800; color: var(--primary); text-transform: uppercase; letter-spacing: .07em; white-space: nowrap; }
-        .pid-value { font-size: 16px; font-weight: 700; color: var(--primary2); font-family: 'Courier New', monospace; letter-spacing: .06em; flex: 1; min-width: 260px; }
-        .pid-pending { font-size: 13px; color: var(--muted); font-style: italic; }
-        .pid-seq { font-size: 12px; color: var(--muted); }
+        .rsid-label { font-size: 11px; font-weight: 800; color: var(--primary); text-transform: uppercase; letter-spacing: .07em; white-space: nowrap; }
+        .rsid-value { font-size: 16px; font-weight: 700; color: var(--primary2); font-family: 'Courier New', monospace; letter-spacing: .06em; flex: 1; min-width: 260px; }
+        .rsid-pending { font-size: 13px; color: var(--muted); font-style: italic; }
+        .rsid-seq { font-size: 12px; color: var(--muted); }
         /* banners */
         .success-box { background: var(--ok-bg); border: 1px solid #b7e4c7; color: var(--ok); padding: 12px 16px; border-radius: 14px; font-size: 13px; margin-bottom: 16px; display: none; }
         .error-box { background: var(--danger-bg); border: 1px solid #ffd5d1; color: var(--danger); padding: 12px 16px; border-radius: 14px; font-size: 13px; margin-bottom: 16px; display: none; }
@@ -87,15 +87,15 @@
             <div id="successBanner" class="success-box"></div>
             <div id="errorBanner" class="error-box"></div>
 
-            <!-- Patient ID (auto-calculated) -->
+            <!-- Repository Study ID (auto-calculated) -->
             <div class="section-card">
-                <h2>Patient ID</h2>
-                <p class="sdesc">RHYTHM repository pseudo-identifier — auto-generated on save based on site, clinical indication, and patient group.</p>
-                <div class="pid-box">
-                    <span class="pid-label">Patient ID</span>
-                    <span class="pid-value" id="pid_display">—</span>
-                    <span class="pid-pending" id="pid_pending">Complete the form below to preview the ID prefix</span>
-                    <span class="pid-seq" id="pid_seq" style="display:none;">Preview — final number assigned on save</span>
+                <h2>Repository Study ID</h2>
+                <p class="sdesc">RHYTHM repository study identifier — auto-generated on save based on site, clinical indication, and patient group.</p>
+                <div class="rsid-box">
+                    <span class="rsid-label">Repository Study ID</span>
+                    <span class="rsid-value" id="rsid_display">—</span>
+                    <span class="rsid-pending" id="rsid_pending">Complete the form below to preview the ID prefix</span>
+                    <span class="rsid-seq" id="rsid_seq" style="display:none;">Preview — final number assigned on save</span>
                 </div>
             </div>
 
@@ -141,12 +141,9 @@
                 <p class="sdesc">Select or confirm the scanner used for this examination.</p>
                 <div class="frow">
                     <label for="sel_scanner">CT Scanner</label>
-                    <div style="display:flex;gap:8px;align-items:flex-end;">
-                        <select id="sel_scanner" style="flex:1;">
-                            <option value="">Select scanner…</option>
-                        </select>
-                        <a href="/scanners/create/?next=/examinations/entry/" style="white-space:nowrap;text-decoration:none;padding:9px 12px;background:#edf2f7;color:var(--text);border:1px solid var(--border);border-radius:10px;font-weight:700;font-size:14px;">+ Add scanner</a>
-                    </div>
+                    <select id="sel_scanner">
+                        <option value="">Select scanner…</option>
+                    </select>
                 </div>
             </div>
 
@@ -157,12 +154,6 @@
                     <div class="frow">
                         <label for="inp_weight">Patient's Weight (kg)</label>
                         <input type="number" id="inp_weight" min="0" step="0.1" placeholder="e.g. 3.5" />
-                        <span class="hint">At least one of weight or WED must be provided.</span>
-                    </div>
-                    <div class="frow">
-                        <label for="inp_wed">Water Equivalent Diameter — WED (cm)</label>
-                        <input type="number" id="inp_wed" min="0" step="0.1" placeholder="e.g. 12.4" />
-                        <span class="hint">At least one of weight or WED must be provided.</span>
                     </div>
                     <div class="frow">
                         <label for="inp_age">Patient's Age (years)</label>
@@ -203,7 +194,7 @@
 
             <!-- Study Set Upload -->
             <div class="section-card">
-                <h2>Study Set (optional)</h2>
+                <h2>Study Set</h2>
                 <p class="sdesc">Attach the corresponding image archive for this examination. Accepted formats: .zip, .tar, .tar.gz, .tar.bz2.</p>
                 <div class="frow">
                     <label for="inp_study_set">Compressed Study Set</label>
@@ -233,7 +224,7 @@ const SITE_CODE     = '{{ site_code }}';
 const CSRF_TOKEN    = '{{ csrf_token }}';
 let examCount       = {{ exam_count }};
 
-// INDICATION_CODES mirrors rhythm_pseudo_id.py
+// INDICATION_CODES mirrors repository_study_id.py
 const INDICATION_CODES = {
     "Head / Trauma": "HEADTRAUMA",
     "Mastoid bone/Inner Ear / Hearing loss; congenital malformations, infection, cholesteatoma, cochlear implants": "MASTOID",
@@ -345,15 +336,15 @@ function updatePidPreview() {
     const ptype  = document.getElementById('sel_protocol_type').value;
     const grp    = document.getElementById('sel_exam_group').value;
 
-    const pidDisplay = document.getElementById('pid_display');
-    const pidPending = document.getElementById('pid_pending');
-    const pidSeq     = document.getElementById('pid_seq');
+    const rsidDisplay = document.getElementById('rsid_display');
+    const rsidPending = document.getElementById('rsid_pending');
+    const rsidSeq     = document.getElementById('rsid_seq');
 
     if (!indRaw || !ptype || !grp) {
-        pidDisplay.textContent = '—';
-        pidPending.style.display = '';
-        pidPending.textContent = 'Complete the form below to preview the ID prefix';
-        pidSeq.style.display = 'none';
+        rsidDisplay.textContent = '—';
+        rsidPending.style.display = '';
+        rsidPending.textContent = 'Complete the form below to preview the ID prefix';
+        rsidSeq.style.display = 'none';
         return;
     }
 
@@ -365,9 +356,9 @@ function updatePidPreview() {
     const prefix      = `RHY-${SITE_CODE}-${indCode}-${contCode}-${groupCode}`;
 
     const nextSeq = String(examCount + 1).padStart(6, '0');
-    pidDisplay.textContent = `${prefix}-${nextSeq}`;
-    pidPending.style.display = 'none';
-    pidSeq.style.display = '';
+    rsidDisplay.textContent = `${prefix}-${nextSeq}`;
+    rsidPending.style.display = 'none';
+    rsidSeq.style.display = '';
 }
 
 // ---------------------------------------------------------------------------
@@ -385,7 +376,7 @@ function renderPhasesTable() {
         </tr>`;
     }
     wrap.innerHTML = `<table class="phases-table">
-        <thead><tr><th>Phase</th><th>CTDI<sub>vol</sub> (mGy)</th><th>DLP (mGy·cm)</th></tr></thead>
+        <thead><tr><th>Phase</th><th>CTDI<sub>vol</sub> (<span style="text-transform:none">mGy</span>)</th><th>DLP (<span style="text-transform:none">mGy</span>·cm)</th></tr></thead>
         <tbody>${rows}</tbody>
     </table>`;
 }
@@ -435,10 +426,10 @@ async function saveExamination() {
     }
 
     const weightVal = document.getElementById('inp_weight').value || null;
-    const wedVal    = document.getElementById('inp_wed').value || null;
-    if (!weightVal && !wedVal) errors.push('At least one of patient weight or WED must be provided.');
 
     if (!document.getElementById('sel_quality').value) errors.push('Image quality is required.');
+
+    if (!document.getElementById('inp_study_set').files[0]) errors.push('Compressed study set is required.');
 
     if (errors.length > 0) { showError(errors.join('\n')); return; }
 
@@ -450,7 +441,6 @@ async function saveExamination() {
     fd.append('protocol_type',            protocolType);
     fd.append('examination_group',        examGroup);
     if (weightVal) fd.append('patient_weight', weightVal);
-    if (wedVal)    fd.append('water_equivalent_diameter', wedVal);
     const ageVal = document.getElementById('inp_age').value;
     if (ageVal)    fd.append('patient_age', ageVal);
     fd.append('number_of_phases',         String(n));
@@ -466,17 +456,25 @@ async function saveExamination() {
             headers: { 'X-CSRFToken': CSRF_TOKEN },
             body: fd,
         });
-        const data = await resp.json();
+        let data;
+        try {
+            data = await resp.json();
+        } catch (_) {
+            showError(resp.status === 413
+                ? 'File is too large to upload.'
+                : `Server error (${resp.status}). Please try again or contact support.`);
+            return;
+        }
         if (data.status === 'created') {
             examCount++;
-            if (data.rhythm_pseudo_id) {
-                document.getElementById('pid_display').textContent = data.rhythm_pseudo_id;
-                document.getElementById('pid_seq').style.display = 'none';
-                document.getElementById('pid_pending').textContent = 'Assigned — record saved';
-                document.getElementById('pid_pending').style.display = '';
+            if (data.repository_study_id) {
+                document.getElementById('rsid_display').textContent = data.repository_study_id;
+                document.getElementById('rsid_seq').style.display = 'none';
+                document.getElementById('rsid_pending').textContent = 'Assigned — record saved';
+                document.getElementById('rsid_pending').style.display = '';
             }
             const box = document.getElementById('successBanner');
-            box.innerHTML = `${data.message}${data.rhythm_pseudo_id ? `<br><strong>Patient ID:</strong> ${data.rhythm_pseudo_id}` : ''}`;
+            box.innerHTML = `${data.message}${data.repository_study_id ? `<br><strong>Repository Study ID:</strong> ${data.repository_study_id}` : ''}`;
             box.style.display = 'block';
             clearForm();
         } else {
@@ -506,7 +504,6 @@ function clearForm() {
     document.getElementById('sel_exam_group').innerHTML = '<option value="">Select group…</option>';
     document.getElementById('sel_scanner').value = '';
     document.getElementById('inp_weight').value = '';
-    document.getElementById('inp_wed').value = '';
     document.getElementById('inp_age').value = '';
     document.getElementById('inp_phases').value = '1';
     document.getElementById('sel_quality').value = '';

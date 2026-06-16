@@ -329,12 +329,19 @@ class UploadAdvancedView(LoginRequiredMixin, TemplateView):
     """Serve the advanced multi-page upload UI."""
     login_url = '/login/'
     template_name = 'uploads/advanced.html'
-    
+
     def get_context_data(self, **kwargs):
         """Add context for the template."""
         context = super().get_context_data(**kwargs)
         context['max_upload_size_mb'] = settings.MAX_UPLOAD_SIZE_MB
         return context
+
+
+class HomeView(LoginRequiredMixin, TemplateView):
+    """Landing page shown after login — prompts user to pick a section from the sidebar."""
+    login_url = '/login/'
+    template_name = 'uploads/home.html'
+
 
 class LoginView(views.APIView):
     """

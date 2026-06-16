@@ -6,7 +6,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import path, include
-from uploads.views import UploadIndexView, UploadAdvancedView, LoginPageView, SignupPageView, LogoutView
+from uploads.views import UploadIndexView, UploadAdvancedView, HomeView, LoginPageView, SignupPageView, LogoutView
 from uploads.user_management_views import (
     UserManagementView,
     UserCreateAPIView,
@@ -25,6 +25,7 @@ from uploads.protocol_views import (
     ScannerProfileCreateView,
     ScannerModelsByManufacturerView,
     ScannerProfileEditView,
+    ScannerProfileDeleteView,
     ProtocolGUIView,
     ProtocolSaveAPIView,
     ProtocolRecordsView,
@@ -40,7 +41,7 @@ urlpatterns = [
     path('login/', LoginPageView.as_view(), name='login-page'),
     path('logout/', LogoutView.as_view(), name='logout'),
     path('signup/', SignupPageView.as_view(), name='signup-page'),
-    path('', UploadAdvancedView.as_view(), name='index'),
+    path('', HomeView.as_view(), name='index'),
     path('upload/', UploadAdvancedView.as_view(), name='upload'),
     path('json-validator/', JSONValidatorView.as_view(), name='json-validator'),
     path('simple/', UploadIndexView.as_view(), name='simple'),
@@ -67,6 +68,7 @@ urlpatterns = [
     path('scanners/create/', ScannerProfileCreateView.as_view(), name='scanner-profile-create'),
     path('scanners/models/', ScannerModelsByManufacturerView.as_view(), name='scanner-models-by-manufacturer'),
     path('scanners/<str:pk>/edit/', ScannerProfileEditView.as_view(), name='scanner-profile-edit'),
+    path('scanners/<str:pk>/delete/', ScannerProfileDeleteView.as_view(), name='scanner-profile-delete'),
 
     # User management (superuser only)
     path('users/', UserManagementView.as_view(), name='user-management'),

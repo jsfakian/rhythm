@@ -22,6 +22,12 @@
             <a href="/scanners/create/" class="btn btn-primary">+ Add Scanner</a>
         </div>
 
+        {% if request.GET.delete_error %}
+        <div class="alert-error" style="margin-bottom:16px;">
+            <strong>Cannot delete scanner:</strong> It has associated protocols or examinations. Remove those first.
+        </div>
+        {% endif %}
+
         <div class="card">
             {% if scanner_profiles %}
             <div class="table-wrap">
@@ -52,8 +58,12 @@
                                     <span class="text-muted">—</span>
                                 {% endif %}
                             </td>
-                            <td>
+                            <td style="white-space:nowrap;">
                                 <a href="/scanners/{{ scanner.pk }}/edit/" class="btn btn-secondary btn-sm">Edit</a>
+                                <form method="post" action="/scanners/{{ scanner.pk }}/delete/" style="display:inline;margin-left:6px;" onsubmit="return confirm('Delete this scanner profile? This cannot be undone.');">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-sm" style="background:#fee2e2;color:#b42318;border:1px solid #fca5a5;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;">Delete</button>
+                                </form>
                             </td>
                         </tr>
                         {% endfor %}

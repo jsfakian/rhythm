@@ -194,7 +194,16 @@
                     if (isOther(sel.value)) {
                         var textInput = document.getElementById(sel.name + '_other_text');
                         if (textInput && textInput.value.trim()) {
-                            sel.value = textInput.value.trim();
+                            var customVal = textInput.value.trim();
+                            // Add as a real option so the browser submits the custom value
+                            var existing = Array.from(sel.options).find(function(o) { return o.value === customVal; });
+                            if (!existing) {
+                                var opt = document.createElement('option');
+                                opt.value = customVal;
+                                opt.textContent = customVal;
+                                sel.appendChild(opt);
+                            }
+                            sel.value = customVal;
                         }
                     }
                 });
@@ -205,13 +214,34 @@
         function initManufacturerCascade() {
             var mfgSel = document.querySelector('select[name="manufacturer"]') ||
                          document.querySelector('select[id*="manufacturer"]');
-            var modelSel = document.querySelector('select[name="scanner_model"]') ||
-                           document.querySelector('select[id*="scanner_model"]');
-            if (!mfgSel || !modelSel) return;
+            if (!mfgSel) return;
 
             mfgSel.addEventListener('change', function() {
                 var mfgId = mfgSel.value;
                 if (!mfgId) return;
+
+                // Re-query modelSel each time so we always have the live DOM reference
+                var modelSel = document.querySelector('select[name="scanner_model"]') ||
+                               document.querySelector('select[id*="scanner_model"]');
+                if (!modelSel) return;
+
+                // If "Other" manufacturer selected, skip cascade and directly show model Other panel
+                if (isOther(mfgId)) {
+                    // Ensure "Other: Please Specify" is an option in the model select so
+                    // hookFormSubmit can detect it and copy the typed text on submit.
+                    var otherOptVal = 'Other: Please Specify';
+                    var existingOther = Array.from(modelSel.options).find(function(o) { return o.value === otherOptVal; });
+                    if (!existingOther) {
+                        var otherOpt = document.createElement('option');
+                        otherOpt.value = otherOptVal;
+                        otherOpt.textContent = otherOptVal;
+                        modelSel.appendChild(otherOpt);
+                    }
+                    modelSel.value = otherOptVal;
+                    var modelOtherPanel = document.getElementById('other-scanner_model');
+                    if (modelOtherPanel) modelOtherPanel.classList.add('visible');
+                    return;
+                }
 
                 fetch('/api/v1/scanners/models/?manufacturer_id=' + encodeURIComponent(mfgId))
                     .then(function(r) { return r.json(); })

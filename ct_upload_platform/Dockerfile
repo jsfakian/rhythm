@@ -25,8 +25,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy project source
 COPY ct_upload_platform .
 
-# Create non-root user for security
-RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+# Create non-root user and ensure media subdirectories are writable
+RUN useradd -m -u 1000 appuser \
+    && mkdir -p /app/media/examination_study_sets \
+    && chown -R appuser:appuser /app
 USER appuser
 
 # Default command: run gunicorn

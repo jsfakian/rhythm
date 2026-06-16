@@ -155,6 +155,8 @@ class CTScannerProfileForm(forms.ModelForm):
     )
     local_protocol_note = forms.CharField(
         required=False,
+        label="Site-specific acquisition notes",
+        help_text="Any notes about how this scanner is locally configured or used at your site (e.g. non-standard defaults, site-specific adjustments).",
         widget=forms.Textarea(attrs={"class": "form-control", "rows": 4}),
     )
 
@@ -188,10 +190,23 @@ class CTScannerProfileForm(forms.ModelForm):
             ).order_by("sort_order", "name")
 
 
+_PROTOCOL_APPROACH_CHOICES = [
+    ("", "--- Select ---"),
+    ("Indication-specific protocol", "Indication-specific protocol"),
+    ("Anatomical protocol", "Anatomical protocol"),
+]
+
+
 class CTProtocolForm(forms.ModelForm):
     dose_metadata = forms.MultipleChoiceField(
         widget=forms.CheckboxSelectMultiple(),
         required=False,
+    )
+    clinical_comments = forms.ChoiceField(
+        choices=_PROTOCOL_APPROACH_CHOICES,
+        required=False,
+        label="Protocol approach",
+        widget=forms.Select(attrs={"class": "form-control"}),
     )
     notes = forms.CharField(
         required=False,

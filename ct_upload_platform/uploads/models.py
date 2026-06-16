@@ -747,6 +747,8 @@ class CTProtocol(models.Model):
     scan_fov = models.CharField(max_length=128, blank=True)
     kernel_class = models.CharField(max_length=128, blank=True)
     reconstruction_algorithm = models.CharField(max_length=256, blank=True)
+    tissue_of_interest = models.CharField(max_length=256, blank=True)
+    strength = models.CharField(max_length=128, blank=True)
     protocol_intent = models.CharField(max_length=256, blank=True)
     dose_metadata = models.JSONField(default=list, blank=True)
     notes = models.TextField(blank=True)
@@ -780,8 +782,8 @@ class CTExamination(models.Model):
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    rhythm_pseudo_id = models.CharField(max_length=64, blank=True, db_index=True,
-                                        help_text='Auto-generated RHYTHM repository pseudo-ID')
+    repository_study_id = models.CharField(max_length=64, blank=True, db_index=True,
+                                           help_text='Auto-generated RHYTHM repository study ID')
     protocol = models.ForeignKey(
         CTProtocol,
         on_delete=models.SET_NULL,

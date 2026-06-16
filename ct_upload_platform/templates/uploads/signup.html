@@ -150,6 +150,31 @@
 
         #roleOtherGroup { display: none; }
 
+        .terms-box {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 16px 18px;
+            max-height: 220px;
+            overflow-y: auto;
+            font-size: 13px;
+            color: #495057;
+            line-height: 1.6;
+            margin-bottom: 14px;
+        }
+        .terms-box h4 {
+            font-size: 13px;
+            font-weight: 700;
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        .terms-box p {
+            margin-bottom: 10px;
+        }
+        .terms-box p:last-child {
+            margin-bottom: 0;
+        }
+
         .field-error {
             color: #e74c3c;
             font-size: 12px;
@@ -406,11 +431,18 @@
 
             <div class="section-divider">Terms of Use</div>
 
+            <div class="terms-box">
+                <h4>RHYTHM Repository Policy and Terms of Use</h4>
+                <p>By creating an account, I confirm that I am authorized by my institution to use the RHYTHM Repository Upload Tool and, where applicable, to submit CT/DICOM imaging data, associated dose and technical metadata information under the signed Data Transfer Agreement. The data provider remains responsible for ensuring that all data have been anonymized or pseudonymized before transfer, that no direct patient identifiers or re-identification keys are uploaded, and that all necessary ethics approvals, institutional authorizations, and legal bases under GDPR and applicable national law are in place.</p>
+                <p>All repository actions, including uploads, access and analysis queries, may be logged for security, auditability and oversight by the RHYTHM governance bodies.</p>
+                <p>I further acknowledge that the contributing institution retains ownership and control of its submitted data.</p>
+                <p>Use of the repository must comply with the DTA, the RHYTHM Data Management Plan, GDPR, EHDS-aligned governance principles, and the instructions of the Data Management Board and ELSIB.</p>
+            </div>
+
             <div class="checkbox-group">
                 <input type="checkbox" id="termsAccepted" name="terms_accepted" required>
                 <label for="termsAccepted">
-                    I have read and agree to the <a href="#" target="_blank">RHYTHM Repository Policy</a>
-                    and the terms governing the submission, storage, and use of anonymised medical imaging data.
+                    I have read and agree to the RHYTHM Repository Policy and Terms of Use. I confirm that I am authorized by my institution to use this upload tool and that any submitted CT/DICOM data will be anonymized before upload, without direct patient identifiers or re-identification keys, in accordance with the DTA, GDPR, institutional approvals and RHYTHM governance procedures.
                 </label>
             </div>
             <div id="termsError" class="field-error" style="margin-top:-12px;margin-bottom:12px;"></div>

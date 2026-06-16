@@ -39,22 +39,14 @@
             border-color: var(--primary2); box-shadow: 0 0 0 3px rgba(40,75,122,.12);
         }
         .field-row textarea { min-height: 68px; resize: vertical; }
+        .contrast-display {
+            padding: 9px 11px; background: #f8fafc; border: 1px solid var(--border);
+            border-radius: 10px; font-size: 14px; min-height: 40px;
+        }
         .notice { background: var(--warn-bg); border: 1px solid #f7d68a; color: #7a3d00; padding: 11px 14px; border-radius: 14px; font-size: 13px; margin-bottom: 14px; line-height: 1.4; }
         .info-box { background: var(--accent); border: 1px solid #c7dbff; color: var(--primary); padding: 11px 14px; border-radius: 14px; font-size: 13px; margin-top: 14px; line-height: 1.4; }
         .success-box { background: var(--ok-bg); border: 1px solid #b7e4c7; color: var(--ok); padding: 11px 14px; border-radius: 14px; font-size: 13px; margin-bottom: 14px; }
         .danger-box { background: var(--danger-bg); border: 1px solid #ffd5d1; color: var(--danger); padding: 11px 14px; border-radius: 14px; font-size: 13px; margin-bottom: 14px; }
-        .scanner-select-row { display: flex; gap: 8px; align-items: flex-end; }
-        .scanner-select-row select { flex: 1; }
-        .tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; background: #edf2f7; padding: 6px; border-radius: 14px; }
-        .tab-btn {
-            background: transparent; color: #344054; border: 1px solid transparent;
-            padding: 8px 14px; border-radius: 10px; cursor: pointer; font-weight: 600;
-            font-size: 13px; transition: all .15s;
-        }
-        .tab-btn.active { background: white; color: var(--primary); border-color: var(--border); box-shadow: 0 3px 8px rgba(21,34,56,.08); }
-        .fields-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
-        .fields-grid .full { grid-column: 1/-1; }
-        .fields-grid .half { grid-column: span 2; }
         .progress-bar-wrap { height: 10px; background: #e5eaf2; border-radius: 999px; overflow: hidden; margin-top: 8px; }
         .progress-bar { height: 100%; background: var(--primary2); width: 0%; transition: width .2s; }
         .form-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; align-items: center; }
@@ -69,12 +61,15 @@
         .btn-records { background: #edf2f7; color: var(--text); border: 1px solid var(--border); }
         .exists-banner { display: none; }
         .exists-banner.visible { display: block; }
+        .fields-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+        .fields-grid .full { grid-column: 1/-1; }
+        .fields-grid .half { grid-column: span 2; }
         @media(max-width:1100px) {
             .gui-layout { grid-template-columns: 1fr; }
             .sticky-col { position: static; }
             .fields-grid { grid-template-columns: 1fr 1fr; }
         }
-        @media(max-width:640px) { .fields-grid { grid-column: 1fr; } }
+        @media(max-width:640px) { .fields-grid { grid-template-columns: 1fr; } }
     </style>
 </head>
 <body>
@@ -83,7 +78,7 @@
     <div class="main-content">
         <div class="gui-header">
             <h1>CT Protocol Repository GUI</h1>
-            <p>Clinical indication / region-centred workflow. Step 1 selects the anatomical region and clinical indication from the RHYTHM partner list. Step 2 selects your registered CT scanner. Step 3 records protocol parameters.</p>
+            <p>Clinical indication / region-centred workflow. Step 1 selects the anatomical region, clinical indication, protocol type and approach. Step 2 selects your registered CT scanner. Step 3 records protocol parameters.</p>
         </div>
         <div class="gui-layout">
             <!-- Left sticky column -->
@@ -91,18 +86,32 @@
                 <!-- Step 1 -->
                 <div class="gui-card">
                     <h2>1. Select Clinical Indication / Region</h2>
-                    <p class="desc">Select the anatomical region and clinical indication to populate scanner and protocol fields.</p>
+                    <p class="desc">Select the anatomical region and clinical indication, then choose the protocol type and approach.</p>
                     <div class="field-row">
                         <label>Clinical Indication</label>
                         <select id="cl_clinical" onchange="onClinicalChange()"><option value="">Select region / indication...</option></select>
                     </div>
                     <div class="field-row">
-                        <label>IV Contrast?</label>
-                        <select id="cl_contrast" onchange="onStep1Change()"><option value="">Select contrast option...</option></select>
+                        <label>IV Contrast</label>
+                        <div class="contrast-display">
+                            <span id="contrastDisplayText" style="color:var(--muted);">Auto-determined from clinical indication</span>
+                        </div>
                     </div>
                     <div class="field-row">
-                        <label>Comments / Protocol Guidance</label>
-                        <select id="cl_comments" onchange="onStep1Change()"><option value="">None</option></select>
+                        <label>Protocol Type</label>
+                        <select id="cl_protocol_type" onchange="onProtocolTypeChange()">
+                            <option value="">Select protocol type...</option>
+                            <option value="PEDIATRIC_HEAD">Pediatric Head</option>
+                            <option value="PEDIATRIC_BODY">Pediatric Body</option>
+                            <option value="YOUNG_ADULT">Young Adult</option>
+                        </select>
+                    </div>
+                    <div class="field-row">
+                        <label>Protocol Approach</label>
+                        <select id="cl_comments" onchange="onStep1Change()">
+                            <option value="Indication-specific protocol">Indication-specific protocol</option>
+                            <option value="Anatomical protocol">Anatomical protocol</option>
+                        </select>
                     </div>
                     <div id="clinicalPreview" class="info-box" style="display:none;"></div>
                 </div>
@@ -110,14 +119,11 @@
                 <!-- Step 2 -->
                 <div class="gui-card">
                     <h2>2. Select Scanner</h2>
-                    <p class="desc">Choose a registered CT scanner or add a new one.</p>
+                    <p class="desc">Choose a registered CT scanner.</p>
                     <div id="noScannersNotice" class="notice" style="display:none;">No scanners registered yet. Register one first.</div>
                     <div class="field-row">
                         <label>CT Scanner</label>
-                        <div class="scanner-select-row">
-                            <select id="scanner_select" onchange="onScannerChange()"><option value="">Select scanner...</option></select>
-                            <a href="/scanners/create/?next=/protocols/gui/" class="btn-gui btn-records" style="white-space:nowrap;text-decoration:none;padding:9px 12px;">+ Add new scanner</a>
-                        </div>
+                        <select id="scanner_select" onchange="onScannerChange()"><option value="">Select scanner...</option></select>
                     </div>
                     <div id="scannerPreview" style="display:none;margin-top:8px;font-size:13px;color:var(--muted);"></div>
                 </div>
@@ -130,7 +136,7 @@
                     <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;">
                         <div style="flex:1;">
                             <h2>3. Enter Protocol Fields</h2>
-                            <p id="protocolContextText" class="desc" style="margin-bottom:6px;">Select a clinical indication and scanner before adding protocols.</p>
+                            <p id="protocolContextText" class="desc" style="margin-bottom:6px;">Select a clinical indication, protocol type, and scanner before adding protocols.</p>
                             <div class="progress-bar-wrap"><div class="progress-bar" id="progressBar"></div></div>
                             <div style="font-size:12px;color:var(--muted);margin-top:4px;">Completion: <span id="completionPct">0%</span></div>
                         </div>
@@ -151,11 +157,10 @@
                     <div id="successBanner" class="success-box" style="display:none;margin-top:14px;"></div>
                 </div>
 
-                <!-- Protocol tabs + fields -->
+                <!-- Protocol fields -->
                 <div class="gui-card">
-                    <div id="protocolBlocked" class="notice">Select a clinical indication (Step 1) and a scanner (Step 2) before entering protocol fields.</div>
+                    <div id="protocolBlocked" class="notice">Select a clinical indication, protocol type (Step 1) and a scanner (Step 2) before entering protocol fields.</div>
                     <div id="protocolFormWrap" style="display:none;">
-                        <div class="tabs" id="protocolTabs"></div>
                         <div id="protocolFields"></div>
                     </div>
                 </div>
@@ -172,16 +177,14 @@ const PROTOCOL_CHOICES = {{ protocol_choices_json|safe }};
 const MANUFACTURER_OPTIONS = {{ manufacturer_options_json|safe }};
 const MA_INPUT_SPECS = {{ ma_input_specs_json|safe }};
 const CSRF_TOKEN = '{{ csrf_token }}';
-// Derived lookup helpers populated from CLINICAL_ROWS for convenience
-const ANATOMICAL_REGIONS = [...new Set(CLINICAL_ROWS.map(r => r.anatomical_region))];
-const CLINICAL_INDICATIONS = [...new Set(CLINICAL_ROWS.map(r => r.clinical_indication))];
 
 const OTHER_VAL = "Other: Please Specify";
+const AUTO_KVP_PASSIVE = new Set(['Off', 'Not Available', '']);
 
 let state = {
-    region: "", indication: "", contrast: "", comments: "",
+    region: "", indication: "", contrast: "", comments: "Indication-specific protocol",
     scannerId: "",
-    activeTab: Object.keys(PROTOCOL_TABS)[0],
+    activeTab: "",
     fields: {},
 };
 
@@ -198,6 +201,7 @@ function initStep1() {
     const pairs = unique(CLINICAL_ROWS.map(r => `${r.anatomical_region} / ${r.clinical_indication}`));
     const current = state.region && state.indication ? `${state.region} / ${state.indication}` : '';
     setSelect(document.getElementById('cl_clinical'), pairs, 'Select region / indication...', current);
+    state.comments = document.getElementById('cl_comments').value;
 }
 
 function onClinicalChange() {
@@ -209,29 +213,36 @@ function onClinicalChange() {
     } else {
         state.region = ""; state.indication = "";
     }
-    state.contrast = ""; state.comments = "";
+    // Auto-determine contrast from the matching clinical row
     const matches = CLINICAL_ROWS.filter(r => r.anatomical_region === state.region && r.clinical_indication === state.indication);
-    // IV contrast options — auto-select when only one option available
-    const contrastOpts = unique(matches.flatMap(r => r.iv_contrast.split(',').map(s => s.trim())));
-    setSelect(document.getElementById('cl_contrast'), contrastOpts, 'Select contrast option...', '');
-    if (contrastOpts.length === 1) {
-        document.getElementById('cl_contrast').value = contrastOpts[0];
-        state.contrast = contrastOpts[0];
+    const contrastEl = document.getElementById('contrastDisplayText');
+    if (matches.length > 0) {
+        const rawContrast = matches[0].iv_contrast;
+        state.contrast = rawContrast.split(',')[0].trim();
+        contrastEl.textContent = rawContrast;
+        contrastEl.style.color = 'var(--text)';
+    } else {
+        state.contrast = '';
+        contrastEl.textContent = 'Auto-determined from clinical indication';
+        contrastEl.style.color = 'var(--muted)';
     }
-    // Comments from data
-    const commentOpts = unique(matches.map(r => r.comments).filter(Boolean));
-    setSelect(document.getElementById('cl_comments'), commentOpts, 'None', '');
-    if (commentOpts.length === 1) {
-        document.getElementById('cl_comments').value = commentOpts[0];
-        state.comments = commentOpts[0];
+    updatePreview();
+    updateProtocolContext();
+}
+
+function onProtocolTypeChange() {
+    const newType = document.getElementById('cl_protocol_type').value;
+    if (newType !== state.activeTab) {
+        state.activeTab = newType;
+        state.fields = {};
     }
-    updatePreview(); updateProtocolContext();
+    updateProtocolContext();
 }
 
 function onStep1Change() {
-    state.contrast = document.getElementById('cl_contrast').value;
     state.comments = document.getElementById('cl_comments').value;
-    updatePreview(); updateProtocolContext();
+    updatePreview();
+    updateProtocolContext();
     // Re-sync the locked contrast field if the protocol form is already visible
     const mappedContrast = mapContrastFromIV(state.contrast);
     const sel = document.getElementById('fld_contrast');
@@ -240,9 +251,11 @@ function onStep1Change() {
 
 function updatePreview() {
     const box = document.getElementById('clinicalPreview');
-    if (state.region && state.indication && state.contrast) {
+    if (state.region && state.indication) {
         box.style.display = 'block';
-        box.innerHTML = `<strong>Selected:</strong> ${esc(state.region)} — ${esc(state.indication)}<br><strong>IV contrast:</strong> ${esc(state.contrast)}${state.comments ? `<br><strong>Comments:</strong> ${esc(state.comments)}` : ''}`;
+        box.innerHTML = `<strong>Selected:</strong> ${esc(state.region)} — ${esc(state.indication)}`
+            + (state.contrast ? `<br><strong>IV contrast:</strong> ${esc(state.contrast)}` : '')
+            + (state.comments ? `<br><strong>Approach:</strong> ${esc(state.comments)}` : '');
     } else {
         box.style.display = 'none';
     }
@@ -262,7 +275,6 @@ function initStep2() {
 
 function onScannerChange() {
     state.scannerId = document.getElementById('scanner_select').value;
-    // Clear manufacturer-specific fields so stale values from a previous scanner don't carry over
     delete state.fields['auto_kvp_selection'];
     delete state.fields['auto_ma_modulation'];
     const scanner = SCANNERS.find(s => s.id === state.scannerId);
@@ -278,28 +290,14 @@ function onScannerChange() {
 
 /* ── Step 3 ── */
 function updateProtocolContext() {
-    const ready = state.region && state.indication && state.contrast && state.scannerId;
+    const ready = state.region && state.indication && state.scannerId && state.activeTab;
     document.getElementById('protocolBlocked').style.display = ready ? 'none' : 'block';
     document.getElementById('protocolFormWrap').style.display = ready ? 'block' : 'none';
     if (!ready) return;
     const scanner = SCANNERS.find(s => s.id === state.scannerId);
+    const tabLabels = { PEDIATRIC_HEAD: 'Pediatric Head', PEDIATRIC_BODY: 'Pediatric Body', YOUNG_ADULT: 'Young Adult' };
     document.getElementById('protocolContextText').innerHTML =
-        `Selected: <strong>${esc(state.region)} / ${esc(state.indication)}</strong> &nbsp;&middot;&nbsp; Scanner: <strong>${esc(scanner ? scanner.display : '')}</strong>`;
-    renderTabs();
-    renderFields();
-}
-
-function renderTabs() {
-    const container = document.getElementById('protocolTabs');
-    container.innerHTML = Object.entries(PROTOCOL_TABS).map(([key, tab]) =>
-        `<button class="tab-btn${key===state.activeTab?' active':''}" onclick="setTab('${key}')">${esc(tab.label)}</button>`
-    ).join('');
-}
-
-function setTab(key) {
-    state.activeTab = key;
-    state.fields = {};
-    renderTabs();
+        `Selected: <strong>${esc(state.region)} / ${esc(state.indication)}</strong> &nbsp;&middot;&nbsp; Type: <strong>${esc(tabLabels[state.activeTab] || state.activeTab)}</strong> &nbsp;&middot;&nbsp; Scanner: <strong>${esc(scanner ? scanner.display : '')}</strong>`;
     renderFields();
 }
 
@@ -346,6 +344,32 @@ function mapContrastFromIV(ivContrast) {
     return /non/i.test(ivContrast) ? 'No Contrast' : 'Contrast-Enhanced';
 }
 
+function isAutoKvpActive() {
+    const val = state.fields['auto_kvp_selection'] || '';
+    return val && !AUTO_KVP_PASSIVE.has(val);
+}
+
+function renderKvpFields() {
+    if (isAutoKvpActive()) {
+        const kvpOpts = getOptions('kvp').filter(o => !/dual|spectral|other/i.test(o));
+        const refKvpVal = state.fields['kvp'] || '';
+        const tissueVal = esc(state.fields['tissue_of_interest'] || '');
+        return `<div class="field-row">
+            <label>Ref. kVp</label>
+            <select id="fld_kvp" onchange="onFieldChange('kvp')">
+                <option value="">Select...</option>
+                ${kvpOpts.map(o => `<option value="${esc(o)}"${o===refKvpVal?' selected':''}>${esc(o)}</option>`).join('')}
+            </select>
+        </div>
+        <div class="field-row">
+            <label>Tissue of interest</label>
+            <input type="text" id="fld_tissue_of_interest" value="${tissueVal}" placeholder="e.g. Soft tissue imaging" oninput="onFieldChange('tissue_of_interest')" />
+        </div>`;
+    } else {
+        return makeSelect('kvp', getOptions('kvp'), 'kVp', false);
+    }
+}
+
 function onCombinedEgAgChange() {
     const idx = parseInt(document.getElementById('fld_eg_ag').value);
     const tab = PROTOCOL_TABS[state.activeTab];
@@ -379,10 +403,7 @@ function renderFields() {
         </select>
     </div>`;
 
-    if (!state.fields['number_of_phases']) state.fields['number_of_phases'] = '1';
-
     const scanTypeOpts = getOptions('scan_type').filter(o => /sequential|axial|helical|spiral/i.test(o));
-    const scanFovOpts = ['Ped Head', 'Ped Body', 'Small Head', 'Head', 'Small Body', 'Medium Body', 'Large Body'];
     const pitchVal = esc(state.fields['pitch'] || '');
     const pitchHtml = `<div class="field-row">
         <label>Pitch</label>
@@ -400,20 +421,18 @@ function renderFields() {
         </div>
     </div>
     <div class="fields-grid">
-        ${makeInput('protocol_name', 'Protocol Name', false, false)}
         ${makeSelect('scan_type', scanTypeOpts, 'Scan Type', false, true)}
         ${contrastHtml}
-        ${makeSelect('number_of_phases', getOptions('number_of_phases'), 'Number of Phases', false)}
         ${makeSelect('auto_kvp_selection', getManufacturerFieldOptions('auto_kvp_selection') || getOptions('auto_kvp_selection'), 'Automatic kVp Selection', false)}
-        ${makeSelect('kvp', getOptions('kvp'), 'kVp', false)}
+        <div id="kvp_fields_slot">${renderKvpFields()}</div>
         ${makeSelect('auto_ma_modulation', getManufacturerFieldOptions('auto_ma_modulation') || getOptions('auto_ma_modulation'), 'Automatic mA Modulation', false)}
         <div id="mas_inputs_slot" style="grid-column:span 2;">${renderMasInputs()}</div>
         ${pitchHtml}
         ${makeSelect('rotation_time', getOptions('rotation_time'), 'Rotation Time (s)', false)}
         ${makeSelect('slice_thickness', getOptions('slice_thickness'), 'Slice Thickness 1st Recon (mm)', false)}
-        ${makeSelect('scan_fov', scanFovOpts, 'Scan Field of View', false)}
-        ${makeSelect('kernel_class', getOptions('kernel_class'), 'Generic Kernel Class', false)}
-        ${makeSelect('reconstruction_algorithm', getOptions('reconstruction_algorithm'), 'Reconstruction Algorithm', false)}
+        ${makeInput('kernel_class', 'Reconstruction filter kernel', false, false)}
+        ${makeInput('reconstruction_algorithm', 'Reconstruction algorithm', false, false)}
+        ${makeInput('strength', 'Strength', false, false)}
         ${makeInput('notes', 'Additional Free-Text Notes', true, true)}
     </div>`;
 
@@ -429,10 +448,8 @@ function renderMasInputs() {
     if (!maValue && !dropdownIsOther) {
         labels = [];
     } else if (dropdownIsOther || !Object.prototype.hasOwnProperty.call(MA_INPUT_SPECS, maValue)) {
-        // "Other: Please Specify" selected (text input may still be empty) or custom free-text
         labels = MA_INPUT_SPECS['Other: Please Specify'] || ['mA'];
     } else {
-        // Known value — use the seeded spec (may be empty list for "Not Available")
         labels = MA_INPUT_SPECS[maValue];
     }
     if (!labels.length) return '';
@@ -472,29 +489,35 @@ function onFieldChange(key) {
         if (otherDiv) otherDiv.style.display = 'none';
         state.fields[key] = el.value;
     }
-    // When mA modulation changes, reset stored mAs values and re-render the fields
     if (key === 'auto_ma_modulation') {
         state.fields['mas_inputs'] = {};
-        const container = document.getElementById('protocolFields');
-        if (container) {
-            // Re-render only the mAs inputs section without a full renderFields()
-            // to preserve other field values already entered.
-            const masSlot = document.getElementById('mas_inputs_slot');
-            if (masSlot) masSlot.innerHTML = renderMasInputs();
-        }
+        const masSlot = document.getElementById('mas_inputs_slot');
+        if (masSlot) masSlot.innerHTML = renderMasInputs();
+    }
+    if (key === 'auto_kvp_selection') {
+        state.fields['kvp'] = '';
+        state.fields['tissue_of_interest'] = '';
+        const kvpSlot = document.getElementById('kvp_fields_slot');
+        if (kvpSlot) kvpSlot.innerHTML = renderKvpFields();
     }
     updateCompletion();
 }
 
 function onOtherInput(key) {
     state.fields[key] = document.getElementById('fld_' + key + '_other_txt')?.value.trim() || '';
+    if (key === 'auto_kvp_selection') {
+        state.fields['kvp'] = '';
+        state.fields['tissue_of_interest'] = '';
+        const kvpSlot = document.getElementById('kvp_fields_slot');
+        if (kvpSlot) kvpSlot.innerHTML = renderKvpFields();
+    }
     updateCompletion();
 }
 
 function updateCompletion() {
-    const keys = ['examination_group', 'age_group', 'protocol_name', 'scan_type', 'contrast',
-        'number_of_phases', 'auto_kvp_selection', 'kvp', 'auto_ma_modulation',
-        'pitch', 'rotation_time', 'slice_thickness', 'scan_fov', 'kernel_class', 'reconstruction_algorithm'];
+    const keys = ['examination_group', 'age_group', 'scan_type', 'contrast',
+        'auto_kvp_selection', 'kvp', 'auto_ma_modulation',
+        'pitch', 'rotation_time', 'slice_thickness', 'kernel_class', 'reconstruction_algorithm'];
     const filled = keys.filter(k => state.fields[k] && String(state.fields[k]).trim()).length;
     const pct = Math.round((filled / keys.length) * 100);
     document.getElementById('progressBar').style.width = pct + '%';
@@ -503,17 +526,23 @@ function updateCompletion() {
 
 function clearProtocolForm() {
     state.fields = {};
-    renderFields();
+    if (document.getElementById('protocolFormWrap').style.display !== 'none') {
+        renderFields();
+    }
     document.getElementById('existsBanner').classList.remove('visible');
     document.getElementById('successBanner').style.display = 'none';
 }
 
 function resetStep1() {
-    state = { region: "", indication: "", contrast: "", comments: "", scannerId: "", activeTab: Object.keys(PROTOCOL_TABS)[0], fields: {} };
+    state = { region: "", indication: "", contrast: "", comments: "Indication-specific protocol", scannerId: "", activeTab: "", fields: {} };
     initStep1();
-    setSelect(document.getElementById('cl_contrast'), [], 'Select contrast option...', '');
-    setSelect(document.getElementById('cl_comments'), [], 'None', '');
-    updatePreview(); updateProtocolContext();
+    document.getElementById('cl_protocol_type').value = '';
+    document.getElementById('cl_comments').value = 'Indication-specific protocol';
+    const contrastEl = document.getElementById('contrastDisplayText');
+    contrastEl.textContent = 'Auto-determined from clinical indication';
+    contrastEl.style.color = 'var(--muted)';
+    updatePreview();
+    updateProtocolContext();
 }
 
 /* ── Save ── */
@@ -521,8 +550,11 @@ async function saveProtocol(forceUpdate) {
     document.getElementById('existsBanner').classList.remove('visible');
     document.getElementById('successBanner').style.display = 'none';
 
-    if (!state.region || !state.indication || !state.contrast) {
-        alert('Please complete Step 1: select anatomical region, clinical indication, and IV contrast.'); return;
+    if (!state.region || !state.indication) {
+        alert('Please complete Step 1: select anatomical region and clinical indication.'); return;
+    }
+    if (!state.activeTab) {
+        alert('Please select a Protocol Type in Step 1.'); return;
     }
     if (!state.scannerId) { alert('Please select a scanner in Step 2.'); return; }
     if (!state.fields['examination_group'] || !state.fields['age_group']) {

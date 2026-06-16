@@ -130,7 +130,7 @@
                 <table id="exam-table">
                     <thead>
                         <tr>
-                            <th>RHYTHM ID</th>
+                            <th>Repository Study ID</th>
                             <th>Created by</th>
                             <th>Institution</th>
                             <th>Region</th>
@@ -146,7 +146,7 @@
                         {% for item in examinations %}
                         {% with e=item.obj %}
                         <tr>
-                            <td><code style="font-size:12px;">{{ e.rhythm_pseudo_id|default:"—" }}</code></td>
+                            <td><code style="font-size:12px;">{{ e.repository_study_id|default:"—" }}</code></td>
                             <td>{{ e.created_by|default:"—" }}</td>
                             <td>
                                 {% if item.institution != '—' %}
