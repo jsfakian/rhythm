@@ -47,3 +47,6 @@ htmlcov/
 
 # Celery
 celerybeat-schedule
+
+# Upload storage
+raw_data/

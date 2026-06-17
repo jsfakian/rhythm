@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RHYTHM Repository – Upload Tool</title>
+    {% include 'uploads/_styles.html' %}
+    <style>
+        .home-prompt {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 70vh;
+            gap: 16px;
+            color: #6b7280;
+            text-align: center;
+            user-select: none;
+        }
+        .home-prompt-icon {
+            font-size: 52px;
+            opacity: .35;
+        }
+        .home-prompt h2 {
+            font-size: 20px;
+            font-weight: 600;
+            color: #374151;
+            margin: 0;
+        }
+        .home-prompt p {
+            font-size: 14px;
+            color: #9ca3af;
+            margin: 0;
+        }
+    </style>
+</head>
+<body>
+<div class="app-container">
+    {% include 'uploads/_sidebar.html' with active_nav='home' %}
+    <div class="main-content">
+        <div class="page-body">
+            <div class="home-prompt">
+                <div class="home-prompt-icon">🏥</div>
+                <h2>Welcome to the RHYTHM Repository Upload Tool</h2>
+                <p>Select an option from the menu on the left to get started.</p>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>
