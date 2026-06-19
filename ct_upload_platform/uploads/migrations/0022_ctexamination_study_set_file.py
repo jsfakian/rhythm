@@ -4,7 +4,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('uploads', '0021_update_scanner_options'),
+        ('uploads', '0017_ma_modulation_input_spec'),
     ]
 
     operations = [

@@ -12,6 +12,58 @@
         .form-grid { gap: 18px 24px; }
         .form-actions { margin-top: 4px; }
         .btn { padding: 10px 24px; }
+
+        /* ── Combobox ── */
+        .cb-wrap {
+            position: relative;
+        }
+        .cb-wrap .form-control {
+            padding-right: 30px;
+        }
+        .cb-toggle {
+            position: absolute;
+            right: 0;
+            top: 0;
+            bottom: 0;
+            width: 30px;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            color: #555;
+            font-size: 11px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .cb-toggle:hover { color: #000; }
+        .cb-dropdown {
+            display: none;
+            position: absolute; /* overridden to fixed by JS for overflow escape */
+            background: #fff;
+            border: 1px solid #ccc;
+            border-top: none;
+            border-radius: 0 0 4px 4px;
+            max-height: 340px;
+            overflow-y: auto;
+            z-index: 9999;
+            list-style: none;
+            margin: 0;
+            padding: 4px 0;
+            box-shadow: 0 4px 8px rgba(0,0,0,.12);
+        }
+        .cb-dropdown.open { display: block; }
+        .cb-dropdown li {
+            padding: 7px 12px;
+            cursor: pointer;
+            font-size: 14px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .cb-dropdown li:hover,
+        .cb-dropdown li.cb-active {
+            background: #e8f0fe;
+        }
     </style>
 </head>
 <body>
@@ -41,78 +93,96 @@
                 <div class="form-grid">
 
                     <!-- Manufacturer -->
-                    {% if form.manufacturer %}
                     <div class="field-wrap" id="wrap-manufacturer">
-                        <label for="{{ form.manufacturer.id_for_label }}">{{ form.manufacturer.label }}</label>
-                        {{ form.manufacturer }}
+                        <label for="id_manufacturer">{{ form.manufacturer.label }}</label>
+                        <div class="cb-wrap" id="cb-manufacturer">
+                            <input type="text" id="id_manufacturer" name="manufacturer"
+                                   class="form-control" autocomplete="off"
+                                   value="{{ form.manufacturer.value|default:'' }}"
+                                   placeholder="Select manufacturer">
+                            <button type="button" class="cb-toggle" tabindex="-1">&#9660;</button>
+                            <ul class="cb-dropdown" role="listbox">
+                                {% for name in form.manufacturer_suggestions %}
+                                <li role="option" data-value="{{ name }}">{{ name }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
                         {% if form.manufacturer.errors %}
                         <ul class="field-errors">
                             {% for e in form.manufacturer.errors %}<li>{{ e }}</li>{% endfor %}
                         </ul>
                         {% endif %}
-                        <div class="other-input" id="other-manufacturer">
-                            <input type="text" id="manufacturer_other_text" placeholder="Specify manufacturer">
-                            <p class="field-hint">Enter the manufacturer name</p>
-                        </div>
                     </div>
-                    {% endif %}
 
-                    <!-- Scanner model — populated by cascade JS -->
-                    {% if form.scanner_model %}
+                    <!-- Scanner model — options populated by cascade JS -->
                     <div class="field-wrap" id="wrap-scanner_model">
-                        <label for="{{ form.scanner_model.id_for_label }}">{{ form.scanner_model.label }}</label>
-                        {{ form.scanner_model }}
+                        <label for="id_scanner_model">{{ form.scanner_model.label }}</label>
+                        <div class="cb-wrap" id="cb-scanner_model">
+                            <input type="text" id="id_scanner_model" name="scanner_model"
+                                   class="form-control" autocomplete="off"
+                                   value="{{ form.scanner_model.value|default:'' }}"
+                                   placeholder="Select model">
+                            <button type="button" class="cb-toggle" tabindex="-1">&#9660;</button>
+                            <ul class="cb-dropdown" id="scanner-model-list" role="listbox">
+                                {# populated by cascade JS #}
+                            </ul>
+                        </div>
                         {% if form.scanner_model.errors %}
                         <ul class="field-errors">
                             {% for e in form.scanner_model.errors %}<li>{{ e }}</li>{% endfor %}
                         </ul>
                         {% endif %}
-                        <div class="other-input" id="other-scanner_model">
-                            <input type="text" id="scanner_model_other_text" placeholder="Specify model name">
-                            <p class="field-hint">Enter the scanner model name</p>
-                        </div>
                     </div>
-                    {% endif %}
 
                     <!-- Detector rows -->
-                    {% if form.detector_rows %}
                     <div class="field-wrap" id="wrap-detector_rows">
-                        <label for="{{ form.detector_rows.id_for_label }}">{{ form.detector_rows.label }}</label>
-                        {{ form.detector_rows }}
+                        <label for="id_detector_rows">{{ form.detector_rows.label }}</label>
+                        <div class="cb-wrap" id="cb-detector_rows">
+                            <input type="text" id="id_detector_rows" name="detector_rows"
+                                   class="form-control" autocomplete="off"
+                                   value="{{ form.detector_rows.value|default:'' }}"
+                                   placeholder="Select or type detector rows">
+                            <button type="button" class="cb-toggle" tabindex="-1">&#9660;</button>
+                            <ul class="cb-dropdown" role="listbox">
+                                {% for val in form.detector_rows_suggestions %}
+                                <li role="option" data-value="{{ val }}">{{ val }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
                         {% if form.detector_rows.errors %}
                         <ul class="field-errors">
                             {% for e in form.detector_rows.errors %}<li>{{ e }}</li>{% endfor %}
                         </ul>
                         {% endif %}
-                        <div class="other-input" id="other-detector_rows">
-                            <input type="text" id="detector_rows_other_text" placeholder="Specify detector rows">
-                            <p class="field-hint">Enter the detector row count</p>
-                        </div>
                     </div>
-                    {% endif %}
 
                     <!-- Year of installation -->
-                    {% if form.year_of_installation %}
                     <div class="field-wrap" id="wrap-year_of_installation">
-                        <label for="{{ form.year_of_installation.id_for_label }}">{{ form.year_of_installation.label }}</label>
-                        {{ form.year_of_installation }}
+                        <label for="id_year_of_installation">{{ form.year_of_installation.label }}</label>
+                        <div class="cb-wrap" id="cb-year_of_installation">
+                            <input type="text" id="id_year_of_installation" name="year_of_installation"
+                                   class="form-control" autocomplete="off"
+                                   value="{{ form.year_of_installation.value|default:'' }}"
+                                   placeholder="Select or type year">
+                            <button type="button" class="cb-toggle" tabindex="-1">&#9660;</button>
+                            <ul class="cb-dropdown" role="listbox">
+                                {% for val in form.year_of_installation_suggestions %}
+                                <li role="option" data-value="{{ val }}">{{ val }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
                         {% if form.year_of_installation.errors %}
                         <ul class="field-errors">
                             {% for e in form.year_of_installation.errors %}<li>{{ e }}</li>{% endfor %}
                         </ul>
                         {% endif %}
-                        <div class="other-input" id="other-year_of_installation">
-                            <input type="text" id="year_of_installation_other_text" placeholder="Specify year">
-                            <p class="field-hint">Enter a custom year value</p>
-                        </div>
                     </div>
-                    {% endif %}
 
                     <!-- Any remaining fields not explicitly listed above -->
                     {% for field in form %}
-                    {% if field.name != 'manufacturer' and field.name != 'scanner_model' and field.name != 'detector_rows' and field.name != 'year_of_installation' %}
+                    {% if field.name != 'manufacturer' and field.name != 'scanner_model' and field.name != 'detector_rows' and field.name != 'year_of_installation' and field.name != 'local_protocol_note' %}
                     {% if not field.is_hidden %}
-                    <div class="field-wrap{% if field.name == 'notes' or field.name == 'description' %} full-width{% endif %}" id="wrap-{{ field.name }}">
+                    <div class="field-wrap{% if field.name == 'notes' or field.name == 'local_protocol_note' %} full-width{% endif %}" id="wrap-{{ field.name }}">
                         <label for="{{ field.id_for_label }}">{{ field.label }}</label>
                         {{ field }}
                         {% if field.errors %}
@@ -120,10 +190,6 @@
                             {% for e in field.errors %}<li>{{ e }}</li>{% endfor %}
                         </ul>
                         {% endif %}
-                        <div class="other-input" id="other-{{ field.name }}">
-                            <input type="text" id="{{ field.name }}_other_text" placeholder="Specify value">
-                            <p class="field-hint">Enter a custom value</p>
-                        </div>
                     </div>
                     {% endif %}
                     {% endif %}
@@ -145,112 +211,133 @@
     </div>
 
     <script>
-        function isOther(val) {
-            return val.toLowerCase().startsWith('other');
+    // ── Generic combobox ────────────────────────────────────────────────────────
+    function initCombobox(wrap) {
+        var input    = wrap.querySelector('input');
+        var toggle   = wrap.querySelector('.cb-toggle');
+        var dropdown = wrap.querySelector('.cb-dropdown');
+        if (!input || !dropdown) return;
+
+        var activeIdx = -1;
+
+        function reposition() {
+            // Use fixed positioning to escape any parent overflow:hidden clipping
+            var rect = input.getBoundingClientRect();
+            dropdown.style.position = 'fixed';
+            dropdown.style.top      = rect.bottom + 'px';
+            dropdown.style.left     = rect.left + 'px';
+            dropdown.style.width    = rect.width + 'px';
         }
 
-        // ── "Other" select handler ──
-        function initOtherHandlers() {
-            var selects = document.querySelectorAll('select');
-            selects.forEach(function(sel) {
-                var name = sel.name;
-                if (!name) return;
-
-                var otherPanel = document.getElementById('other-' + name);
-                if (!otherPanel) return;
-
-                function check() {
-                    if (isOther(sel.value)) {
-                        otherPanel.classList.add('visible');
-                    } else {
-                        otherPanel.classList.remove('visible');
-                    }
-                }
-
-                sel.addEventListener('change', check);
-                check();
-            });
-
-            // Also handle plain text inputs whose value starts with "Other" in edit mode
-            var textInputs = document.querySelectorAll('input[type="text"]');
-            textInputs.forEach(function(inp) {
-                var name = inp.name;
-                if (!name) return;
-                var otherPanel = document.getElementById('other-' + name);
-                if (!otherPanel) return;
-                if (isOther(inp.value)) {
-                    otherPanel.classList.add('visible');
-                }
-            });
+        function open() {
+            reposition();
+            dropdown.classList.add('open');
         }
 
-        // ── Copy "Other" text back into select before submit ──
-        function hookFormSubmit() {
-            var form = document.querySelector('form[method="post"]');
-            if (!form) return;
-            form.addEventListener('submit', function() {
-                var selects = form.querySelectorAll('select');
-                selects.forEach(function(sel) {
-                    if (isOther(sel.value)) {
-                        var textInput = document.getElementById(sel.name + '_other_text');
-                        if (textInput && textInput.value.trim()) {
-                            sel.value = textInput.value.trim();
-                        }
-                    }
-                });
-            });
+        function close() {
+            dropdown.classList.remove('open');
+            activeIdx = -1;
         }
 
-        // ── Manufacturer → Model cascade ──
-        function initManufacturerCascade() {
-            var mfgSel = document.querySelector('select[name="manufacturer"]') ||
-                         document.querySelector('select[id*="manufacturer"]');
-            var modelSel = document.querySelector('select[name="scanner_model"]') ||
-                           document.querySelector('select[id*="scanner_model"]');
-            if (!mfgSel || !modelSel) return;
+        function selectItem(li) {
+            input.value = li.dataset.value;
+            close();
+            // Use 'change' so cascade/other-specify listeners fire
+            // without re-triggering the input→open handler
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+        }
 
-            mfgSel.addEventListener('change', function() {
-                var mfgId = mfgSel.value;
-                if (!mfgId) return;
+        // mousedown fires before blur/focus: toggle close when already open
+        input.addEventListener('mousedown', function (e) {
+            if (dropdown.classList.contains('open')) {
+                e.preventDefault();
+                close();
+            }
+        });
+        input.addEventListener('focus', open);
+        input.addEventListener('input', open);
+        input.addEventListener('blur', function () { setTimeout(close, 160); });
 
-                fetch('/api/v1/scanners/models/?manufacturer_id=' + encodeURIComponent(mfgId))
-                    .then(function(r) { return r.json(); })
-                    .then(function(data) {
-                        var current = modelSel.value;
-                        modelSel.innerHTML = '<option value="">---------</option>';
-                        (data.models || data).forEach(function(item) {
-                            var opt = document.createElement('option');
-                            opt.value = item.id;
-                            opt.textContent = item.name;
-                            if (String(item.id) === String(current)) {
-                                opt.selected = true;
-                            }
-                            modelSel.appendChild(opt);
-                        });
-                        // Append "Other: Please Specify" after catalogue models
-                        var otherOpt = document.createElement('option');
-                        otherOpt.value = 'Other: Please Specify';
-                        otherOpt.textContent = 'Other: Please Specify';
-                        modelSel.appendChild(otherOpt);
-                        // Re-check "Other" state after repopulation
-                        var otherPanel = document.getElementById('other-scanner_model');
-                        if (otherPanel) {
-                            if (isOther(modelSel.value)) {
-                                otherPanel.classList.add('visible');
-                            } else {
-                                otherPanel.classList.remove('visible');
-                            }
-                        }
-                    })
-                    .catch(function(err) {
-                        console.warn('Model cascade failed:', err);
+        input.addEventListener('keydown', function (e) {
+            var vis = Array.from(dropdown.querySelectorAll('li'));
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                activeIdx = Math.min(activeIdx + 1, vis.length - 1);
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                activeIdx = Math.max(activeIdx - 1, 0);
+            } else if ((e.key === 'Enter' || e.key === 'Tab') && activeIdx >= 0) {
+                if (e.key === 'Enter') e.preventDefault();
+                selectItem(vis[activeIdx]);
+                return;
+            } else if (e.key === 'Escape') {
+                close(); return;
+            }
+            vis.forEach(function (li, i) { li.classList.toggle('cb-active', i === activeIdx); });
+            if (activeIdx >= 0 && vis[activeIdx]) {
+                vis[activeIdx].scrollIntoView({ block: 'nearest' });
+            }
+        });
+
+        toggle.addEventListener('mousedown', function (e) {
+            e.preventDefault();
+            if (dropdown.classList.contains('open')) { close(); } else { input.focus(); open(); }
+        });
+
+        // Event delegation — works for dynamically added items too
+        dropdown.addEventListener('mousedown', function (e) {
+            var li = e.target.closest('li[data-value]');
+            if (li) { e.preventDefault(); selectItem(li); }
+        });
+    }
+
+    document.querySelectorAll('.cb-wrap').forEach(initCombobox);
+
+    // ── Manufacturer → Model cascade ────────────────────────────────────────────
+    (function () {
+        var mfgInput  = document.getElementById('id_manufacturer');
+        var modelList = document.getElementById('scanner-model-list');
+        if (!mfgInput || !modelList) return;
+
+        var debounce = null;
+
+        function fetchModels(mfgName) {
+            if (!mfgName) { modelList.innerHTML = ''; return; }
+            fetch('/api/v1/scanners/models/?manufacturer_name=' + encodeURIComponent(mfgName))
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    modelList.innerHTML = '';
+                    (data.models || []).forEach(function (item) {
+                        var li = document.createElement('li');
+                        li.setAttribute('role', 'option');
+                        li.dataset.value = item.name;
+                        li.textContent   = item.name;
+                        modelList.appendChild(li);
                     });
+                })
+                .catch(function (err) { console.warn('Model cascade failed:', err); });
+        }
+
+        function clearOtherFields() {
+            ['id_scanner_model', 'id_detector_rows', 'id_year_of_installation'].forEach(function (id) {
+                var el = document.getElementById(id);
+                if (el) el.value = '';
             });
         }
 
-        initOtherHandlers();
-        hookFormSubmit();
-        initManufacturerCascade();
+        function onMfgChange() {
+            clearOtherFields();
+            clearTimeout(debounce);
+            debounce = setTimeout(function () { fetchModels(mfgInput.value.trim()); }, 300);
+        }
+
+        // Listen to both 'input' (typing) and 'change' (combobox selection)
+        mfgInput.addEventListener('input', onMfgChange);
+        mfgInput.addEventListener('change', onMfgChange);
+
+        // Pre-populate model list on edit page load
+        if (mfgInput.value.trim()) { fetchModels(mfgInput.value.trim()); }
+    }());
     </script>
 
     </div>

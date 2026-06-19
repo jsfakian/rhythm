@@ -135,57 +135,70 @@ def _add_form_control(widget: forms.Widget) -> None:
 
 
 class CTScannerProfileForm(forms.ModelForm):
-    manufacturer = forms.ModelChoiceField(
-        queryset=CTManufacturer.objects.filter(is_active=True).order_by(
-            "sort_order", "name"
-        ),
-        empty_label="Select manufacturer",
-        widget=forms.Select(attrs={"class": "form-control"}),
+    manufacturer = forms.CharField(
+        widget=forms.TextInput(attrs={
+            "class": "form-control",
+            "list": "manufacturer-datalist",
+            "autocomplete": "off",
+            "placeholder": "Select or type manufacturer",
+        }),
     )
-    scanner_model = forms.ModelChoiceField(
-        queryset=CTScannerModel.objects.none(),
-        empty_label="Select model",
-        widget=forms.Select(attrs={"class": "form-control"}),
+    scanner_model = forms.CharField(
+        widget=forms.TextInput(attrs={
+            "class": "form-control",
+            "list": "scanner-model-datalist",
+            "autocomplete": "off",
+            "placeholder": "Select or type model",
+        }),
     )
-    detector_rows = forms.ChoiceField(
-        widget=forms.Select(attrs={"class": "form-control"}),
-    )
-    year_of_installation = forms.ChoiceField(
-        widget=forms.Select(attrs={"class": "form-control"}),
-    )
-    local_protocol_note = forms.CharField(
+    detector_rows = forms.CharField(
         required=False,
-        widget=forms.Textarea(attrs={"class": "form-control", "rows": 4}),
+        widget=forms.TextInput(attrs={
+            "class": "form-control",
+            "autocomplete": "off",
+            "placeholder": "Select detector rows",
+        }),
+    )
+    year_of_installation = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={
+            "class": "form-control",
+            "autocomplete": "off",
+            "placeholder": "Select year",
+        }),
     )
 
     class Meta:
         model = CTScannerProfile
         fields = [
-            "manufacturer",
-            "scanner_model",
             "detector_rows",
             "year_of_installation",
-            "local_protocol_note",
         ]
 
     def __init__(self, *args: object, **kwargs: object) -> None:
         super().__init__(*args, **kwargs)
-        self.fields["detector_rows"].choices = _get_choice_options("detector_rows")
-        self.fields["year_of_installation"].choices = _get_choice_options(
-            "year_of_installation"
+        # Datalist suggestions for template rendering
+        self.manufacturer_suggestions: list[str] = list(
+            CTManufacturer.objects.filter(is_active=True, is_catalogue=True)
+            .order_by("sort_order", "name")
+            .values_list("name", flat=True)
         )
-        # Append "Other: Please Specify" to manufacturer choices so users can
-        # register a manufacturer that is not yet in the catalogue.
-        mfr_choices = list(self.fields["manufacturer"].choices)
-        mfr_choices.append(("Other: Please Specify", "Other: Please Specify"))
-        self.fields["manufacturer"].widget.choices = mfr_choices
-        # When editing an existing profile, pre-populate scanner models for the
-        # saved manufacturer so the current value is a valid choice.
-        if self.instance and self.instance.pk and self.instance.manufacturer_id:
-            self.fields["scanner_model"].queryset = CTScannerModel.objects.filter(
-                manufacturer_id=self.instance.manufacturer_id,
-                is_active=True,
-            ).order_by("sort_order", "name")
+        _excluded_detector = {"dual source", "photon-counting ct", "other: please specify"}
+        self.detector_rows_suggestions: list[str] = [
+            d for v, d in _get_choice_options("detector_rows")
+            if v and d.lower() not in _excluded_detector
+        ]
+        self.year_of_installation_suggestions: list[str] = [
+            d for v, d in _get_choice_options("year_of_installation")
+            if v and not d.lower().startswith("other")
+        ]
+        # Pre-populate text inputs for edit mode
+        if self.instance and self.instance.pk:
+            if self.instance.manufacturer_id:
+                self.initial["manufacturer"] = self.instance.manufacturer.name
+            if self.instance.scanner_model_id:
+                self.initial["scanner_model"] = self.instance.scanner_model.name
+
 
 
 class CTProtocolForm(forms.ModelForm):

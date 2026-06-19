@@ -22,6 +22,7 @@ from uploads.protocol_views import (
     ScannerProfileCreateView,
     ScannerModelsByManufacturerView,
     ScannerProfileEditView,
+    ScannerProfileDeleteView,
     ProtocolGUIView,
     ProtocolSaveAPIView,
     ProtocolRecordsView,
@@ -64,6 +65,7 @@ urlpatterns = [
     path('scanners/create/', ScannerProfileCreateView.as_view(), name='scanner-profile-create'),
     path('scanners/models/', ScannerModelsByManufacturerView.as_view(), name='scanner-models-by-manufacturer'),
     path('scanners/<str:pk>/edit/', ScannerProfileEditView.as_view(), name='scanner-profile-edit'),
+    path('scanners/<str:pk>/delete/', ScannerProfileDeleteView.as_view(), name='scanner-profile-delete'),
 
     # User management (superuser only)
     path('users/', UserManagementView.as_view(), name='user-management'),

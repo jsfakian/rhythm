@@ -580,6 +580,7 @@ class CTManufacturer(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=128, unique=True)
     is_active = models.BooleanField(default=True)
+    is_catalogue = models.BooleanField(default=False)
     sort_order = models.PositiveIntegerField(default=0)
 
     class Meta:
@@ -641,6 +642,7 @@ class CTScannerModel(models.Model):
     name = models.CharField(max_length=256)
     notes = models.CharField(max_length=512, blank=True)
     is_active = models.BooleanField(default=True)
+    is_catalogue = models.BooleanField(default=False)
     sort_order = models.PositiveIntegerField(default=0)
 
     class Meta:
@@ -781,6 +783,7 @@ class CTExamination(models.Model):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     rhythm_pseudo_id = models.CharField(max_length=64, blank=True, db_index=True,
+                                        db_column='repository_study_id',
                                         help_text='Auto-generated RHYTHM repository pseudo-ID')
     protocol = models.ForeignKey(
         CTProtocol,

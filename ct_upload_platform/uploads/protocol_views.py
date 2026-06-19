@@ -35,31 +35,35 @@ _PROTOCOL_TYPE_CHOICES = CTProtocol.PROTOCOL_TYPE_CHOICES
 
 
 def _resolve_manufacturer(post_value: str) -> CTManufacturer | None:
-    """Return an existing CTManufacturer by pk, or create one if value is a plain name."""
+    """Return an existing CTManufacturer by pk or name, creating a non-catalogue one if needed."""
     if not post_value:
         return None
     try:
         return CTManufacturer.objects.get(pk=post_value)
     except (CTManufacturer.DoesNotExist, Exception):
-        name = post_value.strip()
-        if not name:
-            return None
-        obj, _ = CTManufacturer.objects.get_or_create(name=name)
-        return obj
+        pass
+    name = post_value.strip()
+    if not name:
+        return None
+    obj, _ = CTManufacturer.objects.get_or_create(name=name, defaults={"is_catalogue": False})
+    return obj
 
 
 def _resolve_scanner_model(post_value: str, manufacturer: CTManufacturer | None) -> CTScannerModel | None:
-    """Return an existing CTScannerModel by pk, or create one under manufacturer if value is a plain name."""
+    """Return an existing CTScannerModel by pk or name, creating a non-catalogue one if needed."""
     if not post_value:
         return None
     try:
         return CTScannerModel.objects.get(pk=post_value)
     except (CTScannerModel.DoesNotExist, Exception):
-        name = post_value.strip()
-        if not name or manufacturer is None:
-            return None
-        obj, _ = CTScannerModel.objects.get_or_create(manufacturer=manufacturer, name=name)
-        return obj
+        pass
+    name = post_value.strip()
+    if not name or manufacturer is None:
+        return None
+    obj, _ = CTScannerModel.objects.get_or_create(
+        manufacturer=manufacturer, name=name, defaults={"is_catalogue": False}
+    )
+    return obj
 
 
 class ProtocolListView(LoginRequiredMixin, ListView):
@@ -269,6 +273,30 @@ class ProtocolDeleteView(LoginRequiredMixin, DeleteView):
         return reverse_lazy("protocol-list", kwargs={"protocol_type": protocol_type})
 
 
+class ScannerProfileDeleteView(LoginRequiredMixin, DeleteView):
+    login_url = _LOGIN_URL
+    model = CTScannerProfile
+    template_name = "uploads/scanner_confirm_delete.html"
+    success_url = reverse_lazy("scanner-profile-list")
+
+    def get_queryset(self):
+        return CTScannerProfile.objects.filter(created_by=self.request.user.username)
+
+    def post(self, request: HttpRequest, *args: object, **kwargs: object) -> HttpResponse:
+        from django.db.models.deletion import ProtectedError
+        self.object = self.get_object()
+        try:
+            self.object.delete()
+            return redirect(self.success_url)
+        except ProtectedError:
+            protocol_count = self.object.ctprotocol_set.count()
+            return render(request, self.template_name, {
+                "object": self.object,
+                "protected_error": True,
+                "protocol_count": protocol_count,
+            })
+
+
 class ScannerProfileCreateView(LoginRequiredMixin, View):
     login_url = _LOGIN_URL
     template_name = "uploads/scanner_profile_form.html"
@@ -293,25 +321,24 @@ class ScannerProfileCreateView(LoginRequiredMixin, View):
 
     def post(self, request: HttpRequest) -> HttpResponse:
         protocol_type = self._protocol_type_from_request(request)
-        post = request.POST.copy()
-        manufacturer = _resolve_manufacturer(post.get("manufacturer", ""))
-        model = _resolve_scanner_model(post.get("scanner_model", ""), manufacturer)
-        if manufacturer:
-            post["manufacturer"] = str(manufacturer.pk)
-        if model:
-            post["scanner_model"] = str(model.pk)
-        form = CTScannerProfileForm(post)
-        if manufacturer and model:
-            form.fields["scanner_model"].queryset = CTScannerModel.objects.filter(pk=model.pk)
+        form = CTScannerProfileForm(request.POST)
         if form.is_valid():
-            profile: CTScannerProfile = form.save(commit=False)
-            profile.created_by = request.user.username
-            profile.save()
-            if protocol_type:
-                return redirect(
-                    reverse("protocol-create", kwargs={"protocol_type": protocol_type})
-                )
-            return redirect(reverse("scanner-profile-list"))
+            manufacturer = _resolve_manufacturer(form.cleaned_data.get("manufacturer", ""))
+            model = _resolve_scanner_model(form.cleaned_data.get("scanner_model", ""), manufacturer)
+            if not manufacturer or not model:
+                form.add_error("manufacturer" if not manufacturer else "scanner_model",
+                               "Could not resolve this value.")
+            else:
+                profile: CTScannerProfile = form.save(commit=False)
+                profile.manufacturer = manufacturer
+                profile.scanner_model = model
+                profile.created_by = request.user.username
+                profile.save()
+                if protocol_type:
+                    return redirect(
+                        reverse("protocol-create", kwargs={"protocol_type": protocol_type})
+                    )
+                return redirect(reverse("scanner-profile-list"))
         return render(
             request,
             self.template_name,
@@ -334,19 +361,19 @@ class ScannerProfileEditView(LoginRequiredMixin, View):
 
     def post(self, request: HttpRequest, pk: str) -> HttpResponse:
         profile = self._get_profile(pk)
-        post = request.POST.copy()
-        manufacturer = _resolve_manufacturer(post.get("manufacturer", ""))
-        model = _resolve_scanner_model(post.get("scanner_model", ""), manufacturer)
-        if manufacturer:
-            post["manufacturer"] = str(manufacturer.pk)
-        if model:
-            post["scanner_model"] = str(model.pk)
-        form = CTScannerProfileForm(post, instance=profile)
-        if manufacturer and model:
-            form.fields["scanner_model"].queryset = CTScannerModel.objects.filter(pk=model.pk)
+        form = CTScannerProfileForm(request.POST, instance=profile)
         if form.is_valid():
-            form.save()
-            return redirect(reverse("scanner-profile-list"))
+            manufacturer = _resolve_manufacturer(form.cleaned_data.get("manufacturer", ""))
+            model = _resolve_scanner_model(form.cleaned_data.get("scanner_model", ""), manufacturer)
+            if not manufacturer or not model:
+                form.add_error("manufacturer" if not manufacturer else "scanner_model",
+                               "Could not resolve this value.")
+            else:
+                saved: CTScannerProfile = form.save(commit=False)
+                saved.manufacturer = manufacturer
+                saved.scanner_model = model
+                saved.save()
+                return redirect(reverse("scanner-profile-list"))
         return render(request, self.template_name, {"form": form, "is_edit": True})
 
 
@@ -364,18 +391,25 @@ class ScannerProfileListView(LoginRequiredMixin, ListView):
 
 
 class ScannerModelsByManufacturerView(View):
-    """Return JSON list of active scanner models for a given manufacturer_id."""
+    """Return JSON list of active scanner models for a given manufacturer_id or manufacturer_name."""
 
     def get(self, request: HttpRequest) -> JsonResponse:
         manufacturer_id = request.GET.get("manufacturer_id", "")
-        if not manufacturer_id:
+        manufacturer_name = request.GET.get("manufacturer_name", "")
+        if not manufacturer_id and not manufacturer_name:
             return JsonResponse({"models": []})
 
+        if manufacturer_id:
+            filter_kwargs: dict = {"manufacturer_id": manufacturer_id}
+        else:
+            try:
+                mfr = CTManufacturer.objects.get(name__iexact=manufacturer_name)
+            except CTManufacturer.DoesNotExist:
+                return JsonResponse({"models": []})
+            filter_kwargs = {"manufacturer_id": mfr.pk}
+
         models_qs = (
-            CTScannerModel.objects.filter(
-                manufacturer_id=manufacturer_id,
-                is_active=True,
-            )
+            CTScannerModel.objects.filter(is_active=True, is_catalogue=True, **filter_kwargs)
             .order_by("sort_order", "name")
             .values("id", "name")
         )

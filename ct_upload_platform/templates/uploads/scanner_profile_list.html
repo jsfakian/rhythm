@@ -52,8 +52,9 @@
                                     <span class="text-muted">—</span>
                                 {% endif %}
                             </td>
-                            <td>
+                            <td style="display:flex;gap:6px;">
                                 <a href="/scanners/{{ scanner.pk }}/edit/" class="btn btn-secondary btn-sm">Edit</a>
+                                <a href="/scanners/{{ scanner.pk }}/delete/" class="btn btn-danger btn-sm">Delete</a>
                             </td>
                         </tr>
                         {% endfor %}
