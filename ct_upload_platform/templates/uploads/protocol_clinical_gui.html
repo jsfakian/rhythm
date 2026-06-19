@@ -102,7 +102,7 @@
                     </div>
                     <div class="field-row">
                         <label>Comments / Protocol Guidance</label>
-                        <select id="cl_comments" onchange="onStep1Change()"><option value="">None</option></select>
+                        <select id="cl_comments" onchange="onStep1Change()"></select>
                     </div>
                     <div id="clinicalPreview" class="info-box" style="display:none;"></div>
                 </div>
@@ -189,7 +189,8 @@ let state = {
 function unique(arr) { return [...new Set(arr.filter(v => v))]; }
 function esc(s) { return String(s ?? "").replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m])); }
 function setSelect(el, options, placeholder, current) {
-    el.innerHTML = `<option value="">${esc(placeholder)}</option>` +
+    const blank = placeholder ? `<option value="">${esc(placeholder)}</option>` : '';
+    el.innerHTML = blank +
         options.map(o => `<option value="${esc(o)}"${o===current?' selected':''}>${esc(o)}</option>`).join('');
 }
 
@@ -220,10 +221,15 @@ function onClinicalChange() {
     }
     // Comments from data
     const commentOpts = unique(matches.map(r => r.comments).filter(Boolean));
-    setSelect(document.getElementById('cl_comments'), commentOpts, 'None', '');
+    setSelect(document.getElementById('cl_comments'), commentOpts, '', '');
     if (commentOpts.length === 1) {
         document.getElementById('cl_comments').value = commentOpts[0];
         state.comments = commentOpts[0];
+    }
+    // If the previously active tab is now hidden for this indication, reset it
+    if (state.activeTab && hiddenTab(state.region, state.indication, state.activeTab)) {
+        state.activeTab = Object.keys(PROTOCOL_TABS)[0];
+        state.fields = {};
     }
     updatePreview(); updateProtocolContext();
 }
@@ -289,11 +295,23 @@ function updateProtocolContext() {
     renderFields();
 }
 
+const HEAD_INDICATIONS = new Set([
+    'Head / Trauma',
+    'Mastoid bone/Inner Ear / Hearing loss; congenital malformations, infection, cholesteatoma, cochlear implants',
+]);
+
+function hiddenTab(region, indication, tabKey) {
+    const pair = `${region} / ${indication}`;
+    if (HEAD_INDICATIONS.has(pair)) return tabKey === 'PEDIATRIC_BODY';
+    return tabKey === 'PEDIATRIC_HEAD';
+}
+
 function renderTabs() {
     const container = document.getElementById('protocolTabs');
-    container.innerHTML = Object.entries(PROTOCOL_TABS).map(([key, tab]) =>
-        `<button class="tab-btn${key===state.activeTab?' active':''}" onclick="setTab('${key}')">${esc(tab.label)}</button>`
-    ).join('');
+    container.innerHTML = Object.entries(PROTOCOL_TABS).map(([key, tab]) => {
+        if (hiddenTab(state.region, state.indication, key)) return '';
+        return `<button class="tab-btn${key===state.activeTab?' active':''}" onclick="setTab('${key}')">${esc(tab.label)}</button>`;
+    }).join('');
 }
 
 function setTab(key) {
@@ -512,7 +530,7 @@ function resetStep1() {
     state = { region: "", indication: "", contrast: "", comments: "", scannerId: "", activeTab: Object.keys(PROTOCOL_TABS)[0], fields: {} };
     initStep1();
     setSelect(document.getElementById('cl_contrast'), [], 'Select contrast option...', '');
-    setSelect(document.getElementById('cl_comments'), [], 'None', '');
+    setSelect(document.getElementById('cl_comments'), [], '', '');
     updatePreview(); updateProtocolContext();
 }
 
