@@ -40,8 +40,10 @@ class Command(BaseCommand):
         for sort_order, name in enumerate(manufacturers):
             _, created = CTManufacturer.objects.get_or_create(
                 name=name,
-                defaults={"sort_order": sort_order},
+                defaults={"sort_order": sort_order, "is_catalogue": True},
             )
+            if not created:
+                CTManufacturer.objects.filter(name=name).update(is_catalogue=True)
             if created:
                 created_count += 1
         self.stdout.write(
@@ -187,8 +189,12 @@ class Command(BaseCommand):
                 _, created = CTScannerModel.objects.get_or_create(
                     manufacturer=manufacturer,
                     name=model_name,
-                    defaults={"sort_order": sort_order},
+                    defaults={"sort_order": sort_order, "is_catalogue": True},
                 )
+                if not created:
+                    CTScannerModel.objects.filter(
+                        manufacturer=manufacturer, name=model_name
+                    ).update(is_catalogue=True)
                 total_count += 1
                 if created:
                     created_count += 1
@@ -843,6 +849,12 @@ class Command(BaseCommand):
                 "clinical_indication": "Lymphoma",
                 "iv_contrast": "Contrast-enhanced",
                 "comments": "Can be anatomical based protocol",
+            },
+            {
+                "anatomical_region": "Chest-Abdomen",
+                "clinical_indication": "Tumor staging & follow-up (Wilms tumor, neuroblastoma, other)",
+                "iv_contrast": "Contrast-enhanced",
+                "comments": "Can be anatomical based protocol / no liver tumors!",
             },
         ]
         created_count = 0
