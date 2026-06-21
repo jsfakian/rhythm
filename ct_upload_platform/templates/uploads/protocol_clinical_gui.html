@@ -397,10 +397,7 @@ function renderFields() {
         </select>
     </div>`;
 
-    if (!state.fields['number_of_phases']) state.fields['number_of_phases'] = '1';
-
     const scanTypeOpts = getOptions('scan_type').filter(o => /sequential|axial|helical|spiral/i.test(o));
-    const scanFovOpts = ['Ped Head', 'Ped Body', 'Small Head', 'Head', 'Small Body', 'Medium Body', 'Large Body'];
     const pitchVal = esc(state.fields['pitch'] || '');
     const pitchHtml = `<div class="field-row">
         <label>Pitch</label>
@@ -418,10 +415,8 @@ function renderFields() {
         </div>
     </div>
     <div class="fields-grid">
-        ${makeInput('protocol_name', 'Protocol Name', false, false)}
         ${makeSelect('scan_type', scanTypeOpts, 'Scan Type', false, true)}
         ${contrastHtml}
-        ${makeSelect('number_of_phases', getOptions('number_of_phases'), 'Number of Phases', false)}
         ${makeSelect('auto_kvp_selection', getManufacturerFieldOptions('auto_kvp_selection') || getOptions('auto_kvp_selection'), 'Automatic kVp Selection', false)}
         ${makeSelect('kvp', getOptions('kvp'), 'kVp', false)}
         ${makeSelect('auto_ma_modulation', getManufacturerFieldOptions('auto_ma_modulation') || getOptions('auto_ma_modulation'), 'Automatic mA Modulation', false)}
@@ -429,9 +424,9 @@ function renderFields() {
         ${pitchHtml}
         ${makeSelect('rotation_time', getOptions('rotation_time'), 'Rotation Time (s)', false)}
         ${makeSelect('slice_thickness', getOptions('slice_thickness'), 'Slice Thickness 1st Recon (mm)', false)}
-        ${makeSelect('scan_fov', scanFovOpts, 'Scan Field of View', false)}
-        ${makeSelect('kernel_class', getOptions('kernel_class'), 'Generic Kernel Class', false)}
-        ${makeSelect('reconstruction_algorithm', getOptions('reconstruction_algorithm'), 'Reconstruction Algorithm', false)}
+        ${makeInput('kernel_class', 'Reconstruction filter kernel', false, false)}
+        ${makeInput('reconstruction_algorithm', 'Reconstruction Algorithm', false, false)}
+        ${makeInput('strength', 'Strength (optional)', false, false)}
         ${makeInput('notes', 'Additional Free-Text Notes', true, true)}
     </div>`;
 
@@ -439,9 +434,9 @@ function renderFields() {
     updateCompletion();
 }
 
-function renderMasInputs() {
+function renderMasInputs(checkDom = false) {
     const maValue = state.fields['auto_ma_modulation'] || '';
-    const sel = document.getElementById('fld_auto_ma_modulation');
+    const sel = checkDom ? document.getElementById('fld_auto_ma_modulation') : null;
     const dropdownIsOther = sel && sel.value === OTHER_VAL;
     let labels;
     if (!maValue && !dropdownIsOther) {
@@ -498,7 +493,7 @@ function onFieldChange(key) {
             // Re-render only the mAs inputs section without a full renderFields()
             // to preserve other field values already entered.
             const masSlot = document.getElementById('mas_inputs_slot');
-            if (masSlot) masSlot.innerHTML = renderMasInputs();
+            if (masSlot) masSlot.innerHTML = renderMasInputs(true);
         }
     }
     updateCompletion();
@@ -510,9 +505,9 @@ function onOtherInput(key) {
 }
 
 function updateCompletion() {
-    const keys = ['examination_group', 'age_group', 'protocol_name', 'scan_type', 'contrast',
-        'number_of_phases', 'auto_kvp_selection', 'kvp', 'auto_ma_modulation',
-        'pitch', 'rotation_time', 'slice_thickness', 'scan_fov', 'kernel_class', 'reconstruction_algorithm'];
+    const keys = ['examination_group', 'age_group', 'scan_type', 'contrast',
+        'auto_kvp_selection', 'kvp', 'auto_ma_modulation',
+        'pitch', 'rotation_time', 'slice_thickness', 'kernel_class', 'reconstruction_algorithm'];
     const filled = keys.filter(k => state.fields[k] && String(state.fields[k]).trim()).length;
     const pct = Math.round((filled / keys.length) * 100);
     document.getElementById('progressBar').style.width = pct + '%';
