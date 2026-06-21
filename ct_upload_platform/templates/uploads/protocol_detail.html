@@ -51,7 +51,6 @@
         <div class="page-header">
             <div>
                 <h1>{{ protocol.age_group }} &ndash; {{ protocol_type_display }}</h1>
-                <p class="subtitle">{{ protocol.protocol_name }}</p>
             </div>
             <div class="action-bar">
                 <a href="/protocols/{{ protocol.protocol_type }}/{{ protocol.pk }}/edit/" class="btn btn-primary">Edit</a>
@@ -120,10 +119,6 @@
                         <span class="info-value">{{ protocol.clinical_comments }}</span>
                     </div>
                     {% endif %}
-                    <div class="info-item full-width">
-                        <span class="info-label">Protocol Name</span>
-                        <span class="info-value">{{ protocol.protocol_name|default:"—" }}</span>
-                    </div>
                 </div>
             </div>
         </div>
@@ -146,10 +141,6 @@
                                 <span class="badge-no">No</span>
                             {% endif %}
                         </span>
-                    </div>
-                    <div class="info-item">
-                        <span class="info-label">Number of Phases</span>
-                        <span class="info-value">{{ protocol.number_of_phases|default:"—" }}</span>
                     </div>
                 </div>
             </div>
@@ -202,10 +193,6 @@
                         <span class="info-value">{{ protocol.slice_thickness|default:"—" }}</span>
                     </div>
                     <div class="info-item">
-                        <span class="info-label">Scan FOV</span>
-                        <span class="info-value">{{ protocol.scan_fov|default:"—" }}</span>
-                    </div>
-                    <div class="info-item">
                         <span class="info-label">Kernel Class</span>
                         <span class="info-value">{{ protocol.kernel_class|default:"—" }}</span>
                     </div>
@@ -213,35 +200,6 @@
                         <span class="info-label">Reconstruction Algorithm</span>
                         <span class="info-value">{{ protocol.reconstruction_algorithm|default:"—" }}</span>
                     </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Protocol Intent & Dose -->
-        <div class="card">
-            <div class="card-header"><h2>Protocol Intent &amp; Dose</h2></div>
-            <div class="card-body">
-                <div class="info-grid">
-                    <div class="info-item">
-                        <span class="info-label">Protocol Intent</span>
-                        <span class="info-value">{{ protocol.protocol_intent|default:"—" }}</span>
-                    </div>
-                    {% if dose_metadata_display %}
-                    <div class="info-item full-width">
-                        <span class="info-label">Dose Metadata</span>
-                        <div class="tag-list">
-                            {% for item in dose_metadata_display %}
-                            <span class="tag">{{ item }}</span>
-                            {% endfor %}
-                        </div>
-                    </div>
-                    {% endif %}
-                    {% if protocol.notes %}
-                    <div class="info-item full-width">
-                        <span class="info-label">Notes</span>
-                        <p class="notes-text">{{ protocol.notes }}</p>
-                    </div>
-                    {% endif %}
                 </div>
             </div>
         </div>
