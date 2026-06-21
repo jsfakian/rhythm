@@ -45,7 +45,7 @@
                     <thead>
                         <tr>
                             <th>#</th>
-                            <th>Protocol</th>
+                            <th>Repository Study ID</th>
                             <th>Scanner</th>
                             <th>Region</th>
                             <th>Clinical Indication</th>
@@ -55,6 +55,7 @@
                             <th>DLP per phase</th>
                             <th>Total DLP</th>
                             <th>Image Quality</th>
+                            <th>Study Set</th>
                             <th>Recorded</th>
                             <th>Actions</th>
                         </tr>
@@ -63,7 +64,7 @@
                         {% for e in examinations %}
                         <tr>
                             <td>{{ forloop.counter }}</td>
-                            <td>{% if e.protocol %}<span title="{{ e.protocol.pk }}">{{ e.protocol.protocol_name|default:"—" }}</span>{% else %}—{% endif %}</td>
+                            <td><span style="font-family:monospace;font-size:12px;">{{ e.rhythm_pseudo_id|default:"—" }}</span></td>
                             <td>
                                 {% if e.scanner %}
                                     {{ e.scanner.manufacturer.name }} – {{ e.scanner.scanner_model.name }}
@@ -85,6 +86,11 @@
                                 <span class="badge-quality badge-{{ e.image_quality }}">{{ e.get_image_quality_display }}</span>
                                 {% else %}—{% endif %}
                             </td>
+                            <td>
+                                {% if e.study_set_file %}
+                                <a href="{{ e.study_set_file.url }}" download class="btn btn-secondary btn-sm">Download</a>
+                                {% else %}—{% endif %}
+                            </td>
                             <td>{{ e.created_at|date:"Y-m-d" }}</td>
                             <td>
                                 <div class="actions-cell">
@@ -93,7 +99,7 @@
                             </td>
                         </tr>
                         {% empty %}
-                        <tr><td colspan="15" class="text-muted" style="text-align:center;padding:32px;">No examination records yet.</td></tr>
+                        <tr><td colspan="14" class="text-muted" style="text-align:center;padding:32px;">No examination records yet.</td></tr>
                         {% endfor %}
                     </tbody>
                 </table>
