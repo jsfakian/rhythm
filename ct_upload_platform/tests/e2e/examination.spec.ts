@@ -105,10 +105,6 @@ test.describe('Examination entry page — structure', () => {
     await expect(page.locator('#inp_age, input[id*="age"]').first()).toBeVisible();
   });
 
-  test('number of phases input is present', async ({ page }) => {
-    await expect(page.locator('#inp_phases, input[id*="phases"]').first()).toBeVisible();
-  });
-
   test('image quality dropdown is present', async ({ page }) => {
     await expect(page.locator('#sel_quality, select[id*="quality"]').first()).toBeVisible();
   });
@@ -126,51 +122,27 @@ test.describe('Examination entry page — structure', () => {
 // 3. Dynamic phases table
 // ---------------------------------------------------------------------------
 
-test.describe('Dynamic phases table', () => {
+test.describe('Phases table', () => {
   test.beforeEach(async ({ page }) => {
     await ensureLoggedIn(page);
     await page.goto(`${BASE_URL}/examinations/entry/`);
   });
 
   test('phases table renders on load with 1 row', async ({ page }) => {
-    const phasesInput = page.locator('#inp_phases');
-    await expect(phasesInput).toHaveValue('1');
-    // After page load the table should have 1 CTDI input
     await expect(page.locator('#ctdi_1, input[id^="ctdi_"]').first()).toBeVisible();
   });
 
-  test('increasing phases adds rows', async ({ page }) => {
-    const phasesInput = page.locator('#inp_phases');
-    await phasesInput.fill('3');
-    await phasesInput.dispatchEvent('input');
-    await expect(page.locator('#ctdi_3, input[id="ctdi_3"]')).toBeVisible();
-    await expect(page.locator('#dlp_3, input[id="dlp_3"]')).toBeVisible();
-  });
-
-  test('decreasing phases removes rows', async ({ page }) => {
-    const phasesInput = page.locator('#inp_phases');
-    await phasesInput.fill('3');
-    await phasesInput.dispatchEvent('input');
-    await phasesInput.fill('1');
-    await phasesInput.dispatchEvent('input');
-    await expect(page.locator('#ctdi_2, input[id="ctdi_2"]')).not.toBeVisible();
-  });
-
   test('phase table shows CTDI vol column header', async ({ page }) => {
-    await page.locator('#inp_phases').fill('2');
-    await page.locator('#inp_phases').dispatchEvent('input');
     await expect(page.locator('#phases_table_wrap')).toContainText(/CTDI/i);
   });
 
   test('phase table shows DLP column header', async ({ page }) => {
-    await page.locator('#inp_phases').fill('2');
-    await page.locator('#inp_phases').dispatchEvent('input');
     await expect(page.locator('#phases_table_wrap')).toContainText(/DLP/i);
   });
 });
 
 // ---------------------------------------------------------------------------
-// 4. WED field behaviour
+// 4. WED field — removed
 // ---------------------------------------------------------------------------
 
 test.describe('WED field', () => {
@@ -179,8 +151,8 @@ test.describe('WED field', () => {
     await page.goto(`${BASE_URL}/examinations/entry/`);
   });
 
-  test('WED field is visible on the form', async ({ page }) => {
-    await expect(page.locator('#inp_wed, input[id*="wed"]').first()).toBeVisible();
+  test('WED field is not present on the form', async ({ page }) => {
+    await expect(page.locator('#inp_wed')).not.toBeAttached();
   });
 });
 
@@ -230,15 +202,9 @@ test.describe('Save examination', () => {
   });
 
   async function fillMinimalForm(page: Page): Promise<void> {
-    // Set 1 phase and fill CTDI + DLP
-    const phasesInput = page.locator('#inp_phases');
-    await phasesInput.fill('1');
-    await phasesInput.dispatchEvent('input');
-    // Wait for dynamic table
     await page.locator('#ctdi_1').waitFor({ state: 'visible' });
     await page.locator('#ctdi_1').fill('5.5');
     await page.locator('#dlp_1').fill('88.0');
-    // Fill other optional fields
     await page.locator('#inp_weight').fill('15.0');
     await page.locator('#inp_age').fill('6');
   }
@@ -345,15 +311,9 @@ test.describe('Full CRUD flow', () => {
     await ensureLoggedIn(page);
     await page.goto(`${BASE_URL}/examinations/entry/`);
 
-    // Fill form with 2 phases
-    const phasesInput = page.locator('#inp_phases');
-    await phasesInput.fill('2');
-    await phasesInput.dispatchEvent('input');
     await page.locator('#ctdi_1').waitFor({ state: 'visible' });
     await page.locator('#ctdi_1').fill('3.1');
-    await page.locator('#ctdi_2').fill('4.2');
     await page.locator('#dlp_1').fill('50.0');
-    await page.locator('#dlp_2').fill('60.0');
     await page.locator('#inp_weight').fill('12.5');
     await page.locator('#inp_age').fill('4');
 
@@ -489,15 +449,12 @@ test.describe('Clear form button', () => {
   test('clicking "Clear form" resets numeric inputs', async ({ page }) => {
     await page.locator('#inp_weight').fill('50.0');
     await page.locator('#inp_age').fill('10');
-    await page.locator('#inp_phases').fill('3');
-    await page.locator('#inp_phases').dispatchEvent('input');
 
     await page.locator('button.btn-clear').click();
     await page.waitForTimeout(200);
 
     expect(await page.locator('#inp_weight').inputValue()).toBe('');
     expect(await page.locator('#inp_age').inputValue()).toBe('');
-    expect(await page.locator('#inp_phases').inputValue()).toBe('1');
   });
 
   test('clicking "Clear form" resets region and indication', async ({ page }) => {
@@ -581,7 +538,7 @@ test.describe('Examinations list — table structure', () => {
 
   const expectedHeaders = [
     '#', 'Protocol', 'Scanner', 'Region', 'Clinical Indication',
-    'Weight (kg)', 'WED (cm)', 'Age (y)', 'Phases',
+    'Weight (kg)', 'Age (y)',
     'Image Quality', 'Recorded', 'Actions',
   ];
 

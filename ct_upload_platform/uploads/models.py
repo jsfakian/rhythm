@@ -749,6 +749,8 @@ class CTProtocol(models.Model):
     scan_fov = models.CharField(max_length=128, blank=True)
     kernel_class = models.CharField(max_length=128, blank=True)
     reconstruction_algorithm = models.CharField(max_length=256, blank=True)
+    tissue_of_interest = models.CharField(max_length=256, blank=True)
+    strength = models.CharField(max_length=128, blank=True)
     protocol_intent = models.CharField(max_length=256, blank=True)
     dose_metadata = models.JSONField(default=list, blank=True)
     notes = models.TextField(blank=True)

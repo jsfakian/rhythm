@@ -419,6 +419,7 @@ class AssembleChunksTest(TestCase):
                 self.assertIn('Missing chunk', message)
 
 
+@override_settings(RAW_DATA_DIR='/tmp/eutempe_test_chunked')
 class ChunkedUploadInitViewTest(APITestCase):
     """Test ChunkedUploadInitView API endpoint."""
 

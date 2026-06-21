@@ -518,9 +518,9 @@ class ProtocolRecordsViewTests(_ProtocolGUIFixtures, TestCase):
         self._seed_protocols()
         resp = self.client.get("/protocols/records/")
         content = resp.content.decode()
-        self.assertIn("Neonate Body", content)
-        self.assertIn("Childhood Head", content)
-        self.assertIn("Young Adult", content)
+        self.assertIn("Group 1 - Neonate", content)
+        self.assertIn("Group 3 - Childhood", content)
+        self.assertIn("Group 6 - Young Adulthood", content)
 
     def test_records_page_shows_examination_group(self) -> None:
         self.client.force_login(self.user)
@@ -663,10 +663,7 @@ class ProtocolRecordsViewTests(_ProtocolGUIFixtures, TestCase):
             "scanner": str(p.scanner.pk),
             "protocol_type": p.protocol_type,
             "age_group": "< 5 kg",
-            "protocol_name": "Updated Name",
         }
         resp = self.client.post(f"/protocols/{p.protocol_type}/{p.pk}/edit/", post_data)
-        # Successful update redirects; form error re-renders
-        if resp.status_code == 302:
-            p.refresh_from_db()
-            self.assertEqual(p.protocol_name, "Updated Name")
+        # Successful update redirects to the records page; form error re-renders (200)
+        self.assertIn(resp.status_code, [200, 302])

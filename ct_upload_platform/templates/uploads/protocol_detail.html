@@ -40,6 +40,12 @@
     <div class="main-content">
     <div class="page-body">
 
+        {% if messages %}
+        {% for message in messages %}
+        <div class="alert-success" style="margin-bottom:16px;">{{ message }}</div>
+        {% endfor %}
+        {% endif %}
+
         <div class="breadcrumb">
             <a href="/">Home</a>
             <span class="breadcrumb-sep">/</span>

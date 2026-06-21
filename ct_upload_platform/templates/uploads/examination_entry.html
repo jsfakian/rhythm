@@ -150,6 +150,7 @@
             <!-- Patient -->
             <div class="section-card">
                 <h2>Patient Data</h2>
+                <p class="sdesc">Enter the patient's weight and age.</p>
                 <div class="fgrid">
                     <div class="frow">
                         <label for="inp_weight">Patient's Weight (kg)</label>
@@ -165,13 +166,7 @@
             <!-- Phases + dose -->
             <div class="section-card">
                 <h2>Acquisition Phases &amp; Dose</h2>
-                <p class="sdesc">Set the number of phases; one row per phase will appear for CTDI<sub>vol</sub> and DLP.</p>
-                <div style="max-width:200px;">
-                    <div class="frow">
-                        <label for="inp_phases">Number of phases</label>
-                        <input type="number" id="inp_phases" min="1" max="10" step="1" value="1" oninput="renderPhasesTable()" />
-                    </div>
-                </div>
+                <p class="sdesc">Enter the CTDI<sub>vol</sub> and DLP for the acquisition phase.</p>
                 <div id="phases_table_wrap"></div>
             </div>
 
@@ -366,7 +361,7 @@ function updatePidPreview() {
 // Phases table
 // ---------------------------------------------------------------------------
 function renderPhasesTable() {
-    const n = Math.max(1, Math.min(10, parseInt(document.getElementById('inp_phases').value) || 1));
+    const n = 1;
     const wrap = document.getElementById('phases_table_wrap');
     let rows = '';
     for (let i = 1; i <= n; i++) {
@@ -412,9 +407,7 @@ async function saveExamination() {
 
     if (!document.getElementById('inp_age').value) errors.push("Patient's age is required.");
 
-    const rawPhases = parseInt(document.getElementById('inp_phases').value);
-    const n = (isNaN(rawPhases) || rawPhases < 1) ? 0 : Math.min(10, rawPhases);
-    if (n < 1) errors.push('Number of phases must be at least 1.');
+    const n = 1;
 
     const ctdiVol = [], dlp = [];
     for (let i = 1; i <= n; i++) {
@@ -427,6 +420,7 @@ async function saveExamination() {
     }
 
     const weightVal = document.getElementById('inp_weight').value || null;
+    if (!weightVal) errors.push("Patient's weight is required.");
 
     if (!document.getElementById('sel_quality').value) errors.push('Image quality is required.');
 
@@ -503,10 +497,10 @@ function clearForm() {
     document.getElementById('contrast_display').style.display = 'none';
     document.getElementById('sel_protocol_type').value = '';
     document.getElementById('sel_exam_group').innerHTML = '<option value="">Select group…</option>';
-    document.getElementById('sel_scanner').value = '';
+    const scannerSel = document.getElementById('sel_scanner');
+    scannerSel.value = SCANNERS.length === 1 ? SCANNERS[0].id : '';
     document.getElementById('inp_weight').value = '';
     document.getElementById('inp_age').value = '';
-    document.getElementById('inp_phases').value = '1';
     document.getElementById('sel_quality').value = '';
     document.getElementById('inp_study_set').value = '';
     document.getElementById('study_set_hint').textContent = '';

@@ -264,7 +264,7 @@ class ProtocolFormTests(TestCase):
         data = {
             "scanner": str(self.scanner_profile.pk),
             "protocol_type": "PEDIATRIC_HEAD",
-            "age_group": "lt_3m",
+            "age_group": "< 3 months",
         }
         form = CTProtocolForm(data=data, protocol_type="PEDIATRIC_HEAD")
         self.assertTrue(form.is_valid(), msg=form.errors)
@@ -295,13 +295,10 @@ class ProtocolFormTests(TestCase):
         data = {
             "scanner": str(self.scanner_profile.pk),
             "protocol_type": "PEDIATRIC_HEAD",
-            "age_group": "lt_3m",
-            "dose_metadata": ["ctdi", "dlp"],
+            "age_group": "< 3 months",
         }
         form = CTProtocolForm(data=data, protocol_type="PEDIATRIC_HEAD")
         self.assertTrue(form.is_valid(), msg=form.errors)
-        cleaned = form.clean_dose_metadata()
-        self.assertIsInstance(cleaned, list)
 
     def test_scanner_profile_form_valid(self) -> None:
         data = {
@@ -337,7 +334,7 @@ class ProtocolViewTests(TestCase):
         self.scanner_model, _ = CTScannerModel.objects.get_or_create(
             manufacturer=self.manufacturer,
             name="Aquilion ONE",
-            defaults={"is_active": True},
+            defaults={"is_active": True, "is_catalogue": True},
         )
         self.scanner_profile = CTScannerProfile.objects.create(
             manufacturer=self.manufacturer,

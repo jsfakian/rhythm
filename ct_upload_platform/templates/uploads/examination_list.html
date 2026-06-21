@@ -50,9 +50,7 @@
                             <th>Region</th>
                             <th>Clinical Indication</th>
                             <th>Weight (kg)</th>
-                            <th>WED (cm)</th>
                             <th>Age (y)</th>
-                            <th>Phases</th>
                             <th>CTDI<sub>vol</sub> per phase</th>
                             <th>DLP per phase</th>
                             <th>Total DLP</th>
@@ -74,9 +72,7 @@
                             <td>{{ e.anatomical_region|default:"—" }}</td>
                             <td>{{ e.clinical_indication|default:"—" }}</td>
                             <td class="numeric">{{ e.patient_weight|default:"—" }}</td>
-                            <td class="numeric">{{ e.water_equivalent_diameter|default:"—" }}</td>
                             <td class="numeric">{{ e.patient_age|default:"—" }}</td>
-                            <td class="numeric">{{ e.number_of_phases }}</td>
                             <td class="numeric">
                                 {% for v in e.ctdi_vol_per_phase %}{{ v }}{% if not forloop.last %}, {% endif %}{% empty %}—{% endfor %}
                             </td>

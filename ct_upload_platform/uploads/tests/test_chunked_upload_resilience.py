@@ -31,6 +31,7 @@ from uploads.chunk_manager import (
 )
 
 
+@override_settings(RAW_DATA_DIR='/tmp/eutempe_test_resilience')
 class ChunkedUploadCorruptionRecoveryTest(APITestCase):
     """Test automatic detection and recovery from corrupted chunks."""
 
@@ -286,6 +287,7 @@ class ChunkedUploadCorruptionRecoveryTest(APITestCase):
         print("="*70)
 
 
+@override_settings(RAW_DATA_DIR='/tmp/eutempe_test_resilience')
 class ChunkedUploadServerRestartTest(APITestCase):
     """Test upload resumption after server restart."""
 

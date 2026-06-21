@@ -29,7 +29,7 @@ class _ExamFixtures:
     """Creates DB objects needed by all test classes below."""
 
     @classmethod
-    def _make_scanner(cls) -> CTScannerProfile:
+    def _make_scanner(cls, created_by: str = "") -> CTScannerProfile:
         mfr, _ = CTManufacturer.objects.get_or_create(
             name="GE Healthcare",
             defaults={"is_active": True, "sort_order": 0},
@@ -44,6 +44,7 @@ class _ExamFixtures:
             scanner_model=model,
             detector_rows="256",
             year_of_installation="2022",
+            created_by=created_by,
         )
 
     @classmethod
@@ -195,7 +196,7 @@ class ExaminationEntryViewTests(_ExamFixtures, TestCase):
     def setUp(self) -> None:
         self.user = User.objects.create_user("examuser", password="pass")
         self.client.force_login(self.user)
-        self.scanner = self._make_scanner()
+        self.scanner = self._make_scanner(created_by="examuser")
 
     def test_redirects_when_unauthenticated(self) -> None:
         self.client.logout()
@@ -214,13 +215,14 @@ class ExaminationEntryViewTests(_ExamFixtures, TestCase):
         resp = self.client.get(reverse("examination-entry"))
         self.assertIn(b"CLINICAL_ROWS", resp.content)
 
-    def test_page_contains_manufacturers_json(self) -> None:
+    def test_page_contains_manufacturer_data(self) -> None:
         resp = self.client.get(reverse("examination-entry"))
-        self.assertIn(b"MANUFACTURERS", resp.content)
+        # Manufacturer name appears inside the SCANNERS JSON constant
+        self.assertIn(b"GE Healthcare", resp.content)
 
-    def test_page_contains_anatomical_options(self) -> None:
+    def test_page_contains_indication_selector(self) -> None:
         resp = self.client.get(reverse("examination-entry"))
-        self.assertIn(b"ANATOMICAL_OPTS", resp.content)
+        self.assertIn(b"sel_indication_combo", resp.content)
 
     def test_scanner_name_visible_in_page(self) -> None:
         resp = self.client.get(reverse("examination-entry"))
@@ -254,6 +256,9 @@ class ExaminationSaveAPIViewTests(_ExamFixtures, TestCase):
 
     def _valid_payload(self, **overrides) -> dict:
         base = {
+            "scanner_id": str(self.scanner.pk),
+            "protocol_type": "PEDIATRIC_BODY",
+            "examination_group": "Group 1 - Neonate",
             "anatomical_region": "Head",
             "clinical_indication": "Trauma",
             "patient_weight": 12.5,
@@ -352,22 +357,18 @@ class ExaminationSaveAPIViewTests(_ExamFixtures, TestCase):
         )
         self.assertEqual(resp.status_code, 400)
 
-    def test_scanner_and_protocol_both_null(self) -> None:
+    def test_protocol_null_by_default(self) -> None:
         resp = self._post(self._valid_payload())
         self.assertEqual(resp.status_code, 200)
         exam = CTExamination.objects.first()
-        self.assertIsNone(exam.scanner)
         self.assertIsNone(exam.protocol)
 
-    def test_wed_stored_when_weight_absent(self) -> None:
+    def test_missing_weight_returns_400(self) -> None:
         payload = self._valid_payload()
         payload.pop("patient_weight", None)
-        payload["water_equivalent_diameter"] = 17.3
         resp = self._post(payload)
-        self.assertEqual(resp.status_code, 200)
-        exam = CTExamination.objects.first()
-        self.assertAlmostEqual(float(exam.water_equivalent_diameter), 17.3)
-        self.assertIsNone(exam.patient_weight)
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("weight", resp.json()["error"].lower())
 
     def test_ctdi_and_dlp_values_persisted(self) -> None:
         self._post(self._valid_payload())
@@ -391,9 +392,10 @@ class ExaminationSaveAPIViewTests(_ExamFixtures, TestCase):
         self.assertEqual(exam.number_of_phases, 1)
         self.assertAlmostEqual(exam.total_dlp, 88.0)
 
-    def test_image_quality_blank_allowed(self) -> None:
+    def test_image_quality_blank_returns_400(self) -> None:
         resp = self._post(self._valid_payload(image_quality=""))
-        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("image quality", resp.json()["error"].lower())
 
     def test_multiple_saves_create_independent_records(self) -> None:
         self._post(self._valid_payload(patient_age=3))
@@ -422,52 +424,52 @@ class ExaminationListViewTests(_ExamFixtures, TestCase):
         self.assertEqual(resp.status_code, 200)
 
     def test_examination_region_shown(self) -> None:
-        self._make_examination(self.scanner, anatomical_region="Chest")
+        self._make_examination(self.scanner, anatomical_region="Chest", created_by="listuser")
         resp = self.client.get(reverse("examination-list"))
         self.assertIn(b"Chest", resp.content)
 
     def test_examination_indication_shown(self) -> None:
-        self._make_examination(self.scanner, clinical_indication="Lymphoma")
+        self._make_examination(self.scanner, clinical_indication="Lymphoma", created_by="listuser")
         resp = self.client.get(reverse("examination-list"))
         self.assertIn(b"Lymphoma", resp.content)
 
     def test_image_quality_label_shown(self) -> None:
-        self._make_examination(self.scanner, image_quality="EXCELLENT")
+        self._make_examination(self.scanner, image_quality="EXCELLENT", created_by="listuser")
         resp = self.client.get(reverse("examination-list"))
         self.assertIn(b"Excellent", resp.content)
 
     def test_multiple_records_listed(self) -> None:
-        self._make_examination(self.scanner, clinical_indication="Trauma")
-        self._make_examination(self.scanner, clinical_indication="Lymphoma")
+        self._make_examination(self.scanner, clinical_indication="Trauma", created_by="listuser")
+        self._make_examination(self.scanner, clinical_indication="Lymphoma", created_by="listuser")
         resp = self.client.get(reverse("examination-list"))
         self.assertIn(b"Trauma", resp.content)
         self.assertIn(b"Lymphoma", resp.content)
 
     def test_filter_by_image_quality(self) -> None:
-        self._make_examination(self.scanner, image_quality="EXCELLENT", clinical_indication="Trauma")
-        self._make_examination(self.scanner, image_quality="POOR", clinical_indication="Lymphoma")
+        self._make_examination(self.scanner, image_quality="EXCELLENT", clinical_indication="Trauma", created_by="listuser")
+        self._make_examination(self.scanner, image_quality="POOR", clinical_indication="Lymphoma", created_by="listuser")
         resp = self.client.get(reverse("examination-list"), {"image_quality": "EXCELLENT"})
         self.assertIn(b"Excellent", resp.content)
         # "Lymphoma" appears only on the POOR record — it must be absent when filtering for EXCELLENT
         self.assertNotIn(b"Lymphoma", resp.content)
 
     def test_filter_returns_only_matching(self) -> None:
-        self._make_examination(self.scanner, image_quality="GOOD")
-        self._make_examination(self.scanner, image_quality="MODERATE")
+        self._make_examination(self.scanner, image_quality="GOOD", created_by="listuser")
+        self._make_examination(self.scanner, image_quality="MODERATE", created_by="listuser")
         resp = self.client.get(reverse("examination-list"), {"image_quality": "GOOD"})
         self.assertEqual(resp.status_code, 200)
         exams = resp.context["examinations"]
         self.assertEqual(len(list(exams)), 1)
 
     def test_no_filter_shows_all(self) -> None:
-        self._make_examination(self.scanner, image_quality="GOOD")
-        self._make_examination(self.scanner, image_quality="POOR")
+        self._make_examination(self.scanner, image_quality="GOOD", created_by="listuser")
+        self._make_examination(self.scanner, image_quality="POOR", created_by="listuser")
         resp = self.client.get(reverse("examination-list"))
         exams = resp.context["examinations"]
         self.assertEqual(len(list(exams)), 2)
 
     def test_delete_link_present(self) -> None:
-        exam = self._make_examination(self.scanner)
+        exam = self._make_examination(self.scanner, created_by="listuser")
         resp = self.client.get(reverse("examination-list"))
         delete_url = reverse("examination-delete", kwargs={"pk": str(exam.pk)})
         self.assertIn(delete_url.encode(), resp.content)

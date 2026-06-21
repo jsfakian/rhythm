@@ -255,17 +255,17 @@ class CTExaminationNewFieldsTest(TestCase):
             anatomical_region='Head', clinical_indication='Trauma',
             number_of_phases=1, ctdi_vol_per_phase=[3.0], dlp_per_phase=[50.0],
         )
-        self.assertEqual(exam.repository_study_id, '')
+        self.assertEqual(exam.rhythm_pseudo_id, '')
 
     def test_repository_study_id_stored_and_retrieved(self):
         pid = 'RHY-S001-HEADTRAUMA-NC-PH-G4-000001'
         exam = CTExamination.objects.create(
-            repository_study_id=pid,
+            rhythm_pseudo_id=pid,
             anatomical_region='Head', clinical_indication='Trauma',
             number_of_phases=1, ctdi_vol_per_phase=[3.0], dlp_per_phase=[50.0],
         )
         exam.refresh_from_db()
-        self.assertEqual(exam.repository_study_id, pid)
+        self.assertEqual(exam.rhythm_pseudo_id, pid)
 
     def test_contrast_field_stored(self):
         exam = CTExamination.objects.create(
@@ -377,7 +377,7 @@ class ExaminationSaveAPIViewTest(TestCase):
     def test_repository_study_id_stored_on_examination(self):
         resp = self._post(self._valid_payload())
         exam = CTExamination.objects.get()
-        self.assertEqual(exam.repository_study_id, resp.json()['repository_study_id'])
+        self.assertEqual(exam.rhythm_pseudo_id, resp.json()['repository_study_id'])
 
     def test_rhythm_id_contains_site_code(self):
         resp = self._post(self._valid_payload())
@@ -540,7 +540,7 @@ class PopulateProtocolChoicesNewManufacturersTest(TestCase):
 
     def test_united_imaging_ma_options_seeded(self):
         opts = self._ma_options('United Imaging')
-        self.assertIn('uDose 3D', opts)
+        self.assertIn('uDose 3D Dose Modulation', opts)
         self.assertIn('Auto ALARA mA', opts)
 
     # Pre-existing manufacturers still intact

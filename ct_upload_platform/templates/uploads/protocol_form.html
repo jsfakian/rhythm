@@ -25,9 +25,6 @@
         .field-wrap.inline-check input[type="checkbox"] { width: 16px; height: 16px; accent-color: #3498db; order: 0; }
         .add-scanner-link { font-size: 13px; color: #3498db; text-decoration: none; display: inline-block; margin-top: 8px; }
         .add-scanner-link:hover { text-decoration: underline; }
-        .inline-scanner-panel { display: none; margin-top: 16px; padding: 16px; border: 1px dashed #bdc3c7; border-radius: 4px; background: #f8fafc; }
-        .inline-scanner-panel.visible { display: block; }
-        .inline-scanner-panel h3 { font-size: 14px; font-weight: 600; color: #2c3e50; margin-bottom: 14px; }
     </style>
 </head>
 <body>
@@ -90,7 +87,6 @@
                                 {% for e in form.scanner.errors %}<li>{{ e }}</li>{% endfor %}
                             </ul>
                             {% endif %}
-                            <a href="#" class="add-scanner-link" id="add-scanner-toggle">+ Add new scanner inline</a>
                         </div>
                         {% endif %}
 
@@ -154,53 +150,8 @@
                         </div>
                         {% endif %}
 
-                        <!-- Protocol name -->
-                        {% if form.protocol_name %}
-                        <div class="field-wrap full-width">
-                            <label for="{{ form.protocol_name.id_for_label }}">{{ form.protocol_name.label }}</label>
-                            {{ form.protocol_name }}
-                            {% if form.protocol_name.errors %}
-                            <ul class="field-errors">
-                                {% for e in form.protocol_name.errors %}<li>{{ e }}</li>{% endfor %}
-                            </ul>
-                            {% endif %}
-                        </div>
-                        {% endif %}
-
                     </div><!-- /form-grid -->
 
-                    <!-- Inline scanner creation panel -->
-                    {% if scanner_form %}
-                    <div class="inline-scanner-panel" id="inline-scanner-panel">
-                        <h3>Register New Scanner</h3>
-                        <div class="form-grid">
-                            {% for field in scanner_form %}
-                            {% if not field.is_hidden %}
-                            <div class="field-wrap{% if field.name == 'notes' or field.name == 'description' %} full-width{% endif %}" id="inline-wrap-{{ field.name }}">
-                                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
-                                {{ field }}
-                                {% if field.errors %}
-                                <ul class="field-errors">
-                                    {% for e in field.errors %}<li>{{ e }}</li>{% endfor %}
-                                </ul>
-                                {% endif %}
-                                <div class="other-input" id="inline-other-{{ field.name }}">
-                                    <input type="text" id="inline_{{ field.name }}_other_text" placeholder="Specify value">
-                                    <p class="field-hint">Enter a custom value</p>
-                                </div>
-                            </div>
-                            {% endif %}
-                            {% endfor %}
-                        </div>
-                    </div>
-                    {% else %}
-                    <div class="inline-scanner-panel" id="inline-scanner-panel">
-                        <h3>Register New Scanner</h3>
-                        <p style="font-size:13px;color:#7f8c8d;">
-                            To add a scanner, go to <a href="/scanners/create/?protocol_type={{ protocol_type }}" style="color:#3498db;">Manage Scanners</a>.
-                        </p>
-                    </div>
-                    {% endif %}
 
                 </div>
             </div>
@@ -233,24 +184,12 @@
                         {% endif %}
 
                         {% if form.contrast %}
-                        <div class="field-wrap inline-check">
-                            <input type="checkbox" id="{{ form.contrast.id_for_label }}" name="{{ form.contrast.html_name }}"{% if form.contrast.value %} checked{% endif %}>
-                            <label for="{{ form.contrast.id_for_label }}">{{ form.contrast.label }}</label>
-                            {% if form.contrast.errors %}
-                            <ul class="field-errors" style="width:100%;">
-                                {% for e in form.contrast.errors %}<li>{{ e }}</li>{% endfor %}
-                            </ul>
-                            {% endif %}
-                        </div>
-                        {% endif %}
-
-                        {% if form.number_of_phases %}
                         <div class="field-wrap">
-                            <label for="{{ form.number_of_phases.id_for_label }}">{{ form.number_of_phases.label }}</label>
-                            {{ form.number_of_phases }}
-                            {% if form.number_of_phases.errors %}
+                            <label for="{{ form.contrast.id_for_label }}">{{ form.contrast.label }}</label>
+                            {{ form.contrast }}
+                            {% if form.contrast.errors %}
                             <ul class="field-errors">
-                                {% for e in form.number_of_phases.errors %}<li>{{ e }}</li>{% endfor %}
+                                {% for e in form.contrast.errors %}<li>{{ e }}</li>{% endfor %}
                             </ul>
                             {% endif %}
                         </div>
@@ -389,20 +328,8 @@
                         </div>
                         {% endif %}
 
-                        {% if form.scan_fov %}
-                        <div class="field-wrap">
-                            <label for="{{ form.scan_fov.id_for_label }}">{{ form.scan_fov.label }}</label>
-                            {{ form.scan_fov }}
-                            {% if form.scan_fov.errors %}
-                            <ul class="field-errors">
-                                {% for e in form.scan_fov.errors %}<li>{{ e }}</li>{% endfor %}
-                            </ul>
-                            {% endif %}
-                        </div>
-                        {% endif %}
-
                         {% if form.kernel_class %}
-                        <div class="field-wrap" id="wrap-kernel_class">
+                        <div class="field-wrap">
                             <label for="{{ form.kernel_class.id_for_label }}">{{ form.kernel_class.label }}</label>
                             {{ form.kernel_class }}
                             {% if form.kernel_class.errors %}
@@ -410,15 +337,11 @@
                                 {% for e in form.kernel_class.errors %}<li>{{ e }}</li>{% endfor %}
                             </ul>
                             {% endif %}
-                            <div class="other-input" id="other-kernel_class">
-                                <input type="text" id="kernel_class_other_text" placeholder="Specify kernel class">
-                                <p class="field-hint">Enter a custom kernel class</p>
-                            </div>
                         </div>
                         {% endif %}
 
                         {% if form.reconstruction_algorithm %}
-                        <div class="field-wrap" id="wrap-reconstruction_algorithm">
+                        <div class="field-wrap">
                             <label for="{{ form.reconstruction_algorithm.id_for_label }}">{{ form.reconstruction_algorithm.label }}</label>
                             {{ form.reconstruction_algorithm }}
                             {% if form.reconstruction_algorithm.errors %}
@@ -426,65 +349,16 @@
                                 {% for e in form.reconstruction_algorithm.errors %}<li>{{ e }}</li>{% endfor %}
                             </ul>
                             {% endif %}
-                            <div class="other-input" id="other-reconstruction_algorithm">
-                                <input type="text" id="reconstruction_algorithm_other_text" placeholder="Specify algorithm">
-                                <p class="field-hint">Enter a custom reconstruction algorithm</p>
-                            </div>
                         </div>
                         {% endif %}
 
-                    </div>
-                </div>
-            </div>
-
-            <!-- ────────────────────────────────────────────────
-                 SECTION 5: Protocol Intent & Dose
-            ──────────────────────────────────────────────────── -->
-            <div class="card">
-                <div class="card-header" id="hdr-intent" onclick="toggleCard('intent')">
-                    <h2>Protocol Intent &amp; Dose</h2>
-                    <span class="toggle-caret" id="caret-intent">&#9660;</span>
-                </div>
-                <div class="card-body" id="body-intent">
-                    <div class="form-grid">
-
-                        {% if form.protocol_intent %}
-                        <div class="field-wrap" id="wrap-protocol_intent">
-                            <label for="{{ form.protocol_intent.id_for_label }}">{{ form.protocol_intent.label }}</label>
-                            {{ form.protocol_intent }}
-                            {% if form.protocol_intent.errors %}
+                        {% if form.strength %}
+                        <div class="field-wrap">
+                            <label for="{{ form.strength.id_for_label }}">{{ form.strength.label }}</label>
+                            {{ form.strength }}
+                            {% if form.strength.errors %}
                             <ul class="field-errors">
-                                {% for e in form.protocol_intent.errors %}<li>{{ e }}</li>{% endfor %}
-                            </ul>
-                            {% endif %}
-                            <div class="other-input" id="other-protocol_intent">
-                                <input type="text" id="protocol_intent_other_text" placeholder="Specify intent">
-                                <p class="field-hint">Enter a custom protocol intent</p>
-                            </div>
-                        </div>
-                        {% endif %}
-
-                        {% if form.dose_metadata %}
-                        <div class="field-wrap full-width">
-                            <label>{{ form.dose_metadata.label }}</label>
-                            <div class="checkbox-group">
-                                {{ form.dose_metadata }}
-                            </div>
-                            {% if form.dose_metadata.errors %}
-                            <ul class="field-errors">
-                                {% for e in form.dose_metadata.errors %}<li>{{ e }}</li>{% endfor %}
-                            </ul>
-                            {% endif %}
-                        </div>
-                        {% endif %}
-
-                        {% if form.notes %}
-                        <div class="field-wrap full-width">
-                            <label for="{{ form.notes.id_for_label }}">{{ form.notes.label }}</label>
-                            {{ form.notes }}
-                            {% if form.notes.errors %}
-                            <ul class="field-errors">
-                                {% for e in form.notes.errors %}<li>{{ e }}</li>{% endfor %}
+                                {% for e in form.strength.errors %}<li>{{ e }}</li>{% endfor %}
                             </ul>
                             {% endif %}
                         </div>
@@ -553,7 +427,7 @@
             });
             if (!rows.length) rows = CLINICAL_ROWS_FORM;
             var contrastVals = [...new Set(
-                rows.flatMap(function(r) { return r.iv_contrast.split(',').map(function(s) { return s.trim(); }).filter(Boolean); })
+                rows.flatMap(function(r) { return (r.iv_contrast || '').split(',').map(function(s) { return s.trim(); }).filter(Boolean); })
             )].sort();
             rebuildSelect(s.contrast, contrastVals, prevContrast);
         }
@@ -668,19 +542,6 @@
                             console.warn('Model cascade failed:', err);
                         });
                 });
-            });
-        }
-
-        // ── Inline scanner panel toggle ──
-        var addScannerToggle = document.getElementById('add-scanner-toggle');
-        var inlineScannerPanel = document.getElementById('inline-scanner-panel');
-        if (addScannerToggle && inlineScannerPanel) {
-            addScannerToggle.addEventListener('click', function(e) {
-                e.preventDefault();
-                inlineScannerPanel.classList.toggle('visible');
-                addScannerToggle.textContent = inlineScannerPanel.classList.contains('visible')
-                    ? '- Hide scanner form'
-                    : '+ Add new scanner inline';
             });
         }
 

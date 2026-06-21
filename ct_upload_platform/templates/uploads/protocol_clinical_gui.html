@@ -566,10 +566,11 @@ async function saveProtocol(forceUpdate) {
             document.getElementById('existsMsg').textContent = data.message;
             document.getElementById('existsBanner').classList.add('visible');
         } else if (data.status === 'created' || data.status === 'updated') {
+            if (data.status === 'created') clearProtocolForm();
             const box = document.getElementById('successBanner');
             box.textContent = data.message;
             box.style.display = 'block';
-            if (data.status === 'created') clearProtocolForm();
+            box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         } else {
             alert(data.error || 'An error occurred.');
         }

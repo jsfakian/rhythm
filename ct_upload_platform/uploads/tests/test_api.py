@@ -10,7 +10,7 @@ import hashlib
 from datetime import datetime, timedelta
 from unittest.mock import patch, MagicMock
 
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.contrib.auth.models import User
 from django.conf import settings
 from rest_framework.test import APITestCase, APIClient
@@ -21,6 +21,7 @@ from uploads.models import UploadJob, Patient, StudyMapping, Annotation
 from uploads.manifest_schema import validate_manifest
 
 
+@override_settings(RAW_DATA_DIR='/tmp/eutempe_test_api')
 class UploadAPITestCase(APITestCase):
     """Test upload API endpoints."""
 

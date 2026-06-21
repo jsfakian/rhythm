@@ -3,6 +3,8 @@ Forms for CT scanner profiles and CT protocols.
 Choice options are loaded from the database at form instantiation time.
 """
 
+import re
+
 from django import forms
 
 from .models import (
@@ -39,20 +41,17 @@ _CLINICAL_INDICATION_KEY: dict[str, str] = {
 
 # CTProtocol CharField fields whose choices come from a same-named category key
 _SIMPLE_CHOICE_FIELDS = [
-    # protocol_name handled separately as free-text
     # anatomical_region, clinical_indication, contrast driven by ClinicalIndicationRow
     # auto_kvp_selection and auto_ma_modulation handled separately (manufacturer-specific)
     # pitch handled separately as free-text number input (GUI stores arbitrary decimals)
+    # kernel_class and reconstruction_algorithm handled separately as free-text (matches GUI)
     "scan_type",
-    "number_of_phases",
     "kvp",
     "rotation_time",
     "slice_thickness",
-    "scan_fov",
-    "kernel_class",
-    "reconstruction_algorithm",
-    "protocol_intent",
 ]
+
+_SCAN_TYPE_PATTERN = re.compile(r"sequential|axial|helical|spiral", re.IGNORECASE)
 
 # Fields whose allowed values are manufacturer-specific (loaded by JS at runtime).
 # Any submitted string is accepted — no server-side choice validation.
@@ -202,15 +201,6 @@ class CTScannerProfileForm(forms.ModelForm):
 
 
 class CTProtocolForm(forms.ModelForm):
-    dose_metadata = forms.MultipleChoiceField(
-        widget=forms.CheckboxSelectMultiple(),
-        required=False,
-    )
-    notes = forms.CharField(
-        required=False,
-        widget=forms.Textarea(attrs={"class": "form-control", "rows": 4}),
-    )
-
     class Meta:
         model = CTProtocol
         fields = [
@@ -220,11 +210,9 @@ class CTProtocolForm(forms.ModelForm):
             "examination_group",
             "clinical_indication",
             "clinical_comments",
-            "protocol_name",
             "anatomical_region",
             "scan_type",
             "contrast",
-            "number_of_phases",
             "auto_kvp_selection",
             "kvp",
             "auto_ma_modulation",
@@ -232,12 +220,9 @@ class CTProtocolForm(forms.ModelForm):
             "pitch",
             "rotation_time",
             "slice_thickness",
-            "scan_fov",
             "kernel_class",
             "reconstruction_algorithm",
-            "protocol_intent",
-            "dose_metadata",
-            "notes",
+            "strength",
         ]
 
     def __init__(
@@ -301,6 +286,12 @@ class CTProtocolForm(forms.ModelForm):
         # Simple single-select CharField fields
         for field_name in _SIMPLE_CHOICE_FIELDS:
             choices = _get_choice_options(field_name, protocol_type)
+            # Filter scan_type to match the GUI (helical/axial/sequential/spiral only)
+            if field_name == "scan_type":
+                choices = [
+                    (v, d) for v, d in choices
+                    if not v or _SCAN_TYPE_PATTERN.search(v)
+                ]
             # If editing and the stored value is not in the standard options list,
             # add it so the select pre-selects correctly.
             if self.instance and self.instance.pk:
@@ -312,6 +303,19 @@ class CTProtocolForm(forms.ModelForm):
                 required=False,
                 widget=forms.Select(attrs={"class": "form-control"}),
             )
+
+        # kernel_class and reconstruction_algorithm: free-text inputs (matches GUI behaviour)
+        for field_name in ("kernel_class", "reconstruction_algorithm"):
+            self.fields[field_name] = forms.CharField(
+                required=False,
+                widget=forms.TextInput(attrs={"class": "form-control"}),
+            )
+
+        # strength: free-text input (present in GUI, add to edit form)
+        self.fields["strength"] = forms.CharField(
+            required=False,
+            widget=forms.TextInput(attrs={"class": "form-control"}),
+        )
 
         # pitch: free-text number input — GUI stores arbitrary decimals, not the
         # range-bucket values in ProtocolChoiceOption.
@@ -340,12 +344,6 @@ class CTProtocolForm(forms.ModelForm):
             f.valid_value = lambda v: True  # noqa: E731 — accept any string
             self.fields[field_name] = f
 
-        # protocol_name: free-text so saved values round-trip correctly
-        self.fields["protocol_name"].widget = forms.TextInput(
-            attrs={"class": "form-control"}
-        )
-        self.fields["protocol_name"].required = False
-
         # clinical_comments: free-text
         self.fields["clinical_comments"].widget = forms.Textarea(
             attrs={"class": "form-control", "rows": 3}
@@ -361,18 +359,6 @@ class CTProtocolForm(forms.ModelForm):
         )
         self.fields["mas_inputs"].initial = initial_json
 
-        # dose_metadata: MultipleChoiceField backed by JSONField
-        dose_choices = _get_choice_options("dose_metadata", protocol_type)
-        # Strip the blank sentinel — checkboxes don't need it
-        dose_choices_clean = [
-            (v, d) for v, d in dose_choices if v != ""
-        ]
-        self.fields["dose_metadata"].choices = dose_choices_clean
-
-        # Pre-populate dose_metadata initial from existing JSONField value
-        if instance and isinstance(instance.dose_metadata, list):
-            self.fields["dose_metadata"].initial = instance.dose_metadata
-
     def clean_mas_inputs(self) -> dict:
         import json as _json
         raw = self.cleaned_data.get("mas_inputs") or "{}"
@@ -384,5 +370,3 @@ class CTProtocolForm(forms.ModelForm):
         except (ValueError, TypeError):
             return {}
 
-    def clean_dose_metadata(self) -> list[str]:
-        return list(self.cleaned_data.get("dose_metadata") or [])

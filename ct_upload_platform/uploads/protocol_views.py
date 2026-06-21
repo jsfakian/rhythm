@@ -9,6 +9,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -196,6 +197,7 @@ class ProtocolCreateView(LoginRequiredMixin, View):
             protocol: CTProtocol = form.save(commit=False)
             protocol.created_by = request.user.username
             protocol.save()
+            messages.success(request, "Protocol created successfully.")
             return redirect(
                 reverse(
                     "protocol-detail",
@@ -244,6 +246,7 @@ class ProtocolUpdateView(LoginRequiredMixin, View):
         if form.is_valid():
             protocol: CTProtocol = form.save(commit=False)
             protocol.save()
+            messages.success(request, "Protocol updated successfully.")
             return redirect(
                 reverse(
                     "protocol-detail",
@@ -857,8 +860,8 @@ class ExaminationSaveAPIView(LoginRequiredMixin, View):
             errors.append("CTDI vol is required for every phase.")
         if any(v in (None, "") for v in dlp):
             errors.append("DLP is required for every phase.")
-        if not patient_weight and not wed:
-            errors.append("At least one of patient weight or water equivalent diameter (WED) must be provided.")
+        if not patient_weight:
+            errors.append("Patient's weight is required.")
         if not image_quality:
             errors.append("Image quality is required.")
         if errors:
@@ -900,7 +903,7 @@ class ExaminationSaveAPIView(LoginRequiredMixin, View):
             contrast=contrast,
             protocol_type=protocol_type,
             examination_group=examination_group,
-            repository_study_id=rhythm_id,
+            rhythm_pseudo_id=rhythm_id,
             study_set_file=study_set_file,
             patient_weight=patient_weight,
             water_equivalent_diameter=wed,

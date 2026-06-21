@@ -114,10 +114,12 @@ class CRC32ComputationTest(TestCase):
 
 class ChunkVerificationTest(TestCase):
     """Test chunk verification with CRC32."""
-    
+
     def setUp(self):
         """Set up test fixtures."""
+        import tempfile
         self.session_id = uuid.uuid4()
+        self.temp_dir = tempfile.mkdtemp()
         self.upload = ChunkedUpload.objects.create(
             id=self.session_id,
             uploader_id='test_user',
@@ -125,7 +127,7 @@ class ChunkVerificationTest(TestCase):
             total_size=100 * 1024 * 1024,
             total_chunks=10,
             chunk_size=10 * 1024 * 1024,
-            temp_dir=str(get_upload_session_dir(self.session_id)),
+            temp_dir=self.temp_dir,
             expires_at=timezone.now() + timedelta(days=7)
         )
     
@@ -236,9 +238,10 @@ class UploadChunkModelTest(TestCase):
 # STORE CHUNK WITH CRC32 TESTS
 # ============================================================================
 
+@override_settings(RAW_DATA_DIR='/tmp/eutempe_test_uploads')
 class StoreChunkWithCRC32Test(TestCase):
     """Test enhanced store_chunk function that returns CRC32."""
-    
+
     def setUp(self):
         """Set up test fixtures."""
         self.session_id = uuid.uuid4()
@@ -291,9 +294,10 @@ class StoreChunkWithCRC32Test(TestCase):
 # VERIFY UPLOADED CHUNKS TESTS
 # ============================================================================
 
+@override_settings(RAW_DATA_DIR='/tmp/eutempe_test_uploads')
 class VerifyUploadedChunksTest(TestCase):
     """Test comprehensive chunk verification with corruption detection."""
-    
+
     def setUp(self):
         """Set up test fixtures."""
         self.session_id = uuid.uuid4()
@@ -557,13 +561,14 @@ class ManifestValidationViewTest(APITestCase):
 # CHUNK VERIFICATION VIEW TESTS
 # ============================================================================
 
+@override_settings(RAW_DATA_DIR='/tmp/eutempe_test_uploads')
 class ChunkVerificationViewTest(APITestCase):
     """Test ChunkVerificationView for corruption detection endpoint."""
-    
+
     def setUp(self):
         """Set up test fixtures."""
         self.client = APIClient()
-        
+
         # Create test user and token
         self.user = User.objects.create_user(
             username='testuser',
@@ -701,6 +706,7 @@ class ChunkVerificationViewTest(APITestCase):
 # INTEGRATION TESTS
 # ============================================================================
 
+@override_settings(RAW_DATA_DIR='/tmp/eutempe_test_uploads')
 class UploadImprovementsIntegrationTest(APITestCase):
     """Integration tests for early validation + chunk verification workflow."""
     
