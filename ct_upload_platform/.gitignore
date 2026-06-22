@@ -44,6 +44,7 @@ db.sqlite3
 .coverage
 .pytest_cache/
 htmlcov/
+test-results/
 
 # Celery
 celerybeat-schedule
