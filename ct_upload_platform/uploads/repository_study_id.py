@@ -24,6 +24,7 @@ INDICATION_CODES: dict[str, str] = {
     ): "HRCTILD",
     "Abdomen / Acute abdomen": "ACUTEABD",
     "Neck-Chest-Abdomen / Lymphoma": "LYMPHOMA",
+    "Chest-Abdomen / Tumor staging & follow-up (Wilms tumor, neuroblastoma, other)": "CHESTABD",
 }
 
 CONTRAST_CODES: dict[str, str] = {
