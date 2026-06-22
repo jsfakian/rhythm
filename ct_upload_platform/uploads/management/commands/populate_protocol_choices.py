@@ -21,7 +21,29 @@ class Command(BaseCommand):
         self.populate_manufacturer_field_options()
         self.populate_ma_modulation_input_specs()
         self.populate_clinical_indication_rows()
+        self._remove_not_available()
         self.stdout.write(self.style.SUCCESS("Done."))
+
+    def _remove_not_available(self) -> None:
+        """Delete 'Not Available' from auto_kvp_selection and auto_ma_modulation everywhere."""
+        fields = ["auto_kvp_selection", "auto_ma_modulation"]
+
+        mfr_deleted, _ = CTManufacturerFieldOption.objects.filter(
+            field_key__in=fields, value="Not Available"
+        ).delete()
+
+        choice_deleted, _ = ProtocolChoiceOption.objects.filter(
+            category__key__in=fields, value="Not Available"
+        ).delete()
+
+        spec_deleted, _ = MaModulationInputSpec.objects.filter(
+            ma_modulation_value="Not Available"
+        ).delete()
+
+        self.stdout.write(
+            f"  Removed 'Not Available': {mfr_deleted} manufacturer options, "
+            f"{choice_deleted} generic options, {spec_deleted} mA specs."
+        )
 
     def populate_manufacturers(self) -> None:
         manufacturers = [
@@ -414,7 +436,6 @@ class Command(BaseCommand):
                     "Siemens CARE kV",
                     "Siemens CARE kV Semi",
                     "Tin filter / Sn mode",
-                    "Not Available",
                     "Other: Please Specify",
                 ],
             },
@@ -459,7 +480,6 @@ class Command(BaseCommand):
                     "Siemens CARE Dose4D",
                     "Siemens X-CARE / organ dose modulation",
                     "Siemens CARE Dose4D + X-CARE",
-                    "Not Available",
                     "Other: Please Specify",
                 ],
             },
@@ -718,29 +738,29 @@ class Command(BaseCommand):
         OTHER = "Other: Please Specify"
         data: list[tuple[str, str, list[str]]] = [
             # (manufacturer_db_name, field_key, [values...])
-            ("Canon Medical",         "auto_kvp_selection", ["Off", "Sure kV", "Not Available", OTHER]),
-            ("GE HealthCare",         "auto_kvp_selection", ["Off", "kV Assist", "Not Available", OTHER]),
-            ("Philips",               "auto_kvp_selection", ["Off", "Dose Right", "Not Available", OTHER]),
-            ("Siemens Healthineers",  "auto_kvp_selection", ["Off", "CarekV", "CarekV Semi", "Not Available", OTHER]),
-            ("Fujifilm / Hitachi",    "auto_kvp_selection", ["Off", "Auto kV", "Not Available", OTHER]),
-            ("MinFound Medical",      "auto_kvp_selection", ["Off", "Not Available", OTHER]),
+            ("Canon Medical",         "auto_kvp_selection", ["Off", "Sure kV", OTHER]),
+            ("GE HealthCare",         "auto_kvp_selection", ["Off", "kV Assist", OTHER]),
+            ("Philips",               "auto_kvp_selection", ["Off", "Dose Right", OTHER]),
+            ("Siemens Healthineers",  "auto_kvp_selection", ["Off", "CarekV", "CarekV Semi", OTHER]),
+            ("Fujifilm / Hitachi",    "auto_kvp_selection", ["Off", "Auto kV", OTHER]),
+            ("MinFound Medical",      "auto_kvp_selection", ["Off", OTHER]),
             ("Neusoft Medical",       "auto_kvp_selection", [
-                "Off", "AutoKV – Soft Tissue", "AutoKV – Bone", "AutoKV – Patient Size", "Not Available", OTHER,
+                "Off", "AutoKV – Soft Tissue", "AutoKV – Bone", "AutoKV – Patient Size", OTHER,
             ]),
-            ("Samsung NeuroLogica",   "auto_kvp_selection", ["Off", "Auto kV", "Not Available", OTHER]),
-            ("United Imaging",        "auto_kvp_selection", ["Off", "Auto kV", "Not Available", OTHER]),
+            ("Samsung NeuroLogica",   "auto_kvp_selection", ["Off", "Auto kV", OTHER]),
+            ("United Imaging",        "auto_kvp_selection", ["Off", "Auto kV", OTHER]),
 
-            ("Canon Medical",         "auto_ma_modulation", ["Off", "SureExposure", "Not Available", OTHER]),
-            ("GE HealthCare",         "auto_ma_modulation", ["Off", "AutomA", "SmartmA", "Not Available", OTHER]),
-            ("Philips",               "auto_ma_modulation", ["Off", "Doseright", "3D Modulation", "Not Available", OTHER]),
-            ("Siemens Healthineers",  "auto_ma_modulation", ["Off", "CareDose", "CareDose4D", "Not Available", OTHER]),
-            ("Fujifilm / Hitachi",    "auto_ma_modulation", ["Off", "3D Modulation On", "3D Modulation Off", "Intelli EC", "Intelli EC Plus", "Not Available", OTHER]),
+            ("Canon Medical",         "auto_ma_modulation", ["Off", "SureExposure", OTHER]),
+            ("GE HealthCare",         "auto_ma_modulation", ["Off", "AutomA", "SmartmA", OTHER]),
+            ("Philips",               "auto_ma_modulation", ["Off", "Doseright", "3D Modulation", OTHER]),
+            ("Siemens Healthineers",  "auto_ma_modulation", ["Off", "CareDose", "CareDose4D", OTHER]),
+            ("Fujifilm / Hitachi",    "auto_ma_modulation", ["Off", "3D Modulation On", "3D Modulation Off", "Intelli EC", "Intelli EC Plus", OTHER]),
             ("MinFound Medical",      "auto_ma_modulation", [
-                "Off", "imA Intelligent mA Modulation", "imA Intelligent Dose Control", "Not Available", OTHER,
+                "Off", "imA Intelligent mA Modulation", "imA Intelligent Dose Control", OTHER,
             ]),
-            ("Neusoft Medical",       "auto_ma_modulation", ["Off", "DoseRight", "DoseSave Level", "Not Available", OTHER]),
-            ("Samsung NeuroLogica",   "auto_ma_modulation", ["Off", "AEC", "Not Available", OTHER]),
-            ("United Imaging",        "auto_ma_modulation", ["Off", "uDose 3D Dose Modulation", "Auto ALARA mA", "Not Available", OTHER]),
+            ("Neusoft Medical",       "auto_ma_modulation", ["Off", "DoseRight", "DoseSave Level", OTHER]),
+            ("Samsung NeuroLogica",   "auto_ma_modulation", ["Off", "AEC", OTHER]),
+            ("United Imaging",        "auto_ma_modulation", ["Off", "uDose 3D Dose Modulation", "Auto ALARA mA", OTHER]),
         ]
 
         created_count = 0
@@ -791,7 +811,6 @@ class Command(BaseCommand):
             ("uDose 3D",                       ["min mA", "max mA", "Patient size / attenuation"]),
             ("uDose 3D Dose Modulation",       ["min mA", "max mA", "Patient size / attenuation"]),
             ("Auto ALARA mA",                  ["min mA", "max mA", "Patient size / attenuation"]),
-            ("Not Available",                  ["mA"]),
             ("Other: Please Specify",          ["mA"]),
         ]
 

@@ -171,6 +171,20 @@ const PROTOCOL_TABS = {{ protocol_tabs_json|safe }};
 const PROTOCOL_CHOICES = {{ protocol_choices_json|safe }};
 const MANUFACTURER_OPTIONS = {{ manufacturer_options_json|safe }};
 const MA_INPUT_SPECS = {{ ma_input_specs_json|safe }};
+// Combination overrides: keyed by "kvp_value|ma_value", each entry is an array of
+// {label, type} objects. Takes precedence over MA_INPUT_SPECS when both fields match.
+const COMBO_INPUT_SPECS = {
+    'kV Assist|SmartmA': [
+        {label: 'min mA',       type: 'number'},
+        {label: 'max mA',       type: 'number'},
+        {label: 'Noise Index',  type: 'number'},
+        {label: 'Clinical mode', type: 'text'},
+    ],
+    'CarekV|CareDose4D': [
+        {label: 'Quality Reference mAs (QR mAs)', type: 'number'},
+        {label: 'Dose Optimization setting',      type: 'text'},
+    ],
+};
 const CSRF_TOKEN = '{{ csrf_token }}';
 // Derived lookup helpers populated from CLINICAL_ROWS for convenience
 const ANATOMICAL_REGIONS = [...new Set(CLINICAL_ROWS.map(r => r.anatomical_region))];
@@ -420,8 +434,8 @@ function renderFields() {
         ${makeSelect('auto_kvp_selection', getManufacturerFieldOptions('auto_kvp_selection') || getOptions('auto_kvp_selection'), 'Automatic kVp Selection', false)}
         ${makeSelect('kvp', getOptions('kvp'), 'kVp', false)}
         ${makeSelect('auto_ma_modulation', getManufacturerFieldOptions('auto_ma_modulation') || getOptions('auto_ma_modulation'), 'Automatic mA Modulation', false)}
-        <div id="mas_inputs_slot" style="grid-column:span 2;">${renderMasInputs()}</div>
         ${pitchHtml}
+        <div id="mas_inputs_slot" style="grid-column:1/-1;">${renderMasInputs()}</div>
         ${makeSelect('rotation_time', getOptions('rotation_time'), 'Rotation Time (s)', false)}
         ${makeSelect('slice_thickness', getOptions('slice_thickness'), 'Slice Thickness 1st Recon (mm)', false)}
         ${makeInput('kernel_class', 'Reconstruction filter kernel', false, false)}
@@ -436,27 +450,33 @@ function renderFields() {
 
 function renderMasInputs(checkDom = false) {
     const maValue = state.fields['auto_ma_modulation'] || '';
+    const kvpValue = state.fields['auto_kvp_selection'] || '';
     const sel = checkDom ? document.getElementById('fld_auto_ma_modulation') : null;
     const dropdownIsOther = sel && sel.value === OTHER_VAL;
-    let labels;
-    if (!maValue && !dropdownIsOther) {
-        labels = [];
+
+    // Check combination override first
+    const comboKey = kvpValue + '|' + maValue;
+    let specs; // array of {label, type}
+    if (Object.prototype.hasOwnProperty.call(COMBO_INPUT_SPECS, comboKey)) {
+        specs = COMBO_INPUT_SPECS[comboKey];
+    } else if (!maValue && !dropdownIsOther) {
+        specs = [];
     } else if (dropdownIsOther || !Object.prototype.hasOwnProperty.call(MA_INPUT_SPECS, maValue)) {
-        // "Other: Please Specify" selected (text input may still be empty) or custom free-text
-        labels = MA_INPUT_SPECS['Other: Please Specify'] || ['mA'];
+        specs = (MA_INPUT_SPECS['Other: Please Specify'] || ['mA']).map(l => ({label: l, type: 'number'}));
     } else {
-        // Known value — use the seeded spec (may be empty list for "Not Available")
-        labels = MA_INPUT_SPECS[maValue];
+        specs = MA_INPUT_SPECS[maValue].map(l => ({label: l, type: 'number'}));
     }
-    if (!labels.length) return '';
+
+    if (!specs.length) return '';
     const stored = state.fields['mas_inputs'] || {};
-    return `<div style="display:flex;gap:10px;align-items:flex-end;">` +
-        labels.map(label => {
+    return `<div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">` +
+        specs.map(({label, type}) => {
             const key = 'mas_' + label.replace(/[^a-zA-Z0-9]/g, '_');
             const val = esc(stored[label] || '');
+            const attrs = type === 'number' ? 'type="number" min="0" step="any"' : 'type="text"';
             return `<div class="field-row" style="flex:1;min-width:70px;margin-bottom:0;">
                 <label>${esc(label)}</label>
-                <input type="number" id="${key}" value="${val}" min="0" step="any"
+                <input ${attrs} id="${key}" value="${val}"
                        placeholder="${esc(label)}" oninput="onMasInput('${esc(label)}')"
                        style="width:100%;border:1px solid var(--border);border-radius:10px;padding:9px 11px;font-size:14px;font-family:inherit;color:var(--text);" />
             </div>`;
@@ -485,16 +505,11 @@ function onFieldChange(key) {
         if (otherDiv) otherDiv.style.display = 'none';
         state.fields[key] = el.value;
     }
-    // When mA modulation changes, reset stored mAs values and re-render the fields
-    if (key === 'auto_ma_modulation') {
+    // When mA modulation or kVp selection changes, reset stored mAs values and re-render
+    if (key === 'auto_ma_modulation' || key === 'auto_kvp_selection') {
         state.fields['mas_inputs'] = {};
-        const container = document.getElementById('protocolFields');
-        if (container) {
-            // Re-render only the mAs inputs section without a full renderFields()
-            // to preserve other field values already entered.
-            const masSlot = document.getElementById('mas_inputs_slot');
-            if (masSlot) masSlot.innerHTML = renderMasInputs(true);
-        }
+        const masSlot = document.getElementById('mas_inputs_slot');
+        if (masSlot) masSlot.innerHTML = renderMasInputs(true);
     }
     updateCompletion();
 }
