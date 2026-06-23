@@ -97,7 +97,7 @@
                         <select id="cl_clinical" onchange="onClinicalChange()"><option value="">Select region / indication...</option></select>
                     </div>
                     <div class="field-row">
-                        <label>IV Contrast?</label>
+                        <label>IV Contrast</label>
                         <select id="cl_contrast" onchange="onStep1Change()"><option value="">Select contrast option...</option></select>
                     </div>
                     <div class="field-row">
@@ -215,6 +215,10 @@ function initStep1() {
     setSelect(document.getElementById('cl_clinical'), pairs, 'Select region / indication...', current);
 }
 
+function isContrastEditable() {
+    return state.region === 'Chest' && state.indication === 'Complicated and fungal infections';
+}
+
 function onClinicalChange() {
     const val = document.getElementById('cl_clinical').value;
     if (val) {
@@ -229,21 +233,29 @@ function onClinicalChange() {
     // IV contrast options — auto-select when only one option available
     const contrastOpts = unique(matches.flatMap(r => r.iv_contrast.split(',').map(s => s.trim())));
     setSelect(document.getElementById('cl_contrast'), contrastOpts, 'Select contrast option...', '');
+    const contrastSel = document.getElementById('cl_contrast');
+    const editable = isContrastEditable();
+    contrastSel.disabled = !editable && !!state.region;
+    contrastSel.style.opacity = (editable || !state.region) ? '' : '0.6';
+    contrastSel.style.cursor = (editable || !state.region) ? '' : 'not-allowed';
     if (contrastOpts.length === 1) {
-        document.getElementById('cl_contrast').value = contrastOpts[0];
+        contrastSel.value = contrastOpts[0];
         state.contrast = contrastOpts[0];
     }
     // Comments from data
-    const commentOpts = unique(matches.map(r => r.comments).filter(Boolean));
+    const commentOpts = unique(['Indication-specific protocol', ...matches.map(r => r.comments).filter(Boolean)]);
     setSelect(document.getElementById('cl_comments'), commentOpts, '', '');
     if (commentOpts.length === 1) {
         document.getElementById('cl_comments').value = commentOpts[0];
         state.comments = commentOpts[0];
     }
-    // If the previously active tab is now hidden for this indication, reset it
-    if (state.activeTab && hiddenTab(state.region, state.indication, state.activeTab)) {
-        state.activeTab = Object.keys(PROTOCOL_TABS)[0];
-        state.fields = {};
+    // Auto-select the pediatric tab that is visible for this indication
+    if (state.region && state.indication) {
+        const autoTab = HEAD_INDICATIONS.has(`${state.region} / ${state.indication}`) ? 'PEDIATRIC_HEAD' : 'PEDIATRIC_BODY';
+        if (state.activeTab !== autoTab) {
+            state.activeTab = autoTab;
+            state.fields = {};
+        }
     }
     updatePreview(); updateProtocolContext();
 }
@@ -432,7 +444,7 @@ function renderFields() {
         ${makeSelect('scan_type', scanTypeOpts, 'Scan Type', false, true)}
         ${contrastHtml}
         ${makeSelect('auto_kvp_selection', getManufacturerFieldOptions('auto_kvp_selection') || getOptions('auto_kvp_selection'), 'Automatic kVp Selection', false)}
-        ${makeSelect('kvp', getOptions('kvp'), 'kVp', false)}
+        ${makeSelect('kvp', getOptions('kvp'), 'kVp / kVp (ref)', false)}
         ${makeSelect('auto_ma_modulation', getManufacturerFieldOptions('auto_ma_modulation') || getOptions('auto_ma_modulation'), 'Automatic mA Modulation', false)}
         ${pitchHtml}
         <div id="mas_inputs_slot" style="grid-column:1/-1;">${renderMasInputs()}</div>
