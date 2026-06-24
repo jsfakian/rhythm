@@ -5,6 +5,7 @@ All views require authentication via LoginRequiredMixin.
 
 import json
 import logging
+import os
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -894,6 +895,17 @@ class ExaminationSaveAPIView(LoginRequiredMixin, View):
             )
         except Exception as exc:
             logger.warning("Could not generate RHYTHM repository study ID: %s", exc)
+
+        if study_set_file and rhythm_id:
+            orig_name = study_set_file.name or ''
+            file_ext = ''
+            for compound in ('.tar.gz', '.tar.bz2'):
+                if orig_name.lower().endswith(compound):
+                    file_ext = compound
+                    break
+            if not file_ext:
+                _, file_ext = os.path.splitext(orig_name)
+            study_set_file.name = f"{rhythm_id}{file_ext}"
 
         exam = CTExamination.objects.create(
             protocol=protocol,

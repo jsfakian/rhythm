@@ -43,6 +43,10 @@
         .frow input:focus, .frow select:focus {
             border-color: var(--primary2); box-shadow: 0 0 0 3px rgba(40,75,122,.12);
         }
+        .frow select:disabled {
+            cursor: not-allowed;
+            background-color: #f7f9fc;
+        }
         .frow input[type=number] { -moz-appearance: textfield; }
         .hint { font-size: 12px; color: var(--muted); margin-top: 2px; }
         /* phases table */
@@ -103,13 +107,19 @@
             <div class="section-card">
                 <h2>Anatomical Region &amp; Clinical Indication</h2>
                 <p class="sdesc">Select the clinical indication for this examination.</p>
-                <div class="frow">
-                    <label for="sel_indication_combo">Region / Clinical Indication</label>
-                    <select id="sel_indication_combo" onchange="onIndicationComboChange()">
-                        <option value="">— Select indication —</option>
-                    </select>
+                <div class="fgrid">
+                    <div class="frow">
+                        <label for="sel_indication_combo">Region / Clinical Indication</label>
+                        <select id="sel_indication_combo" onchange="onIndicationComboChange()">
+                            <option value="">— Select indication —</option>
+                        </select>
+                    </div>
+                    <div class="frow" id="contrast_container" style="display: none;">
+                        <label for="sel_contrast">IV Contrast</label>
+                        <select id="sel_contrast" onchange="updatePidPreview()">
+                        </select>
+                    </div>
                 </div>
-                <div id="contrast_display" style="margin-top:10px;font-size:13px;color:var(--muted);display:none;"></div>
             </div>
 
             <!-- Protocol Type & Examination Group -->
@@ -194,7 +204,7 @@
                 <div class="frow">
                     <label for="inp_study_set">Compressed Study Set</label>
                     <input type="file" id="inp_study_set" accept=".zip,.tar,.gz,.bz2,.tgz"
-                           onchange="document.getElementById('study_set_hint').textContent = this.files[0] ? this.files[0].name + ' (' + (this.files[0].size / 1048576).toFixed(1) + ' MB)' : '';" />
+                           onchange="updateStudySetHint(this);" />
                     <span class="hint" id="study_set_hint"></span>
                 </div>
             </div>
@@ -298,11 +308,42 @@ function init() {
 // ---------------------------------------------------------------------------
 function onIndicationComboChange() {
     const val = document.getElementById('sel_indication_combo').value;
-    const detail = document.getElementById('contrast_display');
-    if (!val) { detail.style.display = 'none'; updatePidPreview(); return; }
+    const contrastContainer = document.getElementById('contrast_container');
+    const contrastSelect = document.getElementById('sel_contrast');
+
+    if (!val) {
+        contrastContainer.style.display = 'none';
+        updatePidPreview();
+        return;
+    }
+
     const parsed = JSON.parse(val);
-    detail.style.display = 'block';
-    detail.innerHTML = `<strong>IV Contrast:</strong> ${parsed.contrast || '—'}`;
+    const indicationKey = `${parsed.region} / ${parsed.indication}`;
+    const contrastOptions = parsed.contrast.split(',').map(s => s.trim());
+
+    contrastSelect.innerHTML = ''; // Clear previous options
+
+    if (contrastOptions.length > 1) {
+        contrastOptions.forEach(optionText => {
+            const option = document.createElement('option');
+            option.value = optionText;
+            option.textContent = optionText;
+            contrastSelect.appendChild(option);
+        });
+    } else {
+        const option = document.createElement('option');
+        option.value = parsed.contrast;
+        option.textContent = parsed.contrast;
+        contrastSelect.appendChild(option);
+    }
+
+    if (indicationKey === "Chest / Complicated and fungal infections") {
+        contrastSelect.disabled = false;
+    } else {
+        contrastSelect.disabled = true;
+    }
+
+    contrastContainer.style.display = 'block';
     updatePidPreview();
 }
 
@@ -325,36 +366,69 @@ function onProtocolTypeChange() {
 }
 
 // ---------------------------------------------------------------------------
+// Study-set file hint — shows the name it will be saved under
+// ---------------------------------------------------------------------------
+function getFileExtension(filename) {
+    const lower = filename.toLowerCase();
+    for (const ext of ['.tar.gz', '.tar.bz2']) {
+        if (lower.endsWith(ext)) return ext;
+    }
+    const dot = filename.lastIndexOf('.');
+    return dot >= 0 ? filename.slice(dot) : '';
+}
+
+function updateStudySetHint(input) {
+    const hint = document.getElementById('study_set_hint');
+    if (!input || !input.files || !input.files[0]) {
+        hint.textContent = '';
+        return;
+    }
+    const file = input.files[0];
+    const size = (file.size / 1048576).toFixed(1);
+    const rsid = document.getElementById('rsid_display').textContent.replace(/-$/, '');
+    const ext  = getFileExtension(file.name);
+    if (rsid && rsid !== '—') {
+        hint.textContent = `Will be saved as: ${rsid}${ext} (${size} MB)`;
+    } else {
+        hint.textContent = `${file.name} (${size} MB) — complete the form above to preview the final name`;
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Live patient ID prefix preview
 // ---------------------------------------------------------------------------
 function updatePidPreview() {
     const indRaw = document.getElementById('sel_indication_combo').value;
     const ptype  = document.getElementById('sel_protocol_type').value;
     const grp    = document.getElementById('sel_exam_group').value;
+    const contrastContainer = document.getElementById('contrast_container');
 
     const rsidDisplay = document.getElementById('rsid_display');
     const rsidPending = document.getElementById('rsid_pending');
     const rsidSeq     = document.getElementById('rsid_seq');
 
-    if (!indRaw || !ptype || !grp) {
+    if (!indRaw || !ptype || !grp || contrastContainer.style.display === 'none') {
         rsidDisplay.textContent = '—';
         rsidPending.style.display = '';
         rsidPending.textContent = 'Complete the form below to preview the ID prefix';
         rsidSeq.style.display = 'none';
+        updateStudySetHint(document.getElementById('inp_study_set'));
         return;
     }
 
     const parsed      = JSON.parse(indRaw);
     const indKey      = `${parsed.region} / ${parsed.indication}`;
     const indCode     = INDICATION_CODES[indKey] || 'OTHER';
-    const contCode    = CONTRAST_CODES[parsed.contrast] || 'UNK';
+    const contrastVal = document.getElementById('sel_contrast').value;
+    const contCode    = CONTRAST_CODES[contrastVal] || 'UNK';
     const groupCode   = getGroupCode(ptype, grp);
     const prefix      = `RHY-${SITE_CODE}-${indCode}-${contCode}-${groupCode}`;
 
-    const nextSeq = String(examCount + 1).padStart(6, '0');
-    rsidDisplay.textContent = `${prefix}-${nextSeq}`;
+    rsidDisplay.textContent = `${prefix}-`;
     rsidPending.style.display = 'none';
+    rsidSeq.textContent = 'Preview — final number assigned on save';
     rsidSeq.style.display = '';
+    updateStudySetHint(document.getElementById('inp_study_set'));
 }
 
 // ---------------------------------------------------------------------------
@@ -394,7 +468,7 @@ async function saveExamination() {
         const parsed = JSON.parse(indicationRaw);
         anatomicalRegion = parsed.region;
         clinicalIndication = parsed.indication;
-        contrast = parsed.contrast || '';
+        contrast = document.getElementById('sel_contrast').value || '';
     }
 
     const protocolType = document.getElementById('sel_protocol_type').value;
@@ -442,8 +516,11 @@ async function saveExamination() {
     fd.append('ctdi_vol_per_phase',       JSON.stringify(ctdiVol));
     fd.append('dlp_per_phase',            JSON.stringify(dlp));
     fd.append('image_quality',            document.getElementById('sel_quality').value);
+    
     const studyFile = document.getElementById('inp_study_set').files[0];
-    if (studyFile) fd.append('study_set_file', studyFile);
+    if (studyFile) {
+        fd.append('study_set_file', studyFile);
+    }
 
     try {
         const resp = await fetch('/examinations/api/save/', {
@@ -461,7 +538,6 @@ async function saveExamination() {
             return;
         }
         if (data.status === 'created') {
-            examCount++;
             if (data.repository_study_id) {
                 document.getElementById('rsid_display').textContent = data.repository_study_id;
                 document.getElementById('rsid_seq').style.display = 'none';
@@ -494,7 +570,7 @@ function showError(msg) {
 
 function clearForm() {
     document.getElementById('sel_indication_combo').value = '';
-    document.getElementById('contrast_display').style.display = 'none';
+    document.getElementById('contrast_container').style.display = 'none';
     document.getElementById('sel_protocol_type').value = '';
     document.getElementById('sel_exam_group').innerHTML = '<option value="">Select group…</option>';
     const scannerSel = document.getElementById('sel_scanner');
