@@ -844,6 +844,18 @@ class CTExamination(models.Model):
         return sum(float(v) for v in self.dlp_per_phase if v is not None)
 
 
+class Institution(models.Model):
+    """Known RHYTHM partner institutions with their canonical site codes."""
+    name = models.CharField(max_length=256, unique=True)
+    site_code = models.CharField(max_length=16, unique=True)
+
+    class Meta:
+        ordering = ['name']
+
+    def __str__(self) -> str:
+        return f"{self.name} ({self.site_code})"
+
+
 class UserProfile(models.Model):
     """Extended profile for registered users — institution, role, terms acceptance."""
 

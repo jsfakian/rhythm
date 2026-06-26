@@ -557,8 +557,8 @@ class PopulateProtocolChoicesNewManufacturersTest(TestCase):
         spec = MaModulationInputSpec.objects.filter(ma_modulation_value='Intelli EC').first()
         self.assertIsNotNone(spec)
         self.assertIn('Noise SD target', spec.input_labels)
-        self.assertIn('min mA', spec.input_labels)
-        self.assertIn('max mA', spec.input_labels)
+        self.assertIn('Min mA', spec.input_labels)
+        self.assertIn('Max mA', spec.input_labels)
 
     def test_intelli_ec_plus_input_spec_seeded(self):
         spec = MaModulationInputSpec.objects.filter(ma_modulation_value='Intelli EC Plus').first()

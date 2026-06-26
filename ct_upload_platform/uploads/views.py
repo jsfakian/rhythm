@@ -438,6 +438,12 @@ class SignupPageView(TemplateView):
             return redirect('/')
         return super().get(request, *args, **kwargs)
 
+    def get_context_data(self, **kwargs):
+        from .models import Institution
+        ctx = super().get_context_data(**kwargs)
+        ctx['institutions'] = list(Institution.objects.values('name', 'site_code'))
+        return ctx
+
 
 class LogoutView(View):
     def get(self, request):

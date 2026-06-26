@@ -303,6 +303,8 @@ class CTProtocolForm(forms.ModelForm):
                 required=False,
                 widget=forms.Select(attrs={"class": "form-control"}),
             )
+            if field_name == "kvp":
+                self.fields[field_name].label = "kVp"
 
         # kernel_class and reconstruction_algorithm: free-text inputs (matches GUI behaviour)
         for field_name in ("kernel_class", "reconstruction_algorithm"):
@@ -341,6 +343,10 @@ class CTProtocolForm(forms.ModelForm):
                 required=False,
                 widget=forms.Select(attrs={"class": "form-control"}),
             )
+            if field_name == "auto_kvp_selection":
+                f.label = "Automatic kVp selection"
+            elif field_name == "auto_ma_modulation":
+                f.label = "mA Modulation"
             f.valid_value = lambda v: True  # noqa: E731 — accept any string
             self.fields[field_name] = f
 

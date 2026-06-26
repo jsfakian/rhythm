@@ -607,6 +607,22 @@
         // ── Dynamic mAs inputs driven by Automatic mA Modulation ──
         {% if ma_input_specs_json %}
         var MA_INPUT_SPECS_FORM = {{ ma_input_specs_json|safe }};
+        var MA_INPUT_LABEL_ALIASES_FORM = {
+            'Min mA': ['Min mA', 'min mA'],
+            'Max mA': ['Max mA', 'max mA'],
+        };
+
+        function getStoredMasValue(storedValues, label) {
+            if (!storedValues) return '';
+            var aliases = MA_INPUT_LABEL_ALIASES_FORM[label] || [label];
+            for (var i = 0; i < aliases.length; i++) {
+                var alias = aliases[i];
+                if (storedValues[alias] != null) {
+                    return storedValues[alias];
+                }
+            }
+            return '';
+        }
 
         function getMasLabels(maValue) {
             var OTHER_SENTINEL = (typeof OTHER_VAL_FORM !== 'undefined') ? OTHER_VAL_FORM : 'Other: Please Specify';
@@ -629,7 +645,7 @@
             container.innerHTML = '<div style="display:flex;gap:10px;align-items:flex-end;">' +
                 labels.map(function(label) {
                     var inputId = 'mas_' + label.replace(/[^a-zA-Z0-9]/g, '_');
-                    var val = storedValues && storedValues[label] != null ? storedValues[label] : '';
+                    var val = getStoredMasValue(storedValues, label);
                     return '<div style="flex:1;min-width:70px;">' +
                         '<label for="' + inputId + '" style="display:block;font-weight:600;font-size:13px;margin-bottom:5px;">' + label + '</label>' +
                         '<input type="number" id="' + inputId + '" class="form-control" min="0" step="any" ' +

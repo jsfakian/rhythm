@@ -49,6 +49,7 @@ class UserManagementView(SuperuserRequiredMixin, TemplateView):
                 'is_superuser': u.is_superuser,
                 'date_joined': u.date_joined.strftime('%Y-%m-%d'),
                 'institution': profile.institution if profile else '',
+                'site_code': profile.site_code if profile else '',
                 'department': profile.department if profile else '',
                 'professional_role': profile.get_professional_role_display() if profile and profile.professional_role else '',
             })

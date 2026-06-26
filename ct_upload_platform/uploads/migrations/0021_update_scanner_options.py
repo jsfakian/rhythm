@@ -60,11 +60,11 @@ def update_ma_input_specs(apps, schema_editor):
     MaModulationInputSpec = apps.get_model("uploads", "MaModulationInputSpec")
 
     new_and_updated = [
-        ("3D Modulation On",         ["min mA", "max mA"]),
-        ("3D Modulation Off",        ["min mA", "max mA"]),
-        ("uDose 3D",                 ["min mA", "max mA", "Patient size / attenuation"]),
-        ("uDose 3D Dose Modulation", ["min mA", "max mA", "Patient size / attenuation"]),
-        ("Auto ALARA mA",            ["min mA", "max mA", "Patient size / attenuation"]),
+        ("3D Modulation On",         ["Min mA", "Max mA"]),
+        ("3D Modulation Off",        ["Min mA", "Max mA"]),
+        ("uDose 3D",                 ["Min mA", "Max mA", "Patient size / attenuation"]),
+        ("uDose 3D Dose Modulation", ["Min mA", "Max mA", "Patient size / attenuation"]),
+        ("Auto ALARA mA",            ["Min mA", "Max mA", "Patient size / attenuation"]),
     ]
 
     for value, labels in new_and_updated:
@@ -108,7 +108,7 @@ def reverse_changes(apps, schema_editor):
     ).delete()
     MaModulationInputSpec.objects.filter(
         ma_modulation_value__in=["uDose 3D", "uDose 3D Dose Modulation", "Auto ALARA mA"]
-    ).update(input_labels=["min mA", "max mA"])
+    ).update(input_labels=["Min mA", "Max mA"])
 
 
 class Migration(migrations.Migration):

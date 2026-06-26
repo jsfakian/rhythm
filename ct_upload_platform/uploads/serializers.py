@@ -211,7 +211,9 @@ class SignupSerializer(serializers.Serializer):
         professional_role_other = validated_data.pop('professional_role_other', '')
         terms_accepted = validated_data.pop('terms_accepted')
 
-        site_code = UserProfile.assign_site_code(institution)
+        from .models import Institution
+        inst_obj = Institution.objects.filter(name=institution).first()
+        site_code = inst_obj.site_code if inst_obj else UserProfile.assign_site_code(institution)
 
         user = User.objects.create_user(
             username=validated_data['username'],

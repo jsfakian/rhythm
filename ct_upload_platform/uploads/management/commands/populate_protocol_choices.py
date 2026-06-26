@@ -787,30 +787,30 @@ class Command(BaseCommand):
         specs: list[tuple[str, list[str]]] = [
             # (ma_modulation_value, [input_label, ...])
             ("Off",                            ["mA"]),
-            ("SureExposure",                   ["min mA", "max mA", "Standard Deviation"]),
-            ("AutomA",                         ["min mA", "max mA", "Noise Index"]),
-            ("SmartmA",                        ["min mA", "max mA", "Noise Index"]),
+            ("SureExposure",                   ["Min mA", "Max mA", "Standard Deviation"]),
+            ("AutomA",                         ["Min mA", "Max mA", "Noise Index"]),
+            ("SmartmA",                        ["Min mA", "Max mA", "Noise Index"]),
             ("Doseright",                      ["Reference mAs", "Dose Right Index"]),
             ("3D Modulation",                  ["Reference mAs", "Dose Right Index"]),
             ("CareDose",                       ["Effective mAs"]),
             ("CareDose4D",                     ["Quality Reference mAs (QR mAs)"]),
             # Fujifilm / Hitachi
-            ("3D Modulation On",               ["min mA", "max mA"]),
-            ("3D Modulation Off",              ["min mA", "max mA"]),
-            ("Intelli EC",                     ["Noise SD target", "min mA", "max mA"]),
-            ("Intelli EC Plus",                ["Noise SD target", "min mA", "max mA"]),
+            ("3D Modulation On",               ["Min mA", "Max mA"]),
+            ("3D Modulation Off",              ["Min mA", "Max mA"]),
+            ("Intelli EC",                     ["Noise SD target", "Min mA", "Max mA"]),
+            ("Intelli EC Plus",                ["Noise SD target", "Min mA", "Max mA"]),
             # MinFound Medical
-            ("imA Intelligent mA Modulation",  ["min mA", "max mA"]),
-            ("imA Intelligent Dose Control",   ["min mA", "max mA"]),
+            ("imA Intelligent mA Modulation",  ["Min mA", "Max mA"]),
+            ("imA Intelligent Dose Control",   ["Min mA", "Max mA"]),
             # Neusoft Medical
             ("DoseRight",                      ["Reference mAs", "Dose Right Index"]),
-            ("DoseSave Level",                 ["DoseSave Level", "min mA", "max mA", "Modulation type"]),
+            ("DoseSave Level",                 ["DoseSave Level", "Min mA", "Max mA", "Modulation type"]),
             # Samsung NeuroLogica
-            ("AEC",                            ["Desired noise level", "min mA", "max mA"]),
+            ("AEC",                            ["Desired noise level", "Min mA", "Max mA"]),
             # United Imaging
-            ("uDose 3D",                       ["min mA", "max mA", "Patient size / attenuation"]),
-            ("uDose 3D Dose Modulation",       ["min mA", "max mA", "Patient size / attenuation"]),
-            ("Auto ALARA mA",                  ["min mA", "max mA", "Patient size / attenuation"]),
+            ("uDose 3D",                       ["Min mA", "Max mA", "Patient size / attenuation"]),
+            ("uDose 3D Dose Modulation",       ["Min mA", "Max mA", "Patient size / attenuation"]),
+            ("Auto ALARA mA",                  ["Min mA", "Max mA", "Patient size / attenuation"]),
             ("Other: Please Specify",          ["mA"]),
         ]
 
