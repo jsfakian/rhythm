@@ -271,34 +271,19 @@ class ProtocolDeleteView(LoginRequiredMixin, DeleteView):
     login_url = _LOGIN_URL
     model = CTProtocol
     template_name = "uploads/protocol_confirm_delete.html"
+    context_object_name = "protocol"
+
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        context = super().get_context_data(**kwargs)
+        obj: CTProtocol = self.object  # type: ignore[assignment]
+        context["protocol_type_display"] = dict(CTProtocol.PROTOCOL_TYPE_CHOICES).get(
+            obj.protocol_type, obj.protocol_type
+        )
+        return context
 
     def get_success_url(self) -> str:
         protocol_type: str = self.object.protocol_type  # type: ignore[union-attr]
         return reverse_lazy("protocol-list", kwargs={"protocol_type": protocol_type})
-
-
-class ScannerProfileDeleteView(LoginRequiredMixin, DeleteView):
-    login_url = _LOGIN_URL
-    model = CTScannerProfile
-    template_name = "uploads/scanner_confirm_delete.html"
-    success_url = reverse_lazy("scanner-profile-list")
-
-    def get_queryset(self):
-        return CTScannerProfile.objects.filter(created_by=self.request.user.username)
-
-    def post(self, request: HttpRequest, *args: object, **kwargs: object) -> HttpResponse:
-        from django.db.models.deletion import ProtectedError
-        self.object = self.get_object()
-        try:
-            self.object.delete()
-            return redirect(self.success_url)
-        except ProtectedError:
-            protocol_count = self.object.ctprotocol_set.count()
-            return render(request, self.template_name, {
-                "object": self.object,
-                "protected_error": True,
-                "protocol_count": protocol_count,
-            })
 
 
 class ScannerProfileCreateView(LoginRequiredMixin, View):
@@ -383,13 +368,23 @@ class ScannerProfileEditView(LoginRequiredMixin, View):
 
 class ScannerProfileDeleteView(LoginRequiredMixin, View):
     login_url = _LOGIN_URL
+    template_name = "uploads/scanner_confirm_delete.html"
+
+    def get(self, request: HttpRequest, pk: str) -> HttpResponse:
+        profile = get_object_or_404(CTScannerProfile, pk=pk, created_by=request.user.username)
+        return render(request, self.template_name, {"object": profile})
 
     def post(self, request: HttpRequest, pk: str) -> HttpResponse:
         profile = get_object_or_404(CTScannerProfile, pk=pk, created_by=request.user.username)
         has_protocols = CTProtocol.objects.filter(scanner=profile).exists()
         has_exams = CTExamination.objects.filter(scanner=profile).exists()
         if has_protocols or has_exams:
-            return redirect(reverse("scanner-profile-list") + "?delete_error=1")
+            protocol_count = CTProtocol.objects.filter(scanner=profile).count()
+            return render(request, self.template_name, {
+                "object": profile,
+                "protected_error": True,
+                "protocol_count": protocol_count,
+            })
         profile.delete()
         return redirect(reverse("scanner-profile-list"))
 
