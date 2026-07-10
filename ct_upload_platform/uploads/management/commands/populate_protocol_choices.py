@@ -844,8 +844,14 @@ class Command(BaseCommand):
             },
             {
                 "anatomical_region": "Chest",
-                "clinical_indication": "Complicated and fungal infections",
-                "iv_contrast": "Non-contrast, Contrast-enhanced",
+                "clinical_indication": "Complicated infections",
+                "iv_contrast": "Contrast-enhanced",
+                "comments": "Anatomical based protocol",
+            },
+            {
+                "anatomical_region": "Chest",
+                "clinical_indication": "Fungal infections",
+                "iv_contrast": "Non-contrast",
                 "comments": "Anatomical based protocol",
             },
             {

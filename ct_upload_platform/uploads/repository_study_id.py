@@ -17,7 +17,8 @@ logger = logging.getLogger(__name__)
 INDICATION_CODES: dict[str, str] = {
     "Head / Trauma": "HEADTRAUMA",
     "Mastoid bone/Inner Ear / Hearing loss; congenital malformations, infection, cholesteatoma, cochlear implants": "MASTOID",
-    "Chest / Complicated and fungal infections": "CHESTINF",
+    "Chest / Complicated infections": "CHESTCOMP",
+    "Chest / Fungal infections": "CHESTFUNG",
     (
         "Chest/HRCT (Inspiration/Expiration) / Interstitial lung diseases, small airways disease, "
         "cystic fibrosis, asthma, primary ciliary dyskinesia, chronic lung disease of prematurity"

@@ -233,7 +233,8 @@ let examCount       = {{ exam_count }};
 const INDICATION_CODES = {
     "Head / Trauma": "HEADTRAUMA",
     "Mastoid bone/Inner Ear / Hearing loss; congenital malformations, infection, cholesteatoma, cochlear implants": "MASTOID",
-    "Chest / Complicated and fungal infections": "CHESTINF",
+    "Chest / Complicated infections": "CHESTCOMP",
+    "Chest / Fungal infections": "CHESTFUNG",
     "Chest/HRCT (Inspiration/Expiration) / Interstitial lung diseases, small airways disease, cystic fibrosis, asthma, primary ciliary dyskinesia, chronic lung disease of prematurity": "HRCTILD",
     "Abdomen / Acute abdomen": "ACUTEABD",
     "Neck-Chest-Abdomen / Lymphoma": "LYMPHOMA",
@@ -318,7 +319,6 @@ function onIndicationComboChange() {
     }
 
     const parsed = JSON.parse(val);
-    const indicationKey = `${parsed.region} / ${parsed.indication}`;
     const contrastOptions = parsed.contrast.split(',').map(s => s.trim());
 
     contrastSelect.innerHTML = ''; // Clear previous options
@@ -337,11 +337,7 @@ function onIndicationComboChange() {
         contrastSelect.appendChild(option);
     }
 
-    if (indicationKey === "Chest / Complicated and fungal infections") {
-        contrastSelect.disabled = false;
-    } else {
-        contrastSelect.disabled = true;
-    }
+    contrastSelect.disabled = contrastOptions.length <= 1;
 
     contrastContainer.style.display = 'block';
     updatePidPreview();
@@ -586,5 +582,6 @@ function clearForm() {
 
 init();
 </script>
+{% include 'uploads/_footer.html' %}
 </body>
 </html>

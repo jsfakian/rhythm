@@ -216,10 +216,6 @@ function initStep1() {
     setSelect(document.getElementById('cl_clinical'), pairs, 'Select region / indication...', current);
 }
 
-function isContrastEditable() {
-    return state.region === 'Chest' && state.indication === 'Complicated and fungal infections';
-}
-
 function onClinicalChange() {
     const val = document.getElementById('cl_clinical').value;
     if (val) {
@@ -235,10 +231,9 @@ function onClinicalChange() {
     const contrastOpts = unique(matches.flatMap(r => r.iv_contrast.split(',').map(s => s.trim())));
     setSelect(document.getElementById('cl_contrast'), contrastOpts, 'Select contrast option...', '');
     const contrastSel = document.getElementById('cl_contrast');
-    const editable = isContrastEditable();
-    contrastSel.disabled = !editable && !!state.region;
-    contrastSel.style.opacity = (editable || !state.region) ? '' : '0.6';
-    contrastSel.style.cursor = (editable || !state.region) ? '' : 'not-allowed';
+    contrastSel.disabled = !!state.region;
+    contrastSel.style.opacity = state.region ? '0.6' : '';
+    contrastSel.style.cursor = state.region ? 'not-allowed' : '';
     if (contrastOpts.length === 1) {
         contrastSel.value = contrastOpts[0];
         state.contrast = contrastOpts[0];
@@ -642,5 +637,6 @@ function dismissBanner() {
 initStep1();
 initStep2();
 </script>
+{% include 'uploads/_footer.html' %}
 </body>
 </html>

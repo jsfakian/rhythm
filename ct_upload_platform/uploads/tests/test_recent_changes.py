@@ -624,7 +624,8 @@ class RhythmPseudoIdLogicTest(TestCase):
         expected_keys = [
             'Head / Trauma',
             'Mastoid bone/Inner Ear / Hearing loss; congenital malformations, infection, cholesteatoma, cochlear implants',
-            'Chest / Complicated and fungal infections',
+            'Chest / Complicated infections',
+            'Chest / Fungal infections',
             (
                 'Chest/HRCT (Inspiration/Expiration) / Interstitial lung diseases, small airways disease, '
                 'cystic fibrosis, asthma, primary ciliary dyskinesia, chronic lung disease of prematurity'

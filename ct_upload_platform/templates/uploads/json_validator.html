@@ -208,5 +208,6 @@ function escHtml(s) {
     return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
 }
 </script>
+{% include 'uploads/_footer.html' %}
 </body>
 </html>
