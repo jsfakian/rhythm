@@ -14,6 +14,7 @@ from rest_framework.authtoken.models import Token
 from rest_framework.test import APIClient, APITestCase
 
 from uploads.models import (
+    ClinicalIndicationRow,
     CTManufacturer,
     CTProtocol,
     CTScannerModel,
@@ -229,6 +230,17 @@ class ProtocolFormTests(TestCase):
             defaults={"display": "Standard Head", "sort_order": 0, "is_active": True},
         )
 
+        # examination_group_pediatric_head
+        exam_cat, _ = ProtocolChoiceCategory.objects.get_or_create(
+            key="examination_group_pediatric_head",
+            defaults={"label": "Examination Group Pediatric Head"},
+        )
+        ProtocolChoiceOption.objects.get_or_create(
+            category=exam_cat,
+            value="head_routine",
+            defaults={"display": "Head Routine", "sort_order": 0, "is_active": True},
+        )
+
         # scan_type
         stype_cat, _ = ProtocolChoiceCategory.objects.get_or_create(
             key="scan_type",
@@ -238,6 +250,47 @@ class ProtocolFormTests(TestCase):
             category=stype_cat,
             value="helical",
             defaults={"display": "Helical", "sort_order": 0, "is_active": True},
+        )
+
+        # kvp, rotation_time, slice_thickness
+        kvp_cat, _ = ProtocolChoiceCategory.objects.get_or_create(
+            key="kvp",
+            defaults={"label": "kVp"},
+        )
+        ProtocolChoiceOption.objects.get_or_create(
+            category=kvp_cat,
+            value="120",
+            defaults={"display": "120", "sort_order": 0, "is_active": True},
+        )
+        rot_cat, _ = ProtocolChoiceCategory.objects.get_or_create(
+            key="rotation_time",
+            defaults={"label": "Rotation Time"},
+        )
+        ProtocolChoiceOption.objects.get_or_create(
+            category=rot_cat,
+            value="0.5",
+            defaults={"display": "0.5", "sort_order": 0, "is_active": True},
+        )
+        slice_cat, _ = ProtocolChoiceCategory.objects.get_or_create(
+            key="slice_thickness",
+            defaults={"label": "Slice Thickness"},
+        )
+        ProtocolChoiceOption.objects.get_or_create(
+            category=slice_cat,
+            value="1.0",
+            defaults={"display": "1.0", "sort_order": 0, "is_active": True},
+        )
+
+        # ClinicalIndicationRow — drives anatomical_region, clinical_indication, contrast
+        ClinicalIndicationRow.objects.get_or_create(
+            anatomical_region="Head",
+            clinical_indication="Trauma",
+            defaults={
+                "iv_contrast": "Non-contrast",
+                "comments": "Anatomical based protocol",
+                "sort_order": 0,
+                "is_active": True,
+            },
         )
 
         # detector_rows and year_of_installation for scanner profile form
@@ -265,6 +318,20 @@ class ProtocolFormTests(TestCase):
             "scanner": str(self.scanner_profile.pk),
             "protocol_type": "PEDIATRIC_HEAD",
             "age_group": "< 3 months",
+            "examination_group": "Head Routine",
+            "clinical_indication": "Trauma",
+            "clinical_comments": "Anatomical based protocol",
+            "anatomical_region": "Head",
+            "scan_type": "helical",
+            "contrast": "Non-contrast",
+            "auto_kvp_selection": "Manual",
+            "kvp": "120",
+            "auto_ma_modulation": "Manual",
+            "pitch": "0.98",
+            "rotation_time": "0.5",
+            "slice_thickness": "1.0",
+            "kernel_class": "Standard",
+            "reconstruction_algorithm": "FBP",
         }
         form = CTProtocolForm(data=data, protocol_type="PEDIATRIC_HEAD")
         self.assertTrue(form.is_valid(), msg=form.errors)
@@ -296,6 +363,20 @@ class ProtocolFormTests(TestCase):
             "scanner": str(self.scanner_profile.pk),
             "protocol_type": "PEDIATRIC_HEAD",
             "age_group": "< 3 months",
+            "examination_group": "Head Routine",
+            "clinical_indication": "Trauma",
+            "clinical_comments": "Anatomical based protocol",
+            "anatomical_region": "Head",
+            "scan_type": "helical",
+            "contrast": "Non-contrast",
+            "auto_kvp_selection": "Manual",
+            "kvp": "120",
+            "auto_ma_modulation": "Manual",
+            "pitch": "0.98",
+            "rotation_time": "0.5",
+            "slice_thickness": "1.0",
+            "kernel_class": "Standard",
+            "reconstruction_algorithm": "FBP",
         }
         form = CTProtocolForm(data=data, protocol_type="PEDIATRIC_HEAD")
         self.assertTrue(form.is_valid(), msg=form.errors)

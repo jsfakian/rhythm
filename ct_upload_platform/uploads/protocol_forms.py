@@ -223,21 +223,33 @@ class CTProtocolForm(forms.ModelForm):
             "kernel_class",
             "reconstruction_algorithm",
             "strength",
+            "notes",
         ]
 
     def __init__(
         self,
         *args: object,
         protocol_type: str | None = None,
+        user: object | None = None,
         **kwargs: object,
     ) -> None:
         super().__init__(*args, **kwargs)
         self.protocol_type = protocol_type
 
-        # scanner FK
-        self.fields["scanner"].queryset = CTScannerProfile.objects.select_related(
+        # scanner FK — restrict to scanners owned by the current user
+        scanner_qs = CTScannerProfile.objects.select_related(
             "manufacturer", "scanner_model"
-        ).all()
+        )
+        if user is not None and getattr(user, "username", ""):
+            scanner_qs = scanner_qs.filter(created_by=user.username)
+            # Keep the instance's current scanner selectable even if it belongs
+            # to another user, so editing an existing protocol doesn't break.
+            instance = kwargs.get("instance")
+            if instance is not None and instance.pk and instance.scanner_id:
+                scanner_qs = scanner_qs | CTScannerProfile.objects.filter(
+                    pk=instance.scanner_id
+                ).select_related("manufacturer", "scanner_model")
+        self.fields["scanner"].queryset = scanner_qs.distinct()
         _add_form_control(self.fields["scanner"].widget)
 
         # protocol_type — hidden when pre-determined from URL
@@ -262,24 +274,24 @@ class CTProtocolForm(forms.ModelForm):
         exam_choices = _get_display_as_value_options(exam_key, protocol_type)
         self.fields["examination_group"] = forms.ChoiceField(
             choices=exam_choices,
-            required=False,
+            required=True,
             widget=forms.Select(attrs={"class": "form-control"}),
         )
 
         # anatomical_region, clinical_indication, contrast — driven by ClinicalIndicationRow
         self.fields["anatomical_region"] = forms.ChoiceField(
             choices=_clinical_anatomical_region_options(),
-            required=False,
+            required=True,
             widget=forms.Select(attrs={"class": "form-control", "id": "id_anatomical_region"}),
         )
         self.fields["clinical_indication"] = forms.ChoiceField(
             choices=_clinical_indication_options(),
-            required=False,
+            required=True,
             widget=forms.Select(attrs={"class": "form-control", "id": "id_clinical_indication"}),
         )
         self.fields["contrast"] = forms.ChoiceField(
             choices=_clinical_iv_contrast_options(),
-            required=False,
+            required=True,
             widget=forms.Select(attrs={"class": "form-control", "id": "id_contrast"}),
         )
 
@@ -300,7 +312,7 @@ class CTProtocolForm(forms.ModelForm):
                     choices = list(choices) + [(current_val, current_val)]
             self.fields[field_name] = forms.ChoiceField(
                 choices=choices,
-                required=False,
+                required=True,
                 widget=forms.Select(attrs={"class": "form-control"}),
             )
             if field_name == "kvp":
@@ -309,20 +321,27 @@ class CTProtocolForm(forms.ModelForm):
         # kernel_class and reconstruction_algorithm: free-text inputs (matches GUI behaviour)
         for field_name in ("kernel_class", "reconstruction_algorithm"):
             self.fields[field_name] = forms.CharField(
-                required=False,
+                required=True,
                 widget=forms.TextInput(attrs={"class": "form-control"}),
             )
 
-        # strength: free-text input (present in GUI, add to edit form)
+        # strength: free-text input (present in GUI, add to edit form) — optional, matches GUI
         self.fields["strength"] = forms.CharField(
             required=False,
             widget=forms.TextInput(attrs={"class": "form-control"}),
         )
 
+        # notes: free-text input (Additional Free-Text Notes in the GUI) — optional
+        self.fields["notes"].widget = forms.Textarea(
+            attrs={"class": "form-control", "rows": 3}
+        )
+        self.fields["notes"].required = False
+        self.fields["notes"].label = "Additional Free-Text Notes"
+
         # pitch: free-text number input — GUI stores arbitrary decimals, not the
         # range-bucket values in ProtocolChoiceOption.
         self.fields["pitch"] = forms.CharField(
-            required=False,
+            required=True,
             widget=forms.NumberInput(attrs={
                 "class": "form-control",
                 "min": "0", "max": "3", "step": "0.01",
@@ -340,7 +359,7 @@ class CTProtocolForm(forms.ModelForm):
                 choices.append((current_val, current_val))
             f = forms.ChoiceField(
                 choices=choices,
-                required=False,
+                required=True,
                 widget=forms.Select(attrs={"class": "form-control"}),
             )
             if field_name == "auto_kvp_selection":
@@ -355,6 +374,7 @@ class CTProtocolForm(forms.ModelForm):
             attrs={"class": "form-control", "rows": 3}
         )
         self.fields["clinical_comments"].required = False
+        self.fields["clinical_comments"].label = "Comments / Protocol Guidance"
 
         # mas_inputs: managed by JS; rendered as a hidden JSON field
         import json as _json

@@ -834,7 +834,7 @@ class Command(BaseCommand):
                 "anatomical_region": "Head",
                 "clinical_indication": "Trauma",
                 "iv_contrast": "Non-contrast",
-                "comments": "Can include anatomical based protocol",
+                "comments": "Anatomical based protocol",
             },
             {
                 "anatomical_region": "Mastoid bone/Inner Ear",
@@ -846,7 +846,7 @@ class Command(BaseCommand):
                 "anatomical_region": "Chest",
                 "clinical_indication": "Complicated and fungal infections",
                 "iv_contrast": "Non-contrast, Contrast-enhanced",
-                "comments": "Can be anatomical based protocol",
+                "comments": "Anatomical based protocol",
             },
             {
                 "anatomical_region": "Chest/HRCT (Inspiration/Expiration)",
@@ -855,25 +855,25 @@ class Command(BaseCommand):
                     "asthma, primary ciliary dyskinesia, chronic lung disease of prematurity"
                 ),
                 "iv_contrast": "Non-contrast",
-                "comments": "Can be anatomical based protocol",
+                "comments": "Anatomical based protocol",
             },
             {
                 "anatomical_region": "Abdomen",
                 "clinical_indication": "Acute abdomen",
                 "iv_contrast": "Contrast-enhanced",
-                "comments": "Can be anatomical based protocol",
+                "comments": "Anatomical based protocol",
             },
             {
                 "anatomical_region": "Neck-Chest-Abdomen",
                 "clinical_indication": "Lymphoma",
                 "iv_contrast": "Contrast-enhanced",
-                "comments": "Can be anatomical based protocol",
+                "comments": "Anatomical based protocol",
             },
             {
                 "anatomical_region": "Chest-Abdomen",
                 "clinical_indication": "Tumor staging & follow-up (Wilms tumor, neuroblastoma, other)",
                 "iv_contrast": "Contrast-enhanced",
-                "comments": "Can be anatomical based protocol / no liver tumors!",
+                "comments": "Anatomical based protocol / no liver tumors!",
             },
         ]
         created_count = 0

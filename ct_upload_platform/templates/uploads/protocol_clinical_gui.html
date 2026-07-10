@@ -30,6 +30,7 @@
         .sticky-col { position: sticky; top: 16px; }
         .field-row { margin-bottom: 14px; }
         .field-row label { display: block; font-weight: 600; font-size: 13px; margin-bottom: 5px; color: var(--text); }
+        .required-marker { color: #e53935; }
         .field-row select, .field-row input, .field-row textarea {
             width: 100%; border: 1px solid var(--border); border-radius: 10px;
             padding: 9px 11px; background: white; font-size: 14px; outline: none;
@@ -359,14 +360,15 @@ function getManufacturerFieldOptions(fieldKey) {
     return mfrOpts[fieldKey] || null;
 }
 
-function makeSelect(fieldKey, options, label, fullWidth, noOther) {
+function makeSelect(fieldKey, options, label, fullWidth, noOther, required = true) {
     const dedupedOpts = options.filter(o => o !== OTHER_VAL);
     const allOpts = noOther ? dedupedOpts : [...dedupedOpts, OTHER_VAL];
     const val = state.fields[fieldKey] || '';
     const isOther = !noOther && val && !dedupedOpts.includes(val);
+    const labelHtml = required ? `${esc(label)} <span class="required-marker">*</span>` : esc(label);
     return `<div class="field-row${fullWidth?' full':''}">
-        <label>${esc(label)}</label>
-        <select id="fld_${fieldKey}" onchange="onFieldChange('${fieldKey}')">
+        <label>${labelHtml}</label>
+        <select id="fld_${fieldKey}" onchange="onFieldChange('${fieldKey}')"${required?' required':''}>
             <option value="">Select...</option>
             ${allOpts.map(o => `<option value="${esc(o)}"${o===val||(!noOther&&o===OTHER_VAL&&isOther)?' selected':''}>${esc(o)}</option>`).join('')}
         </select>
@@ -376,13 +378,14 @@ function makeSelect(fieldKey, options, label, fullWidth, noOther) {
     </div>`;
 }
 
-function makeInput(fieldKey, label, fullWidth, isTextarea) {
+function makeInput(fieldKey, label, fullWidth, isTextarea, required = true) {
     const val = esc(state.fields[fieldKey] || '');
     const cls = `field-row${fullWidth?' full':''}`;
+    const labelHtml = required ? `${esc(label)} <span class="required-marker">*</span>` : esc(label);
     if (isTextarea) {
-        return `<div class="${cls}"><label>${esc(label)}</label><textarea id="fld_${fieldKey}" oninput="onFieldChange('${fieldKey}')">${val}</textarea></div>`;
+        return `<div class="${cls}"><label>${labelHtml}</label><textarea id="fld_${fieldKey}" oninput="onFieldChange('${fieldKey}')"${required?' required':''}>${val}</textarea></div>`;
     }
-    return `<div class="${cls}"><label>${esc(label)}</label><input type="text" id="fld_${fieldKey}" value="${val}" oninput="onFieldChange('${fieldKey}')" /></div>`;
+    return `<div class="${cls}"><label>${labelHtml}</label><input type="text" id="fld_${fieldKey}" value="${val}" oninput="onFieldChange('${fieldKey}')"${required?' required':''} /></div>`;
 }
 
 function mapContrastFromIV(ivContrast) {
@@ -416,8 +419,8 @@ function renderFields() {
     const contrastVal = mapContrastFromIV(state.contrast);
     state.fields['contrast'] = contrastVal;
     const contrastHtml = `<div class="field-row">
-        <label>Contrast</label>
-        <select id="fld_contrast" disabled style="opacity:.6;cursor:not-allowed;">
+        <label>Contrast <span class="required-marker">*</span></label>
+        <select id="fld_contrast" disabled required style="opacity:.6;cursor:not-allowed;">
             <option value="">—</option>
             ${contrastOpts.map(o => `<option value="${esc(o)}"${o===contrastVal?' selected':''}>${esc(o)}</option>`).join('')}
         </select>
@@ -426,15 +429,15 @@ function renderFields() {
     const scanTypeOpts = getOptions('scan_type').filter(o => /sequential|axial|helical|spiral/i.test(o));
     const pitchVal = esc(state.fields['pitch'] || '');
     const pitchHtml = `<div class="field-row">
-        <label>Pitch</label>
-        <input type="number" id="fld_pitch" min="0" max="3" step="0.01" value="${pitchVal}"
+        <label>Pitch <span class="required-marker">*</span></label>
+        <input type="number" id="fld_pitch" min="0" max="3" step="0.01" value="${pitchVal}" required
                placeholder="e.g. 0.98" oninput="onFieldChange('pitch')" style="width:100%;border:1px solid var(--border);border-radius:10px;padding:9px 11px;font-size:14px;font-family:inherit;color:var(--text);" />
     </div>`;
 
     let html = `<div class="fields-grid" style="margin-bottom:16px;">
         <div class="field-row half">
-            <label>${esc(egAgLabel)}</label>
-            <select id="fld_eg_ag" onchange="onCombinedEgAgChange()">
+            <label>${esc(egAgLabel)} <span class="required-marker">*</span></label>
+            <select id="fld_eg_ag" onchange="onCombinedEgAgChange()" required>
                 <option value="">Select...</option>
                 ${egAgPairs.map((label, i) => `<option value="${i}"${i===selectedIdx?' selected':''}>${esc(label)}</option>`).join('')}
             </select>
@@ -452,15 +455,15 @@ function renderFields() {
         ${makeSelect('slice_thickness', getOptions('slice_thickness'), 'Slice Thickness 1st Recon (mm)', false)}
         ${makeInput('kernel_class', 'Reconstruction filter kernel', false, false)}
         ${makeInput('reconstruction_algorithm', 'Reconstruction Algorithm', false, false)}
-        ${makeInput('strength', 'Strength (optional)', false, false)}
-        ${makeInput('notes', 'Additional Free-Text Notes', true, true)}
+        ${makeInput('strength', 'Strength (optional)', false, false, false)}
+        ${makeInput('notes', 'Additional Free-Text Notes', true, true, false)}
     </div>`;
 
     container.innerHTML = html;
     updateCompletion();
 }
 
-function renderMasInputs(checkDom = false) {
+function getMasInputSpecs(checkDom = false) {
     const maValue = state.fields['auto_ma_modulation'] || '';
     const kvpValue = state.fields['auto_kvp_selection'] || '';
     const sel = checkDom ? document.getElementById('fld_auto_ma_modulation') : null;
@@ -468,17 +471,18 @@ function renderMasInputs(checkDom = false) {
 
     // Check combination override first
     const comboKey = kvpValue + '|' + maValue;
-    let specs; // array of {label, type}
     if (Object.prototype.hasOwnProperty.call(COMBO_INPUT_SPECS, comboKey)) {
-        specs = COMBO_INPUT_SPECS[comboKey];
+        return COMBO_INPUT_SPECS[comboKey];
     } else if (!maValue && !dropdownIsOther) {
-        specs = [];
+        return [];
     } else if (dropdownIsOther || !Object.prototype.hasOwnProperty.call(MA_INPUT_SPECS, maValue)) {
-        specs = (MA_INPUT_SPECS['Other: Please Specify'] || ['mA']).map(l => ({label: l, type: 'number'}));
-    } else {
-        specs = MA_INPUT_SPECS[maValue].map(l => ({label: l, type: 'number'}));
+        return (MA_INPUT_SPECS['Other: Please Specify'] || ['mA']).map(l => ({label: l, type: 'number'}));
     }
+    return MA_INPUT_SPECS[maValue].map(l => ({label: l, type: 'number'}));
+}
 
+function renderMasInputs(checkDom = false) {
+    const specs = getMasInputSpecs(checkDom);
     if (!specs.length) return '';
     const stored = state.fields['mas_inputs'] || {};
     return `<div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">` +
@@ -487,8 +491,8 @@ function renderMasInputs(checkDom = false) {
             const val = esc(stored[label] || '');
             const attrs = type === 'number' ? 'type="number" min="0" step="any"' : 'type="text"';
             return `<div class="field-row" style="flex:1;min-width:70px;margin-bottom:0;">
-                <label>${esc(label)}</label>
-                <input ${attrs} id="${key}" value="${val}"
+                <label>${esc(label)} <span class="required-marker">*</span></label>
+                <input ${attrs} id="${key}" value="${val}" required
                        placeholder="${esc(label)}" oninput="onMasInput('${esc(label)}')"
                        style="width:100%;border:1px solid var(--border);border-radius:10px;padding:9px 11px;font-size:14px;font-family:inherit;color:var(--text);" />
             </div>`;
@@ -567,6 +571,30 @@ async function saveProtocol(forceUpdate) {
     if (!state.scannerId) { alert('Please select a scanner in Step 2.'); return; }
     if (!state.fields['examination_group'] || !state.fields['age_group']) {
         alert('Please select Examination Group and Age / Weight Group.'); return;
+    }
+    const REQUIRED_PROTOCOL_FIELDS = [
+        { key: 'scan_type', label: 'Scan Type' },
+        { key: 'contrast', label: 'Contrast' },
+        { key: 'auto_kvp_selection', label: 'Automatic kVp Selection' },
+        { key: 'kvp', label: 'kVp / kVp (ref)' },
+        { key: 'auto_ma_modulation', label: 'Automatic mA Modulation' },
+        { key: 'pitch', label: 'Pitch' },
+        { key: 'rotation_time', label: 'Rotation Time (s)' },
+        { key: 'slice_thickness', label: 'Slice Thickness 1st Recon (mm)' },
+        { key: 'kernel_class', label: 'Reconstruction filter kernel' },
+        { key: 'reconstruction_algorithm', label: 'Reconstruction Algorithm' },
+    ];
+    for (const { key, label } of REQUIRED_PROTOCOL_FIELDS) {
+        if (!String(state.fields[key] || '').trim()) {
+            alert(`Please complete the required field: ${label}.`); return;
+        }
+    }
+    const masSpecs = getMasInputSpecs();
+    const masStored = state.fields['mas_inputs'] || {};
+    for (const { label } of masSpecs) {
+        if (!String(masStored[label] || '').trim()) {
+            alert(`Please complete the required field: ${label}.`); return;
+        }
     }
 
     const payload = {

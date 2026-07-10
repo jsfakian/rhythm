@@ -226,7 +226,9 @@ class ProtocolUpdateView(LoginRequiredMixin, View):
 
     def get(self, request: HttpRequest, protocol_type: str, pk: str) -> HttpResponse:
         obj = self._get_object(pk)
-        form = CTProtocolForm(instance=obj, protocol_type=obj.protocol_type)
+        form = CTProtocolForm(
+            instance=obj, protocol_type=obj.protocol_type, user=request.user
+        )
         return render(
             request,
             self.template_name,
@@ -242,7 +244,7 @@ class ProtocolUpdateView(LoginRequiredMixin, View):
     def post(self, request: HttpRequest, protocol_type: str, pk: str) -> HttpResponse:
         obj = self._get_object(pk)
         form = CTProtocolForm(
-            request.POST, instance=obj, protocol_type=obj.protocol_type
+            request.POST, instance=obj, protocol_type=obj.protocol_type, user=request.user
         )
         if form.is_valid():
             protocol: CTProtocol = form.save(commit=False)

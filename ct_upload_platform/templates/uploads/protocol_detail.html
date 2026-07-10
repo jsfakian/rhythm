@@ -119,12 +119,10 @@
                         <span class="info-label">Examination Group</span>
                         <span class="info-value{% if not protocol.examination_group %} empty{% endif %}">{{ protocol.examination_group|default:"—" }}</span>
                     </div>
-                    {% if protocol.clinical_comments %}
                     <div class="info-item full-width">
-                        <span class="info-label">Clinical Comments</span>
-                        <span class="info-value">{{ protocol.clinical_comments }}</span>
+                        <span class="info-label">Comments / Protocol Guidance</span>
+                        <span class="info-value{% if not protocol.clinical_comments %} empty{% endif %}">{{ protocol.clinical_comments|default:"—" }}</span>
                     </div>
-                    {% endif %}
                 </div>
             </div>
         </div>
@@ -205,6 +203,18 @@
                     <div class="info-item">
                         <span class="info-label">Reconstruction Algorithm</span>
                         <span class="info-value">{{ protocol.reconstruction_algorithm|default:"—" }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Strength</span>
+                        <span class="info-value{% if not protocol.strength %} empty{% endif %}">{{ protocol.strength|default:"—" }}</span>
+                    </div>
+                    <div class="info-item full-width">
+                        <span class="info-label">Additional Free-Text Notes</span>
+                        {% if protocol.notes %}
+                        <span class="notes-text">{{ protocol.notes }}</span>
+                        {% else %}
+                        <span class="info-value empty">—</span>
+                        {% endif %}
                     </div>
                 </div>
             </div>

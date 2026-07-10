@@ -53,7 +53,7 @@ class _ProtocolGUIFixtures:
         anatomical_region: str = "Head",
         clinical_indication: str = "Trauma",
         contrast: str = "Non-contrast",
-        clinical_comments: str = "Can include anatomical based protocol",
+        clinical_comments: str = "Anatomical based protocol",
         examination_group: str = "Group 1 - Neonate",
         age_group: str = "< 5 kg",
         **extra,
@@ -258,7 +258,7 @@ class ProtocolSaveAPIViewTests(_ProtocolGUIFixtures, TestCase):
             "anatomical_region": "Head",
             "clinical_indication": "Trauma",
             "contrast": "Non-contrast",
-            "clinical_comments": "Can include anatomical based protocol",
+            "clinical_comments": "Anatomical based protocol",
             "examination_group": "Group 1 - Neonate",
             "age_group": "< 5 kg",
             "force_update": False,
@@ -312,7 +312,7 @@ class ProtocolSaveAPIViewTests(_ProtocolGUIFixtures, TestCase):
         self.client.force_login(self.user)
         self._post(self._base_payload())
         p = CTProtocol.objects.get()
-        self.assertEqual(p.clinical_comments, "Can include anatomical based protocol")
+        self.assertEqual(p.clinical_comments, "Anatomical based protocol")
 
     def test_save_sets_created_by(self) -> None:
         self.client.force_login(self.user)
