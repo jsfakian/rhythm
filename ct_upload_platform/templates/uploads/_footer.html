@@ -1,13 +1,41 @@
 <style>
     .rhythm-footer {
-        padding: 14px 24px;
+        background: #ffffff;
+        border-top: 1px solid #e8ecef;
+        padding: 16px 24px 18px;
         text-align: center;
+    }
+    .rhythm-footer-logos {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 28px;
+        margin-bottom: 10px;
+    }
+    .rhythm-footer-logos img {
+        height: 75px;
+        width: auto;
+        display: block;
+    }
+    .rhythm-footer-logos img.rhythm-logo-mark {
+        height: 75px;
+    }
+    .rhythm-footer-text {
         font-size: 12px;
         line-height: 1.5;
         color: #7f8c8d;
-        background: transparent;
+        max-width: 900px;
+        margin: 0 auto;
     }
 </style>
 <footer class="rhythm-footer">
-    &copy; RHYTHM Project, 2026 &ndash; Data are provided for benchmarking and quality improvement purposes only. Redistribution or further use is subject to the RHYTHM governance framework and applicable agreements. Co-funded by the European Union under the EU4Health Programme
+    <div class="rhythm-footer-logos">
+        <a href="https://www.eibir.org/projects/rhythm/" target="_blank" rel="noopener noreferrer"><img class="rhythm-logo-mark" src="/media/image-rhythm.png" alt="RHYTHM - Radiation, Health, Safety &amp; Quality for Youth"></a>
+        <a href="https://medicalphysics.med.uoc.gr/medicalphysics/index_en.jsp" target="_blank" rel="noopener noreferrer"><img src="/media/image.png" alt="Department of Medical Physics, Faculty of Medicine, University of Crete"></a>
+        <a href="https://health.ec.europa.eu/funding/eu4health-programme-2021-2027-vision-healthier-european-union_en" target="_blank" rel="noopener noreferrer"><img src="/media/image-eu.png" alt="Co-funded by the European Union"></a>
+    </div>
+    <p class="rhythm-footer-text">
+        &copy; RHYTHM Project, 2026 &ndash; Data are provided for benchmarking and quality improvement purposes only. Redistribution or further use is subject to the RHYTHM governance framework and applicable agreements. Co-funded by the European Union under the EU4Health Programme.
+    </p>
 </footer>

@@ -16,6 +16,12 @@
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             display: flex;
+            flex-direction: column;
+        }
+
+        .signup-page {
+            flex: 1;
+            display: flex;
             align-items: center;
             justify-content: center;
             padding: 20px;
@@ -285,6 +291,7 @@
     </style>
 </head>
 <body>
+    <div class="signup-page">
     <div class="signup-container">
         <div class="logo">
             <h1>RHYTHM Repository Upload Platform</h1>
@@ -460,6 +467,8 @@
             Having trouble signing in or registering? Please contact the RHYTHM Repository <a href="mailto:jstratak@gmail.com" style="color:#667eea; text-decoration:none;">support team</a>.
         </p>
     </div>
+    </div>
+{% include 'uploads/_footer.html' %}
 
     <script>
         const signupForm = document.getElementById('signupForm');
