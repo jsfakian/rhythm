@@ -5,7 +5,8 @@ URL configuration for ct_upload_platform project.
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
-from django.urls import path, include
+from django.contrib.auth import views as auth_views
+from django.urls import path, include, reverse_lazy
 from uploads.views import UploadIndexView, UploadAdvancedView, HomeView, LoginPageView, SignupPageView, LogoutView
 from uploads.user_management_views import (
     UserManagementView,
@@ -41,6 +42,37 @@ urlpatterns = [
     path('login/', LoginPageView.as_view(), name='login-page'),
     path('logout/', LogoutView.as_view(), name='logout'),
     path('signup/', SignupPageView.as_view(), name='signup-page'),
+
+    # Password reset flow (built-in Django auth views, custom templates)
+    path(
+        'password-reset/',
+        auth_views.PasswordResetView.as_view(
+            template_name='uploads/password_reset.html',
+            email_template_name='uploads/password_reset_email.txt',
+            subject_template_name='uploads/password_reset_subject.txt',
+            success_url=reverse_lazy('password-reset-done'),
+        ),
+        name='password-reset',
+    ),
+    path(
+        'password-reset/done/',
+        auth_views.PasswordResetDoneView.as_view(template_name='uploads/password_reset_done.html'),
+        name='password-reset-done',
+    ),
+    path(
+        'password-reset/confirm/<uidb64>/<token>/',
+        auth_views.PasswordResetConfirmView.as_view(
+            template_name='uploads/password_reset_confirm.html',
+            success_url=reverse_lazy('password-reset-complete'),
+        ),
+        name='password-reset-confirm',
+    ),
+    path(
+        'password-reset/complete/',
+        auth_views.PasswordResetCompleteView.as_view(template_name='uploads/password_reset_complete.html'),
+        name='password-reset-complete',
+    ),
+
     path('', HomeView.as_view(), name='index'),
     path('upload/', UploadAdvancedView.as_view(), name='upload'),
     path('json-validator/', JSONValidatorView.as_view(), name='json-validator'),
