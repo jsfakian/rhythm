@@ -11,6 +11,7 @@ from django.shortcuts import redirect
 from django.views import View
 from django.views.generic import TemplateView
 
+from .account_verification import send_verification_email
 from .models import UserProfile
 
 
@@ -52,6 +53,7 @@ class UserManagementView(SuperuserRequiredMixin, TemplateView):
                 'site_code': profile.site_code if profile else '',
                 'department': profile.department if profile else '',
                 'professional_role': profile.get_professional_role_display() if profile and profile.professional_role else '',
+                'email_verified': profile.email_verified if profile else True,
             })
         ctx['users'] = user_list
         return ctx
@@ -133,6 +135,15 @@ class UserUpdateAPIView(SuperuserRequiredMixin, View):
             user.is_staff = not user.is_staff
             user.save()
             return JsonResponse({'is_staff': user.is_staff})
+
+        if action == 'send_verification_email':
+            if not user.email:
+                return JsonResponse({'error': 'This user has no email address on file.'}, status=400)
+            try:
+                send_verification_email(user, request)
+            except Exception as exc:
+                return JsonResponse({'error': f'Failed to send email: {exc}'}, status=500)
+            return JsonResponse({'ok': True})
 
         if action == 'set_password':
             new_password = data.get('password', '').strip()

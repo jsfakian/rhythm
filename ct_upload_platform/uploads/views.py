@@ -367,8 +367,18 @@ class LoginView(views.APIView):
         password = serializer.validated_data.get('password')
         
         user = authenticate(username=username, password=password)
-        
+
         if not user:
+            # authenticate() also returns None for a correct password on an
+            # inactive (pending-verification) account — check separately so we
+            # can give those users an accurate message.
+            unverified = User.objects.filter(username=username, is_active=False).first()
+            if unverified and unverified.check_password(password):
+                logger.warning(f"Login blocked for unverified account: {username}")
+                return Response(
+                    {'error': 'Your account is pending verification. An administrator must verify your email before you can sign in.'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
             logger.warning(f"Login failed for user: {username}")
             return Response(
                 {'error': 'Invalid username or password'},
@@ -409,7 +419,7 @@ class SignupView(views.APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        """Register a new user and return an auth token."""
+        """Register a new user pending admin-triggered email verification."""
         serializer = SignupSerializer(data=request.data)
 
         if not serializer.is_valid():
@@ -419,12 +429,20 @@ class SignupView(views.APIView):
             )
 
         user = serializer.save()
-        token, _ = Token.objects.get_or_create(user=user)
-        auth_login(request, user)
 
-        logger.info(f"New user registered: {user.username}")
+        logger.info(f"New user registered (pending verification): {user.username}")
 
-        return Response(TokenResponseSerializer(build_auth_response(user, token)).data, status=status.HTTP_201_CREATED)
+        return Response(
+            {
+                'username': user.username,
+                'email': user.email,
+                'message': (
+                    'Account created. An administrator will verify your account and '
+                    'email you a confirmation link before you can sign in.'
+                ),
+            },
+            status=status.HTTP_201_CREATED,
+        )
 
 
 class SignupPageView(TemplateView):
@@ -453,3 +471,34 @@ class LogoutView(View):
     def post(self, request):
         auth_logout(request)
         return redirect('/login/')
+
+
+class VerifyEmailView(TemplateView):
+    """Activate an account when the user visits their emailed verification link."""
+    template_name = 'uploads/email_verified.html'
+    permission_classes = [AllowAny]
+
+    def get(self, request, uidb64, token, *args, **kwargs):
+        from django.utils.encoding import force_str
+        from django.utils.http import urlsafe_base64_decode
+        from .tokens import email_verification_token
+
+        verified = False
+        try:
+            uid = force_str(urlsafe_base64_decode(uidb64))
+            user = User.objects.get(pk=uid)
+        except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+            user = None
+
+        if user is not None and email_verification_token.check_token(user, token):
+            user.is_active = True
+            user.save(update_fields=['is_active'])
+            profile = getattr(user, 'profile', None)
+            if profile is not None:
+                profile.email_verified = True
+                profile.email_verified_at = timezone.now()
+                profile.save(update_fields=['email_verified', 'email_verified_at'])
+            logger.info(f"Email verified, account activated: {user.username}")
+            verified = True
+
+        return self.render_to_response({'verified': verified})

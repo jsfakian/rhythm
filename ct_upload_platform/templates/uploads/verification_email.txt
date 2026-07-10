@@ -1,0 +1,11 @@
+Hello {{ user.get_username }},
+
+An administrator has approved your registration on the RHYTHM Repository Upload Platform. Please confirm your email address to activate your account:
+
+{{ verify_url }}
+
+Once confirmed, you'll be able to sign in with the username and password you chose at registration.
+
+If you did not request this account, you can safely ignore this email.
+
+RHYTHM Repository Upload Platform

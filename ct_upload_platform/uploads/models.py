@@ -881,6 +881,12 @@ class UserProfile(models.Model):
     terms_accepted = models.BooleanField(default=False)
     terms_accepted_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    # Email verification — signup accounts start unverified/inactive; an admin
+    # must send the verification email from User Management before the user
+    # can click the link and log in.
+    email_verified = models.BooleanField(default=False)
+    email_verified_at = models.DateTimeField(null=True, blank=True)
+    verification_email_sent_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         indexes = [

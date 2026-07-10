@@ -16,6 +16,7 @@
         .badge-staff     { background: #d1fae5; color: #065f46; }
         .badge-inactive  { background: #fee2e2; color: #991b1b; }
         .badge-active    { background: #d1fae5; color: #065f46; }
+        .badge-pending   { background: #fef3c7; color: #92400e; }
 
         .toggle-btn {
             display: inline-flex; align-items: center; gap: 5px;
@@ -28,6 +29,7 @@
         .toggle-btn-inactive { border-color: #dc2626; color: #dc2626; }
         .toggle-btn-staff    { border-color: #2563eb; color: #2563eb; }
         .toggle-btn-nostaff  { border-color: #6b7280; color: #6b7280; }
+        .toggle-btn-pending  { border-color: #d97706; color: #d97706; }
 
         /* Modal */
         .modal-overlay {
@@ -151,7 +153,8 @@
                         <tr id="user-row-{{ u.id }}" data-user-id="{{ u.id }}"
                             data-is-active="{{ u.is_active|yesno:'true,false' }}"
                             data-is-staff="{{ u.is_staff|yesno:'true,false' }}"
-                            data-is-superuser="{{ u.is_superuser|yesno:'true,false' }}">
+                            data-is-superuser="{{ u.is_superuser|yesno:'true,false' }}"
+                            data-email-verified="{{ u.email_verified|yesno:'true,false' }}">
                             <td>
                                 <strong>{{ u.username }}</strong>
                                 {% if u.is_superuser %}
@@ -169,6 +172,8 @@
                             <td class="cell-active">
                                 {% if u.is_active %}
                                 <span class="badge badge-active">Active</span>
+                                {% elif not u.email_verified %}
+                                <span class="badge badge-pending">Pending verification</span>
                                 {% else %}
                                 <span class="badge badge-inactive">Inactive</span>
                                 {% endif %}
@@ -183,6 +188,13 @@
                             <td>{{ u.date_joined }}</td>
                             <td>
                                 <div class="actions-cell">
+                                    {% if not u.is_active and not u.email_verified %}
+                                    <button class="toggle-btn toggle-btn-pending"
+                                            onclick="sendVerificationEmail({{ u.id }})"
+                                            title="Send verification email">
+                                        Send Verification Email
+                                    </button>
+                                    {% endif %}
                                     {% if not u.is_superuser %}
                                     <button class="toggle-btn {% if u.is_active %}toggle-btn-active{% else %}toggle-btn-inactive{% endif %}"
                                             onclick="toggleActive({{ u.id }})"
@@ -361,15 +373,31 @@
         const row = document.getElementById(`user-row-${userId}`);
         const isActive = data.is_active;
         row.dataset.isActive = isActive ? 'true' : 'false';
+        const emailVerified = row.dataset.emailVerified === 'true';
         const cell = row.querySelector('.cell-active');
-        cell.innerHTML = isActive
-            ? '<span class="badge badge-active">Active</span>'
-            : '<span class="badge badge-inactive">Inactive</span>';
+        if (isActive) {
+            cell.innerHTML = '<span class="badge badge-active">Active</span>';
+        } else if (!emailVerified) {
+            cell.innerHTML = '<span class="badge badge-pending">Pending verification</span>';
+        } else {
+            cell.innerHTML = '<span class="badge badge-inactive">Inactive</span>';
+        }
         const btn = row.querySelector('[onclick^="toggleActive"]');
         btn.textContent = isActive ? 'Deactivate' : 'Activate';
         btn.className = `toggle-btn ${isActive ? 'toggle-btn-active' : 'toggle-btn-inactive'}`;
         refreshStats();
         showToast(`User ${isActive ? 'activated' : 'deactivated'}.`);
+    }
+
+    // ── Send verification email ────────────────────────────────────
+    async function sendVerificationEmail(userId) {
+        const btn = document.querySelector(`#user-row-${userId} [onclick^="sendVerificationEmail"]`);
+        if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
+        const res = await apiPost(`/users/api/${userId}/update/`, { action: 'send_verification_email' });
+        const data = res.ok ? await res.json() : {};
+        if (btn) { btn.disabled = false; btn.textContent = 'Send Verification Email'; }
+        if (!res.ok || data.error) return;
+        showToast('Verification email sent.');
     }
 
     // ── Toggle staff ───────────────────────────────────────────────
@@ -499,6 +527,7 @@
         tr.dataset.isActive = 'true';
         tr.dataset.isStaff = u.is_staff ? 'true' : 'false';
         tr.dataset.isSuperuser = 'false';
+        tr.dataset.emailVerified = 'true';
 
         const staffBadge = u.is_staff
             ? '<span class="badge badge-staff">Staff</span>'

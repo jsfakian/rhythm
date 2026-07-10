@@ -7,7 +7,10 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.contrib.auth import views as auth_views
 from django.urls import path, include, reverse_lazy
-from uploads.views import UploadIndexView, UploadAdvancedView, HomeView, LoginPageView, SignupPageView, LogoutView
+from uploads.views import (
+    UploadIndexView, UploadAdvancedView, HomeView, LoginPageView, SignupPageView, LogoutView,
+    VerifyEmailView,
+)
 from uploads.user_management_views import (
     UserManagementView,
     UserCreateAPIView,
@@ -42,6 +45,9 @@ urlpatterns = [
     path('login/', LoginPageView.as_view(), name='login-page'),
     path('logout/', LogoutView.as_view(), name='logout'),
     path('signup/', SignupPageView.as_view(), name='signup-page'),
+
+    # Signup email verification (admin-triggered send from User Management)
+    path('verify-email/<uidb64>/<token>/', VerifyEmailView.as_view(), name='verify-email'),
 
     # Password reset flow (built-in Django auth views, custom templates)
     path(

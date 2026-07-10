@@ -501,9 +501,10 @@ class PopulateProtocolChoicesNewManufacturersTest(TestCase):
 
     # MinFound Medical
     def test_minfound_kvp_options_seeded(self):
+        # 'Not Available' is deliberately stripped by _remove_not_available().
         opts = self._kvp_options('MinFound Medical')
         self.assertIn('Off', opts)
-        self.assertIn('Not Available', opts)
+        self.assertNotIn('Not Available', opts)
 
     def test_minfound_ma_options_seeded(self):
         opts = self._ma_options('MinFound Medical')
@@ -570,13 +571,13 @@ class PopulateProtocolChoicesNewManufacturersTest(TestCase):
             ma_modulation_value='imA Intelligent mA Modulation'
         ).first()
         self.assertIsNotNone(spec)
-        self.assertIn('min mA', spec.input_labels)
+        self.assertIn('Min mA', spec.input_labels)
 
     def test_dossave_level_input_spec_seeded(self):
         spec = MaModulationInputSpec.objects.filter(ma_modulation_value='DoseSave Level').first()
         self.assertIsNotNone(spec)
         self.assertIn('DoseSave Level', spec.input_labels)
-        self.assertIn('min mA', spec.input_labels)
+        self.assertIn('Min mA', spec.input_labels)
 
     def test_aec_input_spec_seeded(self):
         spec = MaModulationInputSpec.objects.filter(ma_modulation_value='AEC').first()
@@ -586,12 +587,12 @@ class PopulateProtocolChoicesNewManufacturersTest(TestCase):
     def test_udose_3d_input_spec_seeded(self):
         spec = MaModulationInputSpec.objects.filter(ma_modulation_value='uDose 3D').first()
         self.assertIsNotNone(spec)
-        self.assertIn('min mA', spec.input_labels)
+        self.assertIn('Min mA', spec.input_labels)
 
     def test_auto_alara_input_spec_seeded(self):
         spec = MaModulationInputSpec.objects.filter(ma_modulation_value='Auto ALARA mA').first()
         self.assertIsNotNone(spec)
-        self.assertIn('min mA', spec.input_labels)
+        self.assertIn('Min mA', spec.input_labels)
 
     def test_idempotent_second_run_does_not_duplicate(self):
         call_command('populate_protocol_choices', verbosity=0)

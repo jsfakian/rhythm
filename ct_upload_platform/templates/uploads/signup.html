@@ -577,13 +577,12 @@
                 const data = await response.json();
 
                 if (response.ok) {
-                    localStorage.setItem('token', data.token);
-                    localStorage.setItem('user', JSON.stringify(data));
-
-                    successMessage.textContent = `Account created! Welcome, ${data.username}. Redirecting...`;
+                    successMessage.textContent = data.message ||
+                        `Account created, ${data.username}. An administrator will verify your account before you can sign in.`;
                     successMessage.classList.add('show');
-
-                    setTimeout(() => { window.location.href = '/'; }, 1500);
+                    signupForm.reset();
+                    signupBtn.disabled = true;
+                    signupBtn.innerHTML = originalText;
                 } else {
                     const details = data.details || {};
                     let handled = false;
