@@ -45,10 +45,11 @@
             <span class="nav-icon">📋</span>
             <span>My Uploads <small style="font-size:10px;background:rgba(255,255,255,.15);padding:1px 5px;border-radius:4px;margin-left:4px;">soon</small></span>
         </span>
-        <span class="nav-item" style="opacity:.4;cursor:not-allowed;pointer-events:none;" title="Coming soon">
+        <a class="nav-item nav-link{% if active_nav == 'security-settings' %} active{% endif %}"
+           href="/account/security/">
             <span class="nav-icon">⚙️</span>
-            <span>Settings <small style="font-size:10px;background:rgba(255,255,255,.15);padding:1px 5px;border-radius:4px;margin-left:4px;">soon</small></span>
-        </span>
+            <span>Security Settings</span>
+        </a>
         {% if request.user.is_superuser %}
         <div class="nav-divider"></div>
         <div class="nav-section-label">Administration</div>

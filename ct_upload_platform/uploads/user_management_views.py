@@ -56,6 +56,9 @@ class UserManagementView(SuperuserRequiredMixin, TemplateView):
                 'email_verified': profile.email_verified if profile else True,
             })
         ctx['users'] = user_list
+        ctx['pending_verification_count'] = sum(
+            1 for u in user_list if not u['is_active'] and not u['email_verified']
+        )
         return ctx
 
 

@@ -10,3 +10,5 @@ django-environ
 requests
 gunicorn
 playwright
+pyotp
+qrcode

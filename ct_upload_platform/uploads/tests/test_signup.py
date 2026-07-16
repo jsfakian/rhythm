@@ -179,9 +179,10 @@ class EmailVerificationFlowTestCase(APITestCase):
         }, format='json')
         self.user = User.objects.get(username='pendinguser')
 
-    def test_signup_does_not_send_email_automatically(self):
+    def test_signup_notifies_admin_but_not_the_new_user(self):
         from django.core import mail
-        self.assertEqual(len(mail.outbox), 0)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertNotIn(self.user.email, mail.outbox[0].to)
 
     def test_non_admin_cannot_send_verification_email(self):
         self.client.login(username='pendinguser', password='StrongPass99!')
@@ -192,6 +193,7 @@ class EmailVerificationFlowTestCase(APITestCase):
 
     def test_admin_can_send_verification_email(self):
         from django.core import mail
+        mail.outbox.clear()  # setUp's signup() already queued an admin notification
         self.client.login(username='admin', password='adminpass123')
         response = self.client.post(
             f'/users/api/{self.user.id}/update/', {'action': 'send_verification_email'}, format='json',

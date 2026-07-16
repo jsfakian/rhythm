@@ -34,3 +34,7 @@ MIGRATION_MODULES = DisableMigrations()
 GDPR_STRICT_CONFIG_PATH = '/app/GDPR-strict.json'
 
 DICOM_ENRICHMENT_ENABLED = True
+
+# Pin independently of whatever SUPERUSER_EMAIL happens to be in the local .env,
+# so signup-notification tests are deterministic.
+ADMIN_NOTIFICATION_EMAIL = 'admin-notifications@example.com'

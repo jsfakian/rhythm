@@ -130,6 +130,10 @@
                 <div class="stat-value" id="stat-superuser">0</div>
                 <div class="stat-label">Superusers</div>
             </div>
+            <div class="stat-card">
+                <div class="stat-value" id="stat-pending">{{ pending_verification_count }}</div>
+                <div class="stat-label">Pending verification</div>
+            </div>
         </div>
 
         <div class="card">
@@ -335,16 +339,18 @@
     // ── Stats ──────────────────────────────────────────────────────
     function refreshStats() {
         const rows = document.querySelectorAll('#users-tbody tr[data-user-id]');
-        let active = 0, staff = 0, su = 0;
+        let active = 0, staff = 0, su = 0, pending = 0;
         rows.forEach(r => {
             if (r.dataset.isActive === 'true') active++;
             if (r.dataset.isStaff === 'true') staff++;
             if (r.dataset.isSuperuser === 'true') su++;
+            if (r.dataset.isActive === 'false' && r.dataset.emailVerified === 'false') pending++;
         });
         document.getElementById('stat-total').textContent = rows.length;
         document.getElementById('stat-active').textContent = active;
         document.getElementById('stat-staff').textContent = staff;
         document.getElementById('stat-superuser').textContent = su;
+        document.getElementById('stat-pending').textContent = pending;
     }
 
     // ── Toast ──────────────────────────────────────────────────────

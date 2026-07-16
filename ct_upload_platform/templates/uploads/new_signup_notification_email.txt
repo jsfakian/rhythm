@@ -1,0 +1,12 @@
+Hello,
+
+A new account has registered on the RHYTHM Repository Upload Platform and is waiting for email verification:
+
+Username: {{ user.get_username }}
+Email: {{ user.email }}
+
+Send the verification email from the User Management page:
+
+{{ manage_url }}
+
+RHYTHM Repository Upload Platform

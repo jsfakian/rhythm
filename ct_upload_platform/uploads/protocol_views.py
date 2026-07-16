@@ -767,6 +767,7 @@ class ExaminationEntryView(LoginRequiredMixin, View):
             "scanners_json": json.dumps(self._scanners_json(username)),
             "manufacturers_json": json.dumps(self._manufacturers_json()),
             "clinical_rows_json": json.dumps(self._get_clinical_rows()),
+            "protocols_json": json.dumps(self._protocols_json(username)),
             "site_code": self._site_code(request.user),
             "exam_count": CTExamination.objects.filter(created_by=username).count(),
         })

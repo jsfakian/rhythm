@@ -47,8 +47,11 @@
                             <th>#</th>
                             <th>Repository Study ID</th>
                             <th>Scanner</th>
+                            <th>Protocol Used</th>
                             <th>Region</th>
                             <th>Clinical Indication</th>
+                            <th>Protocol Type</th>
+                            <th>Examination Group</th>
                             <th>Weight (kg)</th>
                             <th>Age (y)</th>
                             <th>CTDI<sub>vol</sub> per phase</th>
@@ -70,8 +73,15 @@
                                     {{ e.scanner.manufacturer.name }} – {{ e.scanner.scanner_model.name }}
                                 {% else %}—{% endif %}
                             </td>
+                            <td>
+                                {% if e.protocol %}
+                                    {{ e.protocol }}
+                                {% else %}—{% endif %}
+                            </td>
                             <td>{{ e.anatomical_region|default:"—" }}</td>
                             <td>{{ e.clinical_indication|default:"—" }}</td>
+                            <td>{% if e.protocol_type %}{{ e.get_protocol_type_display }}{% else %}—{% endif %}</td>
+                            <td>{{ e.examination_group|default:"—" }}</td>
                             <td class="numeric">{{ e.patient_weight|default:"—" }}</td>
                             <td class="numeric">{{ e.patient_age|default:"—" }}</td>
                             <td class="numeric">
@@ -99,7 +109,7 @@
                             </td>
                         </tr>
                         {% empty %}
-                        <tr><td colspan="14" class="text-muted" style="text-align:center;padding:32px;">No examination records yet.</td></tr>
+                        <tr><td colspan="17" class="text-muted" style="text-align:center;padding:32px;">No examination records yet.</td></tr>
                         {% endfor %}
                     </tbody>
                 </table>

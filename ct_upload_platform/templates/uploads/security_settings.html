@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Security Settings – RHYTHM Repository Upload Platform</title>
+    {% include 'uploads/_styles.html' %}
+    <style>
+        .page-body { max-width: 640px; }
+        .qr-box { text-align: center; margin: 20px 0; }
+        .qr-box img { width: 220px; height: 220px; border: 1px solid #ecf0f1; border-radius: 8px; padding: 10px; }
+        .secret-key {
+            display: inline-block; margin-top: 10px; padding: 8px 14px;
+            background: #f8f9fa; border-radius: 6px; font-family: monospace;
+            font-size: 15px; letter-spacing: 1px; color: #2c3e50;
+        }
+        .code-input {
+            width: 160px; text-align: center; letter-spacing: 4px; font-size: 20px;
+        }
+        .status-pill {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 4px 12px; border-radius: 12px; font-size: 13px; font-weight: 600;
+        }
+        .status-pill.on { background: #d1fae5; color: #065f46; }
+        .status-pill.off { background: #f2f3f4; color: #7f8c8d; }
+    </style>
+</head>
+<body>
+<div class="app-container">
+    {% include 'uploads/_sidebar.html' with active_nav='security-settings' %}
+    <div class="main-content">
+    <div class="page-body">
+
+        <div class="page-header">
+            <h1>Security Settings</h1>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h2>Two-Factor Authentication (Authenticator App)</h2>
+            </div>
+            <div class="card-body">
+
+                <div id="errorMessage" class="alert-error" style="display:none;"></div>
+                <div id="successMessage" class="alert-success" style="display:none;"></div>
+
+                <!-- Enabled state -->
+                <div id="enabledPanel" style="display:{% if totp_enabled %}block{% else %}none{% endif %};">
+                    <p><span class="status-pill on">✓ Enabled</span></p>
+                    <p class="text-muted" style="margin:12px 0;">
+                        Two-factor authentication is required for every account on this platform and
+                        is active on yours. You'll be asked for a code from your authenticator app
+                        each time you sign in. It cannot be disabled from here.
+                    </p>
+                </div>
+
+                <!-- Disabled / not-yet-set-up state -->
+                <div id="disabledPanel" style="display:{% if totp_enabled %}none{% else %}block{% endif %};">
+                    <p><span class="status-pill off">Not enabled</span></p>
+                    <p class="text-muted" style="margin:12px 0;">
+                        Two-factor authentication is required for every account on this platform.
+                        Set it up now with an authenticator app (Google Authenticator, Authy,
+                        1Password, etc.).
+                    </p>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-primary" id="startSetupBtn">Enable 2FA</button>
+                    </div>
+
+                    <div id="setupPanel" style="display:none; margin-top:24px; border-top:1px solid #ecf0f1; padding-top:20px;">
+                        <p>1. Scan this QR code with your authenticator app:</p>
+                        <div class="qr-box">
+                            <img id="qrImage" src="" alt="2FA QR code">
+                            <div>
+                                <span class="field-hint">Can't scan it? Enter this key manually:</span><br>
+                                <span class="secret-key" id="secretKey"></span>
+                            </div>
+                        </div>
+                        <p>2. Enter the 6-digit code from the app to confirm:</p>
+                        <div class="field-wrap" style="max-width:280px;">
+                            <label for="confirmCode">Verification code</label>
+                            <input type="text" id="confirmCode" class="code-input" inputmode="numeric" maxlength="6" placeholder="000000">
+                        </div>
+                        <div class="form-actions">
+                            <button type="button" class="btn btn-primary" id="confirmSetupBtn">Confirm and enable</button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+    </div>
+</div>
+{% include 'uploads/_footer.html' %}
+
+<script>
+const csrftoken = '{{ csrf_token }}';
+
+function showError(msg) {
+    const el = document.getElementById('errorMessage');
+    el.textContent = msg;
+    el.style.display = 'block';
+    document.getElementById('successMessage').style.display = 'none';
+}
+function showSuccess(msg) {
+    const el = document.getElementById('successMessage');
+    el.textContent = msg;
+    el.style.display = 'block';
+    document.getElementById('errorMessage').style.display = 'none';
+}
+
+document.getElementById('startSetupBtn').addEventListener('click', async () => {
+    try {
+        const res = await fetch('/account/security/2fa/setup/', {
+            method: 'POST',
+            headers: {'X-CSRFToken': csrftoken},
+        });
+        const data = await res.json();
+        if (!res.ok) { showError(data.error || 'Could not start 2FA setup.'); return; }
+
+        document.getElementById('qrImage').src = data.qr_data_uri;
+        document.getElementById('secretKey').textContent = data.secret;
+        document.getElementById('setupPanel').style.display = 'block';
+        document.getElementById('startSetupBtn').style.display = 'none';
+    } catch (e) {
+        showError('Network error. Please try again.');
+    }
+});
+
+document.getElementById('confirmSetupBtn').addEventListener('click', async () => {
+    const code = document.getElementById('confirmCode').value.trim();
+    try {
+        const res = await fetch('/account/security/2fa/confirm/', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrftoken},
+            body: JSON.stringify({code}),
+        });
+        const data = await res.json();
+        if (!res.ok) { showError(data.error || 'Invalid code.'); return; }
+
+        showSuccess(data.message);
+        document.getElementById('disabledPanel').style.display = 'none';
+        document.getElementById('enabledPanel').style.display = 'block';
+    } catch (e) {
+        showError('Network error. Please try again.');
+    }
+});
+
+</script>
+</body>
+</html>

@@ -11,6 +11,7 @@ from uploads.views import (
     UploadIndexView, UploadAdvancedView, HomeView, LoginPageView, SignupPageView, LogoutView,
     VerifyEmailView,
 )
+from uploads.forms import InactiveAllowedPasswordResetForm
 from uploads.user_management_views import (
     UserManagementView,
     UserCreateAPIView,
@@ -18,6 +19,11 @@ from uploads.user_management_views import (
     UserDeleteAPIView,
 )
 from uploads.file_management_views import FileManagerView, StudySetDownloadView
+from uploads.twofactor_views import (
+    SecuritySettingsView,
+    TOTPSetupInitiateView,
+    TOTPSetupConfirmView,
+)
 from uploads.protocol_views import (
     ProtocolListView,
     ProtocolDetailView,
@@ -57,6 +63,7 @@ urlpatterns = [
             email_template_name='uploads/password_reset_email.txt',
             subject_template_name='uploads/password_reset_subject.txt',
             success_url=reverse_lazy('password-reset-done'),
+            form_class=InactiveAllowedPasswordResetForm,
         ),
         name='password-reset',
     ),
@@ -117,4 +124,9 @@ urlpatterns = [
     # File manager (superuser only)
     path('file-manager/', FileManagerView.as_view(), name='file-manager'),
     path('file-manager/download/<str:exam_id>/', StudySetDownloadView.as_view(), name='study-set-download'),
+
+    # Self-service security settings (2FA)
+    path('account/security/', SecuritySettingsView.as_view(), name='security-settings'),
+    path('account/security/2fa/setup/', TOTPSetupInitiateView.as_view(), name='totp-setup-initiate'),
+    path('account/security/2fa/confirm/', TOTPSetupConfirmView.as_view(), name='totp-setup-confirm'),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

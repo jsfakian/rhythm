@@ -961,3 +961,24 @@ class RhythmPseudoIDCounter(models.Model):
 
     def __str__(self) -> str:
         return f"{self.prefix} (seq={self.last_seq})"
+
+
+class TOTPDevice(models.Model):
+    """A user's TOTP (authenticator app) secret for two-factor login.
+
+    Decoupled from ``UserProfile`` because superusers created via
+    ``ensure_superuser``/``createsuperuser`` have no ``UserProfile`` row but
+    must still be able to enable 2FA.
+    """
+
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='totp_device')
+    secret = models.CharField(max_length=64)
+    # False while the user has generated a secret but not yet confirmed it by
+    # entering a valid code — an unconfirmed device does not gate login.
+    confirmed = models.BooleanField(default=False)
+    confirmed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self) -> str:
+        status = 'confirmed' if self.confirmed else 'pending'
+        return f"TOTP device for {self.user.username} ({status})"

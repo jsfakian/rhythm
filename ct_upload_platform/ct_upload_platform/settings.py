@@ -182,8 +182,17 @@ EMAIL_HOST_USER = env('EMAIL_HOST_USER', default='your-email@example.com')
 EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD', default='your-password')
 DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default='noreply@ct-upload-platform.local')
 
+# Where new-signup notifications are sent so an admin can trigger email verification.
+ADMIN_NOTIFICATION_EMAIL = env('SUPERUSER_EMAIL', default='')
+
 LOGIN_URL = '/login/'
 LOGIN_REDIRECT_URL = '/'
+
+# Automatic logout after this many seconds of inactivity.
+SESSION_COOKIE_AGE = env.int('SESSION_TIMEOUT_SECONDS', default=3600)
+# Reset the expiry countdown on every request so the timeout is idle-based
+# rather than a fixed duration from login.
+SESSION_SAVE_EVERY_REQUEST = True
 
 # Token Expiration
 TOKEN_EXPIRY_DAYS = env.int('TOKEN_EXPIRY_DAYS', default=30)

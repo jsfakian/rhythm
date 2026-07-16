@@ -9,6 +9,7 @@ Tests cover:
 """
 
 import json
+import pyotp
 from django.contrib.auth.models import User
 from django.core.management.base import CommandError
 from django.test import TestCase, override_settings
@@ -19,6 +20,31 @@ from rest_framework.authtoken.models import Token
 from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
 from io import StringIO
+
+
+def complete_mandatory_2fa_enrollment(client, username, password):
+    """
+    Log in via /api/v1/auth/login/ and complete the mandatory first-time 2FA
+    enrollment it triggers, returning the final (authenticated) response.
+
+    Every account is required to enroll in 2FA on its first login (see
+    ``views.LoginView``/``Enroll2FAConfirmView``), so tests exercising the full
+    login flow need to walk through enrollment rather than expecting a token
+    straight from ``/api/v1/auth/login/``.
+    """
+    login_response = client.post('/api/v1/auth/login/', {
+        'username': username,
+        'password': password,
+    }, format='json')
+    assert login_response.json().get('requires_2fa_setup'), login_response.json()
+
+    initiate_response = client.post('/api/v1/auth/enroll-2fa/initiate/', format='json')
+    secret = initiate_response.json()['secret']
+    code = pyotp.TOTP(secret).now()
+
+    return client.post(
+        '/api/v1/auth/enroll-2fa/confirm/', {'code': code}, format='json',
+    )
 
 
 class IPWhitelistMiddlewareTestCase(TestCase):
@@ -114,22 +140,27 @@ class LoginAPITestCase(APITestCase):
         self.login_url = '/api/v1/auth/login/'
     
     def test_login_with_valid_credentials(self):
-        """User should be able to login with correct credentials."""
+        """User should be able to login with correct credentials, then complete mandatory 2FA enrollment."""
         response = self.client.post(self.login_url, {
             'username': 'john.doe',
             'password': 'SecurePass123!'
         }, format='json')
-        
+
+        # 2FA is mandatory: a first-time login doesn't return a token yet.
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {'requires_2fa_setup': True})
+
+        response = complete_mandatory_2fa_enrollment(self.client, 'john.doe', 'SecurePass123!')
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        
+
         # Check response contains expected fields
         self.assertIn('token', data)
         self.assertEqual(data['username'], 'john.doe')
         self.assertEqual(data['email'], 'john@example.com')
         self.assertFalse(data['is_staff'])
         self.assertIsNotNone(data['user_id'])
-        
+
         # Token should be valid in the database
         token = Token.objects.get(key=data['token'])
         self.assertEqual(token.user, self.user)
@@ -187,27 +218,21 @@ class LoginAPITestCase(APITestCase):
         )
         user.is_staff = True
         user.save()
-        
-        response = self.client.post(self.login_url, {
-            'username': 'jane.smith',
-            'password': 'Pass123!'
-        }, format='json')
-        
+
+        response = complete_mandatory_2fa_enrollment(self.client, 'jane.smith', 'Pass123!')
+
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        
+
         self.assertEqual(data['first_name'], 'Jane')
         self.assertEqual(data['last_name'], 'Smith')
         self.assertTrue(data['is_staff'])
-    
+
     def test_token_can_be_used_for_api_access(self):
         """Token from login should work for API authentication."""
-        # Get token
-        login_response = self.client.post(self.login_url, {
-            'username': 'john.doe',
-            'password': 'SecurePass123!'
-        }, format='json')
-        
+        # Get token (completing mandatory 2FA enrollment)
+        login_response = complete_mandatory_2fa_enrollment(self.client, 'john.doe', 'SecurePass123!')
+
         token = login_response.json()['token']
         
         # Use token to access protected endpoint
@@ -491,13 +516,10 @@ class UserPermissionsTestCase(APITestCase):
     def test_staff_user_has_is_staff_flag(self):
         """Staff user should have is_staff flag set."""
         self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.token2.key}')
-        
-        # Login to get user info
-        response = self.client.post('/api/v1/auth/login/', {
-            'username': 'admin',
-            'password': 'pass2'
-        }, format='json')
-        
+
+        # Login (completing mandatory 2FA enrollment) to get user info
+        response = complete_mandatory_2fa_enrollment(self.client, 'admin', 'pass2')
+
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertTrue(data['is_staff'])

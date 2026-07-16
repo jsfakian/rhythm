@@ -12,6 +12,9 @@ from .views import (
     LoginView,
     LoginPageView,
     SignupView,
+    Verify2FAView,
+    Enroll2FAInitiateView,
+    Enroll2FAConfirmView,
 )
 from .chunked_upload_views import (
     ChunkedUploadInitView,
@@ -45,6 +48,12 @@ urlpatterns = [
     # Authentication endpoints
     # POST /api/v1/auth/login/ - Login with username/password and get token
     path('auth/login/', LoginView.as_view(), name='login'),
+    # POST /api/v1/auth/verify-2fa/ - Complete login with a TOTP code
+    path('auth/verify-2fa/', Verify2FAView.as_view(), name='verify-2fa'),
+    # POST /api/v1/auth/enroll-2fa/initiate/ - Start mandatory 2FA enrollment (first login)
+    path('auth/enroll-2fa/initiate/', Enroll2FAInitiateView.as_view(), name='enroll-2fa-initiate'),
+    # POST /api/v1/auth/enroll-2fa/confirm/ - Confirm enrollment code and complete login
+    path('auth/enroll-2fa/confirm/', Enroll2FAConfirmView.as_view(), name='enroll-2fa-confirm'),
     # POST /api/v1/auth/signup/ - Register a new user and get token
     path('auth/signup/', SignupView.as_view(), name='signup'),
     
