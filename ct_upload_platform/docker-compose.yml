@@ -42,7 +42,6 @@ services:
     volumes:
       - .:/app
       - static_volume:/app/staticfiles
-      - media_volume:/app/media
     ports:
       - "127.0.0.1:8003:8000"
     environment:
@@ -74,7 +73,6 @@ services:
     command: celery -A ct_upload_platform worker --loglevel=info --concurrency=2
     volumes:
       - .:/app
-      - media_volume:/app/media
     environment:
       DEBUG: ${DEBUG:-False}
       DB_HOST: db
@@ -102,14 +100,31 @@ services:
       - ./orthanc.json:/etc/orthanc/orthanc.json:ro
     stop_grace_period: 5s
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf -u REDACTED:REDACTED http://localhost:8042/system || exit 1"]
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request as u; u.urlopen(u.Request('http://localhost:8042/system', headers={'Authorization': 'Basic UkVEQUNURUQ6UkVEQUNURUQ='}))\" || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 5
       start_period: 30s
 
+  caddy:
+    image: caddy:2-alpine
+    container_name: ct_upload_caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+      - static_volume:/srv/static:ro
+      - ./media:/srv/media:ro
+    depends_on:
+      - web
+
 volumes:
   postgres_data:
   static_volume:
-  media_volume:
   orthanc_data:
+  caddy_data:
+  caddy_config:

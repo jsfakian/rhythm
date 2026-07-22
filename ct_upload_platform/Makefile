@@ -111,7 +111,7 @@ bash:
 	docker compose exec -it web /bin/bash
 
 shell-db:
-	docker compose exec -it db psql -U ${DB_USER:-postgres} -d ${DB_NAME:-ct_upload_platform}
+	docker compose exec -it db psql -U $${DB_USER:-postgres} -d $${DB_NAME:-ct_upload_platform}
 
 redis-cli:
 	docker compose exec -it redis redis-cli
@@ -163,12 +163,12 @@ docker-logs-redis:
 # Database utilities
 db-backup:
 	mkdir -p backups
-	docker compose exec -T db pg_dump -U ${DB_USER:-postgres} ${DB_NAME:-ct_upload_platform} > backups/db_backup_$$(date +%Y%m%d_%H%M%S).sql
+	docker compose exec -T db pg_dump -U $${DB_USER:-postgres} $${DB_NAME:-ct_upload_platform} > backups/db_backup_$$(date +%Y%m%d_%H%M%S).sql
 	@echo "✓ Database backed up"
 
 db-restore:
 	@read -p "Enter backup filename: " backup_file; \
-	docker compose exec -T db psql -U ${DB_USER:-postgres} ${DB_NAME:-ct_upload_platform} < $$backup_file; \
+	docker compose exec -T db psql -U $${DB_USER:-postgres} $${DB_NAME:-ct_upload_platform} < $$backup_file; \
 	echo "✓ Database restored"
 
 # Development helpers
@@ -196,6 +196,6 @@ status:
 	@docker compose ps
 	@echo ""
 	@echo "Service Health:"
-	@docker compose exec -T db pg_isready -U ${DB_USER:-postgres} > /dev/null 2>&1 && echo "✓ Database: OK" || echo "✗ Database: DOWN"
+	@docker compose exec -T db pg_isready -U $${DB_USER:-postgres} > /dev/null 2>&1 && echo "✓ Database: OK" || echo "✗ Database: DOWN"
 	@docker compose exec -T redis redis-cli ping > /dev/null 2>&1 && echo "✓ Redis: OK" || echo "✗ Redis: DOWN"
-	@docker compose exec -T web curl -s http://localhost:8000/admin/ > /dev/null && echo "✓ Web: OK" || echo "✗ Web: DOWN"
+	@curl -s http://127.0.0.1:8003/admin/ > /dev/null && echo "✓ Web: OK" || echo "✗ Web: DOWN"

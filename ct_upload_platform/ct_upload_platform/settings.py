@@ -29,6 +29,12 @@ ALLOWED_HOSTS = env('ALLOWED_HOSTS', default='localhost,127.0.0.1').split(',')
 
 CSRF_TRUSTED_ORIGINS = env('CSRF_TRUSTED_ORIGINS', default='').split(',') if env('CSRF_TRUSTED_ORIGINS', default='') else []
 
+# TLS is terminated by the Caddy reverse proxy in front of gunicorn; trust its
+# X-Forwarded-Proto header when deciding whether a request is secure.
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = not DEBUG
+
 # Application definition
 INSTALLED_APPS = [
     'django.contrib.admin',
