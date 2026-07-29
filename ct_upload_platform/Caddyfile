@@ -1,6 +1,17 @@
 rhythm.med.uoc.gr {
 	encode zstd gzip
 
+	# Applied to every response — including static/media served directly by
+	# Caddy below, which never passes through Django's SecurityMiddleware.
+	header {
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+		Content-Security-Policy "default-src 'self'; frame-ancestors 'none'; base-uri 'self'; object-src 'none'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'"
+		-Server
+	}
+
 	@static path /static/*
 	handle @static {
 		root * /srv
