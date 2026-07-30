@@ -191,23 +191,22 @@ class ProtocolGUIViewTests(_ProtocolGUIFixtures, TestCase):
     def test_gui_page_contains_clinical_rows_json(self) -> None:
         self.client.force_login(self.user)
         resp = self.client.get("/protocols/gui/")
-        # Template renders ANATOMICAL_REGIONS and CLINICAL_INDICATIONS (replaced CLINICAL_ROWS)
-        self.assertIn(b"ANATOMICAL_REGIONS", resp.content)
-        self.assertIn(b"CLINICAL_INDICATIONS", resp.content)
+        # Template renders: <script type="application/json" id="protocol-gui-data">{"clinical_rows": [...], ...}
+        self.assertIn(b'"clinical_rows"', resp.content)
 
     def test_gui_page_contains_scanners_json(self) -> None:
         self.client.force_login(self.user)
         resp = self.client.get("/protocols/gui/")
         content = resp.content.decode()
-        # Template renders: const SCANNERS = [...]
-        self.assertIn("SCANNERS", content)
+        # Template renders: <script type="application/json" id="protocol-gui-data">{"scanners": [...], ...}
+        self.assertIn('"scanners"', content)
         self.assertIn("SOMATOM Force GUI", content)
 
     def test_gui_page_contains_protocol_tabs_json(self) -> None:
         self.client.force_login(self.user)
         resp = self.client.get("/protocols/gui/")
-        # Template renders: const PROTOCOL_TABS = {...}
-        self.assertIn(b"PROTOCOL_TABS", resp.content)
+        # Template renders: <script type="application/json" id="protocol-gui-data">{..., "protocol_tabs": {...}}
+        self.assertIn(b'"protocol_tabs"', resp.content)
 
     def test_gui_page_contains_pediatric_head_tab(self) -> None:
         self.client.force_login(self.user)
@@ -217,8 +216,8 @@ class ProtocolGUIViewTests(_ProtocolGUIFixtures, TestCase):
     def test_gui_page_contains_protocol_choices_json(self) -> None:
         self.client.force_login(self.user)
         resp = self.client.get("/protocols/gui/")
-        # Template renders: const PROTOCOL_CHOICES = {...}
-        self.assertIn(b"PROTOCOL_CHOICES", resp.content)
+        # Template renders: <script type="application/json" id="protocol-gui-data">{..., "protocol_choices": {...}}
+        self.assertIn(b'"protocol_choices"', resp.content)
 
     def test_gui_page_scanner_without_profiles_shows_empty_list(self) -> None:
         CTScannerProfile.objects.all().delete()

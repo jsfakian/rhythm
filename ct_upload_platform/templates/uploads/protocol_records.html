@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -27,7 +28,7 @@
         </div>
 
         <form method="get" class="filter-row">
-            <select name="protocol_type" onchange="this.form.submit()">
+            <select name="protocol_type" data-auto-submit>
                 <option value="">All types</option>
                 {% for key, label in protocol_type_choices %}
                 <option value="{{ key }}"{% if key == selected_type %} selected{% endif %}>{{ label }}</option>
@@ -89,6 +90,7 @@
     </div>
     </div>
 </div>
+<script src="{% static 'uploads/js/auto_submit_select.js' %}" defer></script>
 {% include 'uploads/_footer.html' %}
 </body>
 </html>

@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -101,7 +102,7 @@
 
         <!-- Filter bar -->
         <form method="get" class="filter-bar">
-            <select name="institution" onchange="this.form.submit()">
+            <select name="institution" data-auto-submit>
                 <option value="">All institutions</option>
                 {% for inst in institutions %}
                 <option value="{{ inst }}"{% if inst == selected_institution %} selected{% endif %}>{{ inst }}</option>
@@ -111,15 +112,15 @@
             <a href="/file-manager/" class="btn btn-secondary">Clear filter</a>
             {% endif %}
             <input type="text" class="search-input" id="global-search"
-                   placeholder="Search within results…" oninput="filterRows()" autocomplete="off">
+                   placeholder="Search within results…" autocomplete="off">
         </form>
 
         <!-- Tabs -->
         <div class="tabs">
-            <button class="tab-btn active" onclick="switchTab('exams', this)">
+            <button class="tab-btn active" data-tab="exams">
                 Examinations <span style="font-weight:400;opacity:.6">({{ total_exams }})</span>
             </button>
-            <button class="tab-btn" onclick="switchTab('protocols', this)">
+            <button class="tab-btn" data-tab="protocols">
                 Protocols <span style="font-weight:400;opacity:.6">({{ total_protocols }})</span>
             </button>
         </div>
@@ -263,30 +264,8 @@
     </div>
 </div>
 
-<script>
-    // ── Tab switching ──────────────────────────────────────────────
-    function switchTab(name, btn) {
-        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-        document.getElementById(`tab-${name}`).classList.add('active');
-        btn.classList.add('active');
-        activeTable = name === 'exams' ? 'exam-table' : 'protocol-table';
-        filterRows();
-    }
-
-    // ── Client-side text search across visible table ───────────────
-    let activeTable = 'exam-table';
-
-    function filterRows() {
-        const q = document.getElementById('global-search').value.toLowerCase();
-        const tbody = document.querySelector(`#${activeTable} tbody`);
-        tbody.querySelectorAll('tr').forEach(row => {
-            if (row.querySelector('td[colspan]')) return; // empty-state row
-            const text = row.textContent.toLowerCase();
-            row.style.display = (!q || text.includes(q)) ? '' : 'none';
-        });
-    }
-</script>
+<script src="{% static 'uploads/js/auto_submit_select.js' %}" defer></script>
+<script src="{% static 'uploads/js/file_manager.js' %}" defer></script>
 {% include 'uploads/_footer.html' %}
 </body>
 </html>

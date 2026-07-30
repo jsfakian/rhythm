@@ -209,11 +209,11 @@ class ExaminationEntryViewTests(_ExamFixtures, TestCase):
 
     def test_page_contains_scanners_json(self) -> None:
         resp = self.client.get(reverse("examination-entry"))
-        self.assertIn(b"SCANNERS", resp.content)
+        self.assertIn(b'"scanners"', resp.content)
 
     def test_page_contains_clinical_rows_json(self) -> None:
         resp = self.client.get(reverse("examination-entry"))
-        self.assertIn(b"CLINICAL_ROWS", resp.content)
+        self.assertIn(b'"clinical_rows"', resp.content)
 
     def test_page_contains_manufacturer_data(self) -> None:
         resp = self.client.get(reverse("examination-entry"))
@@ -232,7 +232,7 @@ class ExaminationEntryViewTests(_ExamFixtures, TestCase):
         CTScannerProfile.objects.all().delete()
         resp = self.client.get(reverse("examination-entry"))
         self.assertEqual(resp.status_code, 200)
-        self.assertIn(b"SCANNERS", resp.content)
+        self.assertIn(b'"scanners"', resp.content)
 
 
 # ---------------------------------------------------------------------------

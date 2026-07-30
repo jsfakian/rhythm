@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -29,7 +30,7 @@
         </div>
 
         <form method="get" class="filter-row">
-            <select name="image_quality" onchange="this.form.submit()">
+            <select name="image_quality" data-auto-submit>
                 <option value="">All image quality</option>
                 {% for key, label in image_quality_choices %}
                 <option value="{{ key }}"{% if key == selected_quality %} selected{% endif %}>{{ label }}</option>
@@ -119,6 +120,7 @@
     </div>
     </div>
 </div>
+<script src="{% static 'uploads/js/auto_submit_select.js' %}" defer></script>
 {% include 'uploads/_footer.html' %}
 </body>
 </html>
