@@ -219,7 +219,7 @@
         <div id="errorMessage" class="error-message"></div>
         <div id="successMessage" class="success-message"></div>
 
-        <form id="loginForm">
+        <form id="loginForm" method="post">
             <div class="form-group">
                 <label for="username">Username</label>
                 <input
@@ -249,7 +249,7 @@
             </button>
         </form>
 
-        <form id="totpForm" style="display:none;">
+        <form id="totpForm" method="post" style="display:none;">
             <div class="form-group">
                 <label for="totpCode">Authenticator code</label>
                 <input
@@ -283,7 +283,7 @@
                     <span class="secret-key" id="enrollSecretKey"></span>
                 </div>
             </div>
-            <form id="enrollForm">
+            <form id="enrollForm" method="post">
                 <div class="form-group">
                     <label for="enrollCode">Authenticator code</label>
                     <input

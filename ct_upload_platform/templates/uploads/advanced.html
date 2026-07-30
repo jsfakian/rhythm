@@ -463,7 +463,7 @@
                 <!-- Single File Upload -->
                 <div id="singleUploadSection" class="card">
                     <div class="card-title">Single File Upload</div>
-                    <form id="singleUploadForm">
+                    <form id="singleUploadForm" method="post">
                         <div class="form-group">
                             <label for="singleFile">Select TAR File *</label>
                             <input type="file" id="singleFile" accept=".tar,.tar.gz" required>
@@ -488,7 +488,7 @@
                 <!-- Chunked Upload -->
                 <div id="chunkedUploadSection" class="card" style="display:none;">
                     <div class="card-title">Chunked Upload (for files > 2GB)</div>
-                    <form id="chunkedUploadForm">
+                    <form id="chunkedUploadForm" method="post">
                         <div class="form-group">
                             <label for="chunkedFile">Select Large TAR File *</label>
                             <input type="file" id="chunkedFile" accept=".tar,.tar.gz" required>
@@ -564,7 +564,7 @@
 
                 <div class="card">
                     <div class="card-title">Validate Manifest</div>
-                    <form id="manifestForm">
+                    <form id="manifestForm" method="post">
                         <div class="form-group">
                             <label for="manifestJson">Paste Manifest JSON or Upload File</label>
                             <textarea id="manifestJson" rows="10" placeholder='{"manifest_version": "1.0", ...}'></textarea>
