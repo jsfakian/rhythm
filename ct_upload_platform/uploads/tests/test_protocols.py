@@ -420,11 +420,13 @@ class ProtocolViewTests(TestCase):
         self.scanner_profile = CTScannerProfile.objects.create(
             manufacturer=self.manufacturer,
             scanner_model=self.scanner_model,
+            created_by=self.user.username,
         )
         self.protocol = CTProtocol.objects.create(
             scanner=self.scanner_profile,
             protocol_type="PEDIATRIC_HEAD",
             age_group="lt_3m",
+            created_by=self.user.username,
         )
 
         # Create the minimum choice options so forms render without crashing
@@ -666,6 +668,7 @@ class ProtocolAPITests(APITestCase):
             scanner_model=self.scanner_model,
             detector_rows="160",
             year_of_installation="2023",
+            created_by=self.user.username,
         )
 
     def _create_protocol(
@@ -678,6 +681,7 @@ class ProtocolAPITests(APITestCase):
             protocol_type=ptype,
             age_group="lt_3m",
             protocol_name="Neonate Head",
+            created_by=self.user.username,
         )
 
     # ------------------------------------------------------------------

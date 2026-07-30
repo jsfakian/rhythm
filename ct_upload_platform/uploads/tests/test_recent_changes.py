@@ -49,7 +49,7 @@ def _valid_signup(**overrides):
     return base
 
 
-def _make_scanner(username='testuser'):
+def _make_scanner(username='testuser', site_code=''):
     mfr, _ = CTManufacturer.objects.get_or_create(name='GE HealthCare', defaults={'sort_order': 1})
     mdl, _ = CTScannerModel.objects.get_or_create(
         manufacturer=mfr, name='Revolution CT Test', defaults={'sort_order': 0}
@@ -57,7 +57,7 @@ def _make_scanner(username='testuser'):
     return CTScannerProfile.objects.create(
         manufacturer=mfr, scanner_model=mdl,
         detector_rows='64', year_of_installation='2020',
-        created_by=username,
+        created_by=username, site_code=site_code,
     )
 
 
@@ -318,7 +318,7 @@ class ExaminationSaveAPIViewTest(TestCase):
         # ExaminationSaveAPIView uses LoginRequiredMixin (Django session auth)
         self.client = Client()
         self.client.force_login(self.user)
-        self.scanner = _make_scanner('examuser')
+        self.scanner = _make_scanner('examuser', site_code='S099')
         # Ensure clinical indication rows exist
         from uploads.models import ClinicalIndicationRow
         ClinicalIndicationRow.objects.get_or_create(

@@ -75,6 +75,8 @@ class UserCreateAPIView(SuperuserRequiredMixin, View):
         first_name = data.get('first_name', '').strip()
         last_name = data.get('last_name', '').strip()
         is_staff = bool(data.get('is_staff', False))
+        institution = data.get('institution', '').strip()
+        department = data.get('department', '').strip()
 
         if not username:
             return JsonResponse({'error': 'Username is required'}, status=400)
@@ -82,6 +84,8 @@ class UserCreateAPIView(SuperuserRequiredMixin, View):
             return JsonResponse({'error': 'Password is required'}, status=400)
         if len(password) < 8:
             return JsonResponse({'error': 'Password must be at least 8 characters'}, status=400)
+        if not institution:
+            return JsonResponse({'error': 'Institution is required'}, status=400)
         if User.objects.filter(username=username).exists():
             return JsonResponse({'error': f'Username "{username}" already exists'}, status=400)
 
@@ -93,6 +97,13 @@ class UserCreateAPIView(SuperuserRequiredMixin, View):
             last_name=last_name,
             is_staff=is_staff,
         )
+        site_code = UserProfile.assign_site_code(institution)
+        profile = UserProfile.objects.create(
+            user=user,
+            institution=institution,
+            department=department,
+            site_code=site_code,
+        )
         return JsonResponse({
             'id': user.id,
             'username': user.username,
@@ -103,8 +114,9 @@ class UserCreateAPIView(SuperuserRequiredMixin, View):
             'is_staff': user.is_staff,
             'is_superuser': user.is_superuser,
             'date_joined': user.date_joined.strftime('%Y-%m-%d'),
-            'institution': '',
-            'department': '',
+            'institution': profile.institution,
+            'site_code': profile.site_code,
+            'department': profile.department,
             'professional_role': '',
         }, status=201)
 

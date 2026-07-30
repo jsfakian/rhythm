@@ -67,6 +67,7 @@ class CTScannerProfileSerializer(serializers.ModelSerializer):
             "year_of_installation",
             "local_protocol_note",
             "created_by",
+            "site_code",
             "created_at",
             "updated_at",
         ]
@@ -76,6 +77,7 @@ class CTScannerProfileSerializer(serializers.ModelSerializer):
             "updated_at",
             "manufacturer_name",
             "scanner_model_name",
+            "site_code",
         ]
 
     def get_manufacturer_name(self, obj: CTScannerProfile) -> str:
@@ -118,6 +120,7 @@ class CTProtocolSerializer(serializers.ModelSerializer):
             "dose_metadata",
             "notes",
             "created_by",
+            "site_code",
             "created_at",
             "updated_at",
         ]
@@ -127,6 +130,7 @@ class CTProtocolSerializer(serializers.ModelSerializer):
             "updated_at",
             "scanner_display",
             "protocol_type_display",
+            "site_code",
         ]
 
     def get_scanner_display(self, obj: CTProtocol) -> str:

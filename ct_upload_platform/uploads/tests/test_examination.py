@@ -244,7 +244,7 @@ class ExaminationSaveAPIViewTests(_ExamFixtures, TestCase):
     def setUp(self) -> None:
         self.user = User.objects.create_user("saveuser", password="pass")
         self.client.force_login(self.user)
-        self.scanner = self._make_scanner()
+        self.scanner = self._make_scanner(created_by="saveuser")
         self.protocol = self._make_protocol(self.scanner)
 
     def _post(self, payload: dict) -> "django.test.Response":  # type: ignore[name-defined]
@@ -492,6 +492,10 @@ class ExaminationDeleteViewTests(_ExamFixtures, TestCase):
         self.user = User.objects.create_user("deluser", password="pass")
         self.client.force_login(self.user)
         self.scanner = self._make_scanner()
+
+    def _make_examination(self, scanner=None, protocol=None, **kwargs):
+        kwargs.setdefault("created_by", "deluser")
+        return super()._make_examination(scanner, protocol, **kwargs)
 
     def test_redirects_when_unauthenticated_get(self) -> None:
         exam = self._make_examination(self.scanner)

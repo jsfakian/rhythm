@@ -12,12 +12,13 @@ logger = logging.getLogger(__name__)
 
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.http import HttpRequest, HttpResponse, JsonResponse
+from django.http import Http404, HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
 from django.views import View
 from django.views.generic import DeleteView, DetailView, ListView
 
+from .institution_scope import can_access, scope_queryset, user_site_code
 from .models import (
     ClinicalIndicationRow,
     CTExamination,
@@ -30,7 +31,6 @@ from .models import (
     ProtocolChoiceOption,
 )
 from .protocol_forms import CTProtocolForm, CTScannerProfileForm
-
 
 _LOGIN_URL = '/login/'
 _PROTOCOL_TYPE_CHOICES = CTProtocol.PROTOCOL_TYPE_CHOICES
@@ -77,10 +77,13 @@ class ProtocolListView(LoginRequiredMixin, ListView):
 
     def get_queryset(self):
         protocol_type: str = self.kwargs["protocol_type"]
-        return (
+        qs = (
             CTProtocol.objects.filter(protocol_type=protocol_type)
             .select_related("scanner__manufacturer", "scanner__scanner_model")
             .order_by("-created_at")
+        )
+        return scope_queryset(
+            qs, self.request.user, owner_field="created_by", owner_value=self.request.user.username
         )
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
@@ -100,6 +103,14 @@ class ProtocolDetailView(LoginRequiredMixin, DetailView):
     model = CTProtocol
     template_name = "uploads/protocol_detail.html"
     context_object_name = "protocol"
+
+    def get_queryset(self):
+        return scope_queryset(
+            super().get_queryset(),
+            self.request.user,
+            owner_field="created_by",
+            owner_value=self.request.user.username,
+        )
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
@@ -197,6 +208,7 @@ class ProtocolCreateView(LoginRequiredMixin, View):
         if form.is_valid():
             protocol: CTProtocol = form.save(commit=False)
             protocol.created_by = request.user.username
+            protocol.site_code = user_site_code(request.user)
             protocol.save()
             messages.success(request, "Protocol created successfully.")
             return redirect(
@@ -222,7 +234,12 @@ class ProtocolUpdateView(LoginRequiredMixin, View):
     template_name = "uploads/protocol_form.html"
 
     def _get_object(self, pk: str) -> CTProtocol:
-        return get_object_or_404(CTProtocol, pk=pk)
+        obj = get_object_or_404(CTProtocol, pk=pk)
+        if not can_access(
+            obj, self.request.user, owner_field="created_by", owner_value=self.request.user.username
+        ):
+            raise Http404("No CTProtocol matches the given query.")
+        return obj
 
     def get(self, request: HttpRequest, protocol_type: str, pk: str) -> HttpResponse:
         obj = self._get_object(pk)
@@ -275,6 +292,14 @@ class ProtocolDeleteView(LoginRequiredMixin, DeleteView):
     template_name = "uploads/protocol_confirm_delete.html"
     context_object_name = "protocol"
 
+    def get_queryset(self):
+        return scope_queryset(
+            super().get_queryset(),
+            self.request.user,
+            owner_field="created_by",
+            owner_value=self.request.user.username,
+        )
+
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
         obj: CTProtocol = self.object  # type: ignore[assignment]
@@ -324,6 +349,7 @@ class ScannerProfileCreateView(LoginRequiredMixin, View):
                 profile.manufacturer = manufacturer
                 profile.scanner_model = model
                 profile.created_by = request.user.username
+                profile.site_code = user_site_code(request.user)
                 profile.save()
                 if protocol_type:
                     return redirect(
@@ -342,8 +368,12 @@ class ScannerProfileEditView(LoginRequiredMixin, View):
     template_name = "uploads/scanner_profile_form.html"
 
     def _get_profile(self, pk: str) -> CTScannerProfile:
-        from django.shortcuts import get_object_or_404
-        return get_object_or_404(CTScannerProfile, pk=pk)
+        profile = get_object_or_404(CTScannerProfile, pk=pk)
+        if not can_access(
+            profile, self.request.user, owner_field="created_by", owner_value=self.request.user.username
+        ):
+            raise Http404("No CTScannerProfile matches the given query.")
+        return profile
 
     def get(self, request: HttpRequest, pk: str) -> HttpResponse:
         profile = self._get_profile(pk)
@@ -372,12 +402,18 @@ class ScannerProfileDeleteView(LoginRequiredMixin, View):
     login_url = _LOGIN_URL
     template_name = "uploads/scanner_confirm_delete.html"
 
+    def _get_profile(self, request: HttpRequest, pk: str) -> CTScannerProfile:
+        profile = get_object_or_404(CTScannerProfile, pk=pk)
+        if not can_access(profile, request.user, owner_field="created_by", owner_value=request.user.username):
+            raise Http404("No CTScannerProfile matches the given query.")
+        return profile
+
     def get(self, request: HttpRequest, pk: str) -> HttpResponse:
-        profile = get_object_or_404(CTScannerProfile, pk=pk, created_by=request.user.username)
+        profile = self._get_profile(request, pk)
         return render(request, self.template_name, {"object": profile})
 
     def post(self, request: HttpRequest, pk: str) -> HttpResponse:
-        profile = get_object_or_404(CTScannerProfile, pk=pk, created_by=request.user.username)
+        profile = self._get_profile(request, pk)
         has_protocols = CTProtocol.objects.filter(scanner=profile).exists()
         has_exams = CTExamination.objects.filter(scanner=profile).exists()
         if has_protocols or has_exams:
@@ -399,9 +435,12 @@ class ScannerProfileListView(LoginRequiredMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        return CTScannerProfile.objects.filter(
-            created_by=self.request.user.username
-        ).select_related("manufacturer", "scanner_model").order_by("-created_at")
+        qs = CTScannerProfile.objects.select_related(
+            "manufacturer", "scanner_model"
+        ).order_by("-created_at")
+        return scope_queryset(
+            qs, self.request.user, owner_field="created_by", owner_value=self.request.user.username
+        )
 
 
 class ScannerModelsByManufacturerView(View):
@@ -437,10 +476,12 @@ class ProtocolsHubView(LoginRequiredMixin, View):
     template_name = "uploads/protocol_hub.html"
 
     def get(self, request: HttpRequest) -> HttpResponse:
-        scanners = (
-            CTScannerProfile.objects.filter(created_by=request.user.username)
-            .select_related("manufacturer", "scanner_model")
-            .order_by("manufacturer__name", "scanner_model__name", "-created_at")
+        scanners = scope_queryset(
+            CTScannerProfile.objects.select_related("manufacturer", "scanner_model")
+            .order_by("manufacturer__name", "scanner_model__name", "-created_at"),
+            request.user,
+            owner_field="created_by",
+            owner_value=request.user.username,
         )
 
         type_choices = list(_PROTOCOL_TYPE_CHOICES)  # [(key, label), ...]
@@ -530,11 +571,14 @@ class ProtocolGUIView(LoginRequiredMixin, View):
         return list(qs)
 
     def _get_user_scanners(self, request: HttpRequest) -> list:
-        qs = (
-            CTScannerProfile.objects.filter(created_by=request.user.username)
-            .select_related("manufacturer", "scanner_model")
-            .order_by("manufacturer__name", "scanner_model__name", "-created_at")
-            .values("id", "manufacturer__name", "scanner_model__name", "detector_rows", "year_of_installation", "local_protocol_note")
+        qs = scope_queryset(
+            CTScannerProfile.objects.select_related("manufacturer", "scanner_model")
+            .order_by("manufacturer__name", "scanner_model__name", "-created_at"),
+            request.user,
+            owner_field="created_by",
+            owner_value=request.user.username,
+        ).values(
+            "id", "manufacturer__name", "scanner_model__name", "detector_rows", "year_of_installation", "local_protocol_note"
         )
         return [
             {
@@ -610,6 +654,10 @@ class ProtocolSaveAPIView(LoginRequiredMixin, View):
             scanner = CTScannerProfile.objects.get(pk=scanner_id)
         except CTScannerProfile.DoesNotExist:
             return JsonResponse({"error": "Scanner not found"}, status=404)
+        if not can_access(
+            scanner, request.user, owner_field="created_by", owner_value=request.user.username
+        ):
+            return JsonResponse({"error": "Scanner not found"}, status=404)
 
         lookup = {
             "scanner": scanner,
@@ -662,6 +710,7 @@ class ProtocolSaveAPIView(LoginRequiredMixin, View):
             protocol_id = str(existing.pk)
         else:
             protocol_data["created_by"] = request.user.username
+            protocol_data["site_code"] = user_site_code(request.user)
             obj = CTProtocol.objects.create(**protocol_data)
             status = "created"
             protocol_id = str(obj.pk)
@@ -676,8 +725,11 @@ class ProtocolRecordsView(LoginRequiredMixin, View):
     template_name = "uploads/protocol_records.html"
 
     def get(self, request: HttpRequest) -> HttpResponse:
-        user_scanner_ids = CTScannerProfile.objects.filter(
-            created_by=request.user.username
+        user_scanner_ids = scope_queryset(
+            CTScannerProfile.objects.all(),
+            request.user,
+            owner_field="created_by",
+            owner_value=request.user.username,
         ).values_list("pk", flat=True)
         qs = (
             CTProtocol.objects.filter(scanner_id__in=user_scanner_ids)
@@ -708,10 +760,14 @@ class ExaminationEntryView(LoginRequiredMixin, View):
             .values("anatomical_region", "clinical_indication", "iv_contrast")
         )
 
-    def _scanners_json(self, username: str) -> list:
-        scanners = CTScannerProfile.objects.filter(
-            created_by=username
-        ).select_related("manufacturer", "scanner_model").order_by("manufacturer__name", "scanner_model__name")
+    def _scanners_json(self, user) -> list:
+        scanners = scope_queryset(
+            CTScannerProfile.objects.select_related("manufacturer", "scanner_model")
+            .order_by("manufacturer__name", "scanner_model__name"),
+            user,
+            owner_field="created_by",
+            owner_value=user.username,
+        )
         return [
             {
                 "id": str(s.pk),
@@ -725,9 +781,12 @@ class ExaminationEntryView(LoginRequiredMixin, View):
             for s in scanners
         ]
 
-    def _protocols_json(self, username: str) -> list:
-        user_scanner_ids = CTScannerProfile.objects.filter(
-            created_by=username
+    def _protocols_json(self, user) -> list:
+        user_scanner_ids = scope_queryset(
+            CTScannerProfile.objects.all(),
+            user,
+            owner_field="created_by",
+            owner_value=user.username,
         ).values_list("pk", flat=True)
         protocols = CTProtocol.objects.filter(
             scanner_id__in=user_scanner_ids
@@ -762,14 +821,18 @@ class ExaminationEntryView(LoginRequiredMixin, View):
             return "SITE"
 
     def get(self, request: HttpRequest) -> HttpResponse:
-        username = request.user.username
         return render(request, self.template_name, {
-            "scanners_json": json.dumps(self._scanners_json(username)),
+            "scanners_json": json.dumps(self._scanners_json(request.user)),
             "manufacturers_json": json.dumps(self._manufacturers_json()),
             "clinical_rows_json": json.dumps(self._get_clinical_rows()),
-            "protocols_json": json.dumps(self._protocols_json(username)),
+            "protocols_json": json.dumps(self._protocols_json(request.user)),
             "site_code": self._site_code(request.user),
-            "exam_count": CTExamination.objects.filter(created_by=username).count(),
+            "exam_count": scope_queryset(
+                CTExamination.objects.all(),
+                request.user,
+                owner_field="created_by",
+                owner_value=request.user.username,
+            ).count(),
         })
 
 
@@ -877,6 +940,10 @@ class ExaminationSaveAPIView(LoginRequiredMixin, View):
             scanner = CTScannerProfile.objects.get(pk=scanner_id)
         except CTScannerProfile.DoesNotExist:
             return JsonResponse({"error": "Scanner not found"}, status=404)
+        if not can_access(
+            scanner, request.user, owner_field="created_by", owner_value=request.user.username
+        ):
+            return JsonResponse({"error": "Scanner not found"}, status=404)
 
         # Generate the RHYTHM pseudo-ID if we have enough data.
         rhythm_id = ""
@@ -923,6 +990,7 @@ class ExaminationSaveAPIView(LoginRequiredMixin, View):
             dlp_per_phase=[float(v) for v in dlp],
             image_quality=image_quality,
             created_by=request.user.username,
+            site_code=user_site_code(request.user),
         )
 
         return JsonResponse({
@@ -940,10 +1008,13 @@ class ExaminationListView(LoginRequiredMixin, View):
     template_name = "uploads/examination_list.html"
 
     def get(self, request: HttpRequest) -> HttpResponse:
-        qs = (
-            CTExamination.objects.filter(created_by=request.user.username)
-            .select_related("scanner__manufacturer", "scanner__scanner_model", "protocol")
-            .order_by("-created_at")
+        qs = scope_queryset(
+            CTExamination.objects.select_related(
+                "scanner__manufacturer", "scanner__scanner_model", "protocol"
+            ).order_by("-created_at"),
+            request.user,
+            owner_field="created_by",
+            owner_value=request.user.username,
         )
         image_quality = request.GET.get("image_quality", "")
         if image_quality:
@@ -960,13 +1031,19 @@ class ExaminationDeleteView(LoginRequiredMixin, View):
 
     login_url = _LOGIN_URL
 
-    def post(self, request: HttpRequest, pk: str) -> HttpResponse:
+    def _get_exam(self, request: HttpRequest, pk: str) -> CTExamination:
         exam = get_object_or_404(CTExamination, pk=pk)
+        if not can_access(exam, request.user, owner_field="created_by", owner_value=request.user.username):
+            raise Http404("No CTExamination matches the given query.")
+        return exam
+
+    def post(self, request: HttpRequest, pk: str) -> HttpResponse:
+        exam = self._get_exam(request, pk)
         exam.delete()
         return redirect(reverse("examination-list"))
 
     def get(self, request: HttpRequest, pk: str) -> HttpResponse:
-        exam = get_object_or_404(CTExamination, pk=pk)
+        exam = self._get_exam(request, pk)
         return render(request, "uploads/examination_confirm_delete.html", {"examination": exam})
 
 

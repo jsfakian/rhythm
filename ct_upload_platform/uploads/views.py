@@ -15,29 +15,34 @@ from django.conf import settings
 from django.contrib.auth import authenticate
 from django.contrib.auth import login as auth_login
 from django.contrib.auth import logout as auth_logout
-from .auth import build_auth_response
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.models import User
-from django.db.models import Q, Count, Prefetch
+from django.db.models import Count, Prefetch, Q
 from django.shortcuts import redirect
 from django.utils import timezone
 from django.views import View
 from django.views.generic import TemplateView
-from rest_framework import viewsets, status, views
+from rest_framework import status, views, viewsets
 from rest_framework.authtoken.models import Token
 from rest_framework.decorators import action
 from rest_framework.pagination import PageNumberPagination
-from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
+from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 
 from .account_verification import notify_admins_of_new_signup
-from .models import UploadJob, StudyMapping, Annotation, TOTPDevice
+from .auth import build_auth_response
+from .file_manager import get_raw_data_user_dir
+from .institution_scope import can_access, scope_queryset, user_site_code
+from .models import Annotation, StudyMapping, TOTPDevice, UploadJob
 from .serializers import (
-    UploadJobSerializer, StudyMappingSerializer, AnnotationSerializer,
-    LoginSerializer, TokenResponseSerializer, SignupSerializer
+    AnnotationSerializer,
+    LoginSerializer,
+    SignupSerializer,
+    StudyMappingSerializer,
+    TokenResponseSerializer,
+    UploadJobSerializer,
 )
 from .tasks import process_upload_job
-from .file_manager import get_raw_data_user_dir
 from .twofactor import generate_secret, provisioning_uri, qr_code_data_uri, verify_code
 
 # Pending-2FA session state expires after this many seconds, and after this
@@ -177,6 +182,7 @@ class UploadView(views.APIView):
         try:
             job = UploadJob.objects.create(
                 uploader_id=uploader_id,
+                site_code=user_site_code(request.user),
                 tar_temp_path=str(tar_local_path),
                 status='PENDING'
             )
@@ -210,11 +216,13 @@ class UploadView(views.APIView):
         Return paginated list of UploadJob.
         Admin sees all, non-admin users see only their own.
         """
-        if request.user.is_staff:
-            jobs = UploadJob.objects.all()
-        else:
-            jobs = UploadJob.objects.filter(uploader_id=request.user.username)
-        
+        jobs = scope_queryset(
+            UploadJob.objects.all(),
+            request.user,
+            owner_field='uploader_id',
+            owner_value=request.user.username,
+        )
+
         jobs = jobs.order_by('-submitted_at')
         
         # Paginate
@@ -242,30 +250,25 @@ class UploadJobDetailView(views.APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
         
-        # Check permissions: only accessible by job's uploader or admin
-        if not (request.user.is_staff or request.user.username == job.uploader_id):
+        # Check permissions: only accessible by same-institution users or admin
+        if not can_access(
+            job, request.user, owner_field='uploader_id', owner_value=request.user.username
+        ):
             return Response(
                 {'error': 'Permission denied'},
                 status=status.HTTP_403_FORBIDDEN
             )
-        
+
         serializer = UploadJobSerializer(job)
         return Response(serializer.data)
-    
+
     def delete(self, request, job_id):
         """
-        Delete an upload job (admin only).
-        - Admin only
+        Delete an upload job.
+        - Same-institution users or admins only
         - Cancels PENDING jobs, deletes tar from local filesystem
         - Returns 204
         """
-        # Check admin permission
-        if not request.user.is_staff:
-            return Response(
-                {'error': 'Only administrators can delete upload jobs'},
-                status=status.HTTP_403_FORBIDDEN
-            )
-        
         try:
             job = UploadJob.objects.get(id=job_id)
         except UploadJob.DoesNotExist:
@@ -273,7 +276,15 @@ class UploadJobDetailView(views.APIView):
                 {'error': 'Upload job not found'},
                 status=status.HTTP_404_NOT_FOUND
             )
-        
+
+        if not can_access(
+            job, request.user, owner_field='uploader_id', owner_value=request.user.username
+        ):
+            return Response(
+                {'error': 'Permission denied'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
         # Only allow deletion of PENDING jobs
         if job.status != 'PENDING':
             return Response(
@@ -308,8 +319,11 @@ class StudyListView(views.APIView):
         Filterable by: pseudo_id, acquisition_date_from, acquisition_date_to, cohort_tag
         Ordered by acquisition_date desc
         """
-        studies = StudyMapping.objects.select_related('patient').prefetch_related('annotations')
-        
+        studies = scope_queryset(
+            StudyMapping.objects.select_related('patient').prefetch_related('annotations'),
+            request.user,
+        )
+
         # Apply filters
         pseudo_id = request.query_params.get('pseudo_id')
         if pseudo_id:
@@ -356,7 +370,13 @@ class StudyDetailView(views.APIView):
                 {'error': 'Study not found'},
                 status=status.HTTP_404_NOT_FOUND
             )
-        
+
+        if not can_access(study, request.user):
+            return Response(
+                {'error': 'Study not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
         serializer = StudyMappingSerializer(study)
         return Response(serializer.data)
 
@@ -636,6 +656,7 @@ class VerifyEmailView(TemplateView):
     def get(self, request, uidb64, token, *args, **kwargs):
         from django.utils.encoding import force_str
         from django.utils.http import urlsafe_base64_decode
+
         from .tokens import email_verification_token
 
         verified = False

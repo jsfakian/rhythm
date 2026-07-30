@@ -1,4 +1,4 @@
-from rest_framework import viewsets, filters, status
+from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
@@ -9,19 +9,20 @@ try:
 except ImportError:
     DjangoFilterBackend = None  # type: ignore[assignment,misc]
 
+from .institution_scope import IsSameInstitutionOrAdmin, scope_queryset, user_site_code
 from .models import (
     CTManufacturer,
+    CTProtocol,
     CTScannerModel,
     CTScannerProfile,
-    CTProtocol,
     ProtocolChoiceCategory,
     ProtocolChoiceOption,
 )
 from .protocol_serializers import (
     CTManufacturerSerializer,
+    CTProtocolSerializer,
     CTScannerModelSerializer,
     CTScannerProfileSerializer,
-    CTProtocolSerializer,
     ProtocolChoiceCategorySerializer,
     ProtocolChoiceOptionSerializer,
 )
@@ -117,10 +118,22 @@ class CTScannerProfileViewSet(viewsets.ModelViewSet):
         .order_by("-created_at")
     )
     serializer_class = CTScannerProfileSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsSameInstitutionOrAdmin]
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        return scope_queryset(
+            qs,
+            self.request.user,
+            owner_field="created_by",
+            owner_value=self.request.user.username,
+        )
 
     def perform_create(self, serializer: CTScannerProfileSerializer) -> None:
-        serializer.save(created_by=self.request.user.username)
+        serializer.save(
+            created_by=self.request.user.username,
+            site_code=user_site_code(self.request.user),
+        )
 
 
 class CTProtocolViewSet(viewsets.ModelViewSet):
@@ -130,13 +143,19 @@ class CTProtocolViewSet(viewsets.ModelViewSet):
         ).order_by("-created_at")
     )
     serializer_class = CTProtocolSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsSameInstitutionOrAdmin]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ["protocol_name", "clinical_indication", "anatomical_region"]
     ordering_fields = ["created_at", "protocol_name", "protocol_type"]
 
     def get_queryset(self):
         qs = super().get_queryset()
+        qs = scope_queryset(
+            qs,
+            self.request.user,
+            owner_field="created_by",
+            owner_value=self.request.user.username,
+        )
         protocol_type = self.request.query_params.get("protocol_type")
         if protocol_type:
             qs = qs.filter(protocol_type=protocol_type)
@@ -146,7 +165,10 @@ class CTProtocolViewSet(viewsets.ModelViewSet):
         return qs
 
     def perform_create(self, serializer: CTProtocolSerializer) -> None:
-        serializer.save(created_by=self.request.user.username)
+        serializer.save(
+            created_by=self.request.user.username,
+            site_code=user_site_code(self.request.user),
+        )
 
     @action(detail=False, methods=["get"], url_path=r"by-type/(?P<ptype>[^/.]+)")
     def by_type(self, request: Request, ptype: str | None = None) -> Response:

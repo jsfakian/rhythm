@@ -73,6 +73,12 @@ class UploadJob(models.Model):
         max_length=128,
         help_text='Identifier of the user who uploaded'
     )
+    site_code = models.CharField(
+        max_length=16,
+        blank=True,
+        default='',
+        help_text='Institution site code of the uploader, for institution-wide sharing'
+    )
     status = models.CharField(
         max_length=16,
         choices=STATUS_CHOICES,
@@ -107,6 +113,7 @@ class UploadJob(models.Model):
             models.Index(fields=['status']),
             models.Index(fields=['uploader_id']),
             models.Index(fields=['submitted_at']),
+            models.Index(fields=['site_code']),
         ]
 
     def __str__(self):
@@ -136,6 +143,12 @@ class StudyMapping(models.Model):
         max_length=256,
         unique=True,
         help_text='Pseudonymized DICOM Study Instance UID from manifest'
+    )
+    site_code = models.CharField(
+        max_length=16,
+        blank=True,
+        default='',
+        help_text='Institution site code of the uploading job, for institution-wide sharing'
     )
     orthanc_study_id = models.CharField(
         max_length=64,
@@ -182,6 +195,7 @@ class StudyMapping(models.Model):
             models.Index(fields=['patient']),
             models.Index(fields=['acquisition_date']),
             models.Index(fields=['orthanc_study_id']),
+            models.Index(fields=['site_code']),
         ]
 
     def __str__(self):
@@ -450,10 +464,15 @@ class ChunkedUpload(models.Model):
         Returns:
             UploadJob instance
         """
+        from .institution_scope import user_site_code
         from .tasks import process_upload_job
+
+        uploader = User.objects.filter(username=chunked_upload.uploader_id).first()
+        site_code = user_site_code(uploader) if uploader else ''
 
         job = UploadJob.objects.create(
             uploader_id=chunked_upload.uploader_id,
+            site_code=site_code,
             tar_temp_path=tar_path,
             status='PENDING'
         )
@@ -706,11 +725,20 @@ class CTScannerProfile(models.Model):
     year_of_installation = models.CharField(max_length=32, blank=True)
     local_protocol_note = models.TextField(blank=True)
     created_by = models.CharField(max_length=128, blank=True)
+    site_code = models.CharField(
+        max_length=16,
+        blank=True,
+        default='',
+        help_text='Institution site code of the creator, for institution-wide sharing'
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['site_code']),
+        ]
 
     def __str__(self) -> str:
         return f"{self.manufacturer.name} {self.scanner_model.name}"
@@ -755,6 +783,12 @@ class CTProtocol(models.Model):
     dose_metadata = models.JSONField(default=list, blank=True)
     notes = models.TextField(blank=True)
     created_by = models.CharField(max_length=128, blank=True)
+    site_code = models.CharField(
+        max_length=16,
+        blank=True,
+        default='',
+        help_text='Institution site code of the creator, for institution-wide sharing'
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -763,6 +797,7 @@ class CTProtocol(models.Model):
         indexes = [
             models.Index(fields=['protocol_type'], name='uploads_ctp_protoco_idx'),
             models.Index(fields=['scanner'], name='uploads_ctp_scanner_idx'),
+            models.Index(fields=['site_code'], name='uploads_ctp_sitecod_idx'),
         ]
 
     def __str__(self) -> str:
@@ -826,6 +861,12 @@ class CTExamination(models.Model):
         help_text='Optional compressed study set archive (zip, tar, tar.gz, etc.)',
     )
     created_by = models.CharField(max_length=128, blank=True)
+    site_code = models.CharField(
+        max_length=16,
+        blank=True,
+        default='',
+        help_text='Institution site code of the creator, for institution-wide sharing'
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -834,6 +875,7 @@ class CTExamination(models.Model):
         indexes = [
             models.Index(fields=['scanner'], name='uploads_cte_scanner_idx'),
             models.Index(fields=['created_at'], name='uploads_cte_created_idx'),
+            models.Index(fields=['site_code'], name='uploads_cte_sitecod_idx'),
         ]
 
     def __str__(self) -> str:

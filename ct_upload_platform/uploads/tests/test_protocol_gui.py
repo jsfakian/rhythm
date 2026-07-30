@@ -242,7 +242,7 @@ class ProtocolSaveAPIViewTests(_ProtocolGUIFixtures, TestCase):
         )
         self.user.set_password("pass123")
         self.user.save()
-        self.scanner = self._make_scanner()
+        self.scanner = self._make_scanner(created_by=self.user.username)
 
     def _post(self, payload: dict, /) -> "django.http.JsonResponse":
         return self.client.post(
@@ -475,6 +475,7 @@ class ProtocolRecordsViewTests(_ProtocolGUIFixtures, TestCase):
             self.scanner,
             protocol_type="PEDIATRIC_BODY",
             protocol_name="Neonate Body",
+            created_by=self.user.username,
         )
         p2 = self._make_protocol(
             self.scanner,
@@ -482,6 +483,7 @@ class ProtocolRecordsViewTests(_ProtocolGUIFixtures, TestCase):
             examination_group="Group 3 - Childhood",
             age_group="15 kg - 30 kg",
             protocol_name="Childhood Head",
+            created_by=self.user.username,
         )
         p3 = self._make_protocol(
             self.scanner,
@@ -489,6 +491,7 @@ class ProtocolRecordsViewTests(_ProtocolGUIFixtures, TestCase):
             examination_group="Group 6 - Young Adulthood",
             age_group="> 80 kg",
             protocol_name="Young Adult",
+            created_by=self.user.username,
         )
         return [p1, p2, p3]
 

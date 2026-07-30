@@ -354,6 +354,7 @@ def process_upload_job(self, job_id: str):
             defaults={
                 "patient": patient,
                 "upload_job": job,
+                "site_code": job.site_code,
                 "acquisition_date": study_data.get("acquisition_date"),
                 "clinical_indication": study_data.get("clinical_indication", ""),
                 "pathology_labels": study_data.get("pathology_labels", []),
