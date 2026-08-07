@@ -22,6 +22,8 @@ from uploads.models import (
     CTExamination,
     CTManufacturer,
     CTManufacturerFieldOption,
+    ProtocolChoiceCategory,
+    ProtocolChoiceOption,
     CTScannerModel,
     CTScannerProfile,
     MaModulationInputSpec,
@@ -450,7 +452,7 @@ class ExaminationSaveAPIViewTest(TestCase):
     def test_young_adult_group_code_in_id(self):
         resp = self._post(self._valid_payload(
             protocol_type='YOUNG_ADULT',
-            examination_group='Group 6 – Young Adulthood',
+            examination_group='Group 6 – Adolescence & Young Adulthood',
         ))
         self.assertIn('YA-G6', resp.json()['repository_study_id'])
 
@@ -601,6 +603,30 @@ class PopulateProtocolChoicesNewManufacturersTest(TestCase):
         ).count()
         self.assertEqual(count, 1)
 
+    def test_second_run_removes_obsolete_young_adult_exam_group(self):
+        category, _ = ProtocolChoiceCategory.objects.get_or_create(
+            key='examination_group_young_adult',
+            defaults={'label': 'Examination Group – Young Adult'},
+        )
+        ProtocolChoiceOption.objects.create(
+            category=category,
+            value='Group 6 – Young Adulthood',
+            display='Group 6 – Young Adulthood',
+            sort_order=99,
+            is_active=True,
+            applicable_protocol_types=['YOUNG_ADULT'],
+        )
+
+        call_command('populate_protocol_choices', verbosity=0)
+
+        options = list(
+            ProtocolChoiceOption.objects
+            .filter(category__key='examination_group_young_adult')
+            .order_by('sort_order', 'display')
+            .values_list('display', flat=True)
+        )
+        self.assertEqual(options, ['Group 6 – Adolescence & Young Adulthood'])
+
 
 # ===========================================================================
 # 6. repository_study_id.py pure-logic sanity checks
@@ -652,7 +678,7 @@ class RhythmPseudoIdLogicTest(TestCase):
             self.assertEqual(code, f'PB-G{num}')
 
     def test_young_adult_group_code(self):
-        code = self.get_group('YOUNG_ADULT', 'Group 6 – Young Adulthood')
+        code = self.get_group('YOUNG_ADULT', 'Group 6 – Adolescence & Young Adulthood')
         self.assertEqual(code, 'YA-G6')
 
     def test_is_repository_study_id_valid(self):

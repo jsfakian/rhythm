@@ -234,13 +234,25 @@ function onCombinedEgAgChange() {
     updateCompletion();
 }
 
+function formatCombinedExamAgeLabel(tab, group, ageGroup) {
+    if (state.activeTab === 'YOUNG_ADULT') {
+        return group.replace(/\s*\([^)]*\)\s*$/, '');
+    }
+    if (!ageGroup) {
+        return group;
+    }
+    return `${group} (${ageGroup})`;
+}
+
 function renderFields() {
     const tab = PROTOCOL_TABS[state.activeTab];
     if (!tab) return;
     const container = document.getElementById('protocolFields');
     const egVal = state.fields['examination_group'] || '';
     const selectedIdx = egVal ? tab.examination_groups.indexOf(egVal) : -1;
-    const egAgPairs = tab.examination_groups.map((g, i) => `${g} (${tab.age_groups[i] || ''})`);
+    const egAgPairs = tab.examination_groups.map((group, i) => (
+        formatCombinedExamAgeLabel(tab, group, tab.age_groups[i] || '')
+    ));
     const egAgLabel = `Examination Group / ${tab.age_label || 'Age / Weight Group'}`;
 
     const contrastOpts = ['No Contrast', 'Contrast-Enhanced'];
@@ -444,7 +456,18 @@ async function saveProtocol(forceUpdate) {
             headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
             body: JSON.stringify(payload),
         });
-        const data = await resp.json();
+        if (resp.status === 401) {
+            alert('Your session has expired. Please log in again to save this protocol.');
+            window.location.href = '/login/?next=' + encodeURIComponent(window.location.pathname);
+            return;
+        }
+        let data;
+        try {
+            data = await resp.json();
+        } catch (_) {
+            alert(`Server error (${resp.status}). Please try again or contact support.`);
+            return;
+        }
         if (data.status === 'exists') {
             document.getElementById('existsMsg').textContent = data.message;
             document.getElementById('existsBanner').classList.add('visible');

@@ -22,6 +22,7 @@ class Command(BaseCommand):
         self.populate_ma_modulation_input_specs()
         self.populate_clinical_indication_rows()
         self._remove_not_available()
+        self._remove_obsolete_protocol_choices()
         self.stdout.write(self.style.SUCCESS("Done."))
 
     def _remove_not_available(self) -> None:
@@ -44,6 +45,22 @@ class Command(BaseCommand):
             f"  Removed 'Not Available': {mfr_deleted} manufacturer options, "
             f"{choice_deleted} generic options, {spec_deleted} mA specs."
         )
+
+    def _remove_obsolete_protocol_choices(self) -> None:
+        """Delete superseded protocol-choice values that should no longer appear in the UI."""
+        obsolete_choices = [
+            ("examination_group_young_adult", "Group 6 – Young Adulthood"),
+        ]
+
+        deleted_total = 0
+        for category_key, value in obsolete_choices:
+            deleted_count, _ = ProtocolChoiceOption.objects.filter(
+                category__key=category_key,
+                value=value,
+            ).delete()
+            deleted_total += deleted_count
+
+        self.stdout.write(f"  Removed obsolete protocol choices: {deleted_total}.")
 
     def populate_manufacturers(self) -> None:
         manufacturers = [
@@ -682,7 +699,7 @@ class Command(BaseCommand):
                 "label": "Examination Group – Young Adult",
                 "applicable_protocol_types": ["YOUNG_ADULT"],
                 "options": [
-                    "Group 6 – Young Adulthood",
+                    "Group 6 – Adolescence & Young Adulthood",
                 ],
             },
         ]
@@ -710,7 +727,7 @@ class Command(BaseCommand):
                     value = opt_def
                     display = opt_def
 
-                _, opt_newly_created = ProtocolChoiceOption.objects.get_or_create(
+                _, opt_newly_created = ProtocolChoiceOption.objects.update_or_create(
                     category=category,
                     value=value,
                     defaults={

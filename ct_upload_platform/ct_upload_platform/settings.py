@@ -204,7 +204,7 @@ LOGIN_URL = '/login/'
 LOGIN_REDIRECT_URL = '/'
 
 # Automatic logout after this many seconds of inactivity.
-SESSION_COOKIE_AGE = env.int('SESSION_TIMEOUT_SECONDS', default=3600)
+SESSION_COOKIE_AGE = env.int('SESSION_TIMEOUT_SECONDS', default=1800)
 # Reset the expiry countdown on every request so the timeout is idle-based
 # rather than a fixed duration from login.
 SESSION_SAVE_EVERY_REQUEST = True

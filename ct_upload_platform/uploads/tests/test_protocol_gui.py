@@ -273,9 +273,10 @@ class ProtocolSaveAPIViewTests(_ProtocolGUIFixtures, TestCase):
 
     # auth guard ---------------------------------------------------------------
 
-    def test_save_requires_login(self) -> None:
+    def test_save_returns_401_json_when_unauthenticated(self) -> None:
         resp = self._post(self._base_payload())
-        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(resp.status_code, 401)
+        self.assertEqual(resp.json()["code"], "auth_required")
 
     # create -------------------------------------------------------------------
 
@@ -487,7 +488,7 @@ class ProtocolRecordsViewTests(_ProtocolGUIFixtures, TestCase):
         p3 = self._make_protocol(
             self.scanner,
             protocol_type="YOUNG_ADULT",
-            examination_group="Group 6 - Young Adulthood",
+            examination_group="Group 6 – Adolescence & Young Adulthood",
             age_group="> 80 kg",
             protocol_name="Young Adult",
             created_by=self.user.username,
@@ -522,7 +523,7 @@ class ProtocolRecordsViewTests(_ProtocolGUIFixtures, TestCase):
         content = resp.content.decode()
         self.assertIn("Group 1 - Neonate", content)
         self.assertIn("Group 3 - Childhood", content)
-        self.assertIn("Group 6 - Young Adulthood", content)
+        self.assertIn("Group 6 – Adolescence &amp; Young Adulthood", content)
 
     def test_records_page_shows_examination_group(self) -> None:
         self.client.force_login(self.user)

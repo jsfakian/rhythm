@@ -271,10 +271,11 @@ class ExaminationSaveAPIViewTests(_ExamFixtures, TestCase):
         base.update(overrides)
         return base
 
-    def test_redirects_when_unauthenticated(self) -> None:
+    def test_returns_401_json_when_unauthenticated(self) -> None:
         self.client.logout()
         resp = self._post(self._valid_payload())
-        self.assertIn(resp.status_code, (302, 301))
+        self.assertEqual(resp.status_code, 401)
+        self.assertEqual(resp.json()["code"], "auth_required")
 
     def test_create_returns_201_or_200(self) -> None:
         resp = self._post(self._valid_payload())

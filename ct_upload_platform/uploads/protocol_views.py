@@ -36,6 +36,22 @@ _LOGIN_URL = '/login/'
 _PROTOCOL_TYPE_CHOICES = CTProtocol.PROTOCOL_TYPE_CHOICES
 
 
+class AjaxLoginRequiredMixin(LoginRequiredMixin):
+    """
+    Like LoginRequiredMixin, but for JSON AJAX endpoints: an expired/missing
+    session returns a 401 JsonResponse instead of a 302 redirect to the login
+    page. A `fetch()` caller that blindly does `await resp.json()` on a
+    redirected response would otherwise try to parse the login page's HTML
+    and fail with a confusing "unexpected character" SyntaxError.
+    """
+
+    def handle_no_permission(self) -> JsonResponse:
+        return JsonResponse(
+            {"error": "Your session has expired. Please log in again.", "code": "auth_required"},
+            status=401,
+        )
+
+
 def _resolve_manufacturer(post_value: str) -> CTManufacturer | None:
     """Return an existing CTManufacturer by pk or name, creating a non-catalogue one if needed."""
     if not post_value:
@@ -626,7 +642,7 @@ class ProtocolGUIView(LoginRequiredMixin, View):
         })
 
 
-class ProtocolSaveAPIView(LoginRequiredMixin, View):
+class ProtocolSaveAPIView(AjaxLoginRequiredMixin, View):
     """AJAX endpoint: create or update a CTProtocol. Returns JSON."""
 
     login_url = _LOGIN_URL
@@ -836,7 +852,7 @@ class ExaminationEntryView(LoginRequiredMixin, View):
         })
 
 
-class ExaminationSaveAPIView(LoginRequiredMixin, View):
+class ExaminationSaveAPIView(AjaxLoginRequiredMixin, View):
     """AJAX endpoint: save a CTExamination record. Returns JSON."""
 
     login_url = _LOGIN_URL

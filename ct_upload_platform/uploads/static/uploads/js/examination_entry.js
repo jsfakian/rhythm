@@ -37,7 +37,7 @@ const EXAM_GROUPS = {
         "Group 5 – Adolescence",
     ],
     YOUNG_ADULT: [
-        "Group 6 – Young Adulthood",
+        "Group 6 – Adolescence & Young Adulthood",
     ],
 };
 const GROUP_CODES = {
@@ -166,7 +166,7 @@ function onProtocolTypeChange() {
         grpSel.appendChild(o);
     });
     if (ptype === 'YOUNG_ADULT') {
-        grpSel.value = 'Group 6 – Young Adulthood';
+        grpSel.value = 'Group 6 – Adolescence & Young Adulthood';
     }
     updatePidPreview();
 }
