@@ -167,6 +167,8 @@ class SignupSerializer(serializers.Serializer):
         'research_coordinator', 'principal_investigator', 'dpo', 'other',
     ])
     professional_role_other = serializers.CharField(max_length=256, required=False, allow_blank=True, default='')
+    data_classification = serializers.ChoiceField(choices=['anonymized', 'pseudonymized'])
+    data_classification_confirmed = serializers.BooleanField()
     terms_accepted = serializers.BooleanField()
 
     def validate_username(self, value):
@@ -184,6 +186,13 @@ class SignupSerializer(serializers.Serializer):
     def validate_terms_accepted(self, value):
         if not value:
             raise serializers.ValidationError('You must accept the terms of use to register.')
+        return value
+
+    def validate_data_classification_confirmed(self, value):
+        if not value:
+            raise serializers.ValidationError(
+                'You must confirm the Data Classification Declaration to register.'
+            )
         return value
 
     def validate(self, data):
@@ -210,10 +219,17 @@ class SignupSerializer(serializers.Serializer):
         professional_role = validated_data.pop('professional_role')
         professional_role_other = validated_data.pop('professional_role_other', '')
         terms_accepted = validated_data.pop('terms_accepted')
+        data_classification = validated_data.pop('data_classification')
+        data_classification_confirmed = validated_data.pop('data_classification_confirmed')
 
         from .models import Institution
         inst_obj = Institution.objects.filter(name=institution).first()
         site_code = inst_obj.site_code if inst_obj else UserProfile.assign_site_code(institution)
+
+        # If this institution already has a Data Classification Declaration on
+        # file (from an earlier registrant), that value wins — the signup form
+        # only lets a first registrant choose, but this guards the API too.
+        final_classification = Institution.set_data_classification_once(institution, data_classification)
 
         user = User.objects.create_user(
             username=validated_data['username'],
@@ -232,6 +248,8 @@ class SignupSerializer(serializers.Serializer):
             site_code=site_code,
             terms_accepted=terms_accepted,
             terms_accepted_at=timezone.now() if terms_accepted else None,
+            data_classification=final_classification,
+            data_classification_confirmed_at=timezone.now() if data_classification_confirmed else None,
         )
         return user
 

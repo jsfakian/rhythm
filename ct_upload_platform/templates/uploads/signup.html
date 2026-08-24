@@ -289,6 +289,18 @@
             font-size: 12px;
             margin-top: 4px;
         }
+
+        .field-hint {
+            color: #95a5a6;
+            font-size: 12px;
+            margin-top: 4px;
+        }
+
+        select:disabled {
+            background: #f8f9fa;
+            color: #7f8c8d;
+            cursor: not-allowed;
+        }
     </style>
 </head>
 <body>
@@ -390,7 +402,7 @@
                 <select id="institution" name="institution" required>
                     <option value="">Select your institution...</option>
                     {% for inst in institutions %}
-                    <option value="{{ inst.name }}">{{ inst.name }}</option>
+                    <option value="{{ inst.name }}" data-classification="{{ inst.data_classification }}">{{ inst.name }}</option>
                     {% endfor %}
                 </select>
                 <div id="institutionError" class="field-error"></div>
@@ -434,6 +446,47 @@
                 >
                 <div id="roleOtherError" class="field-error"></div>
             </div>
+
+            <div class="section-divider">Data Classification Declaration</div>
+
+            <div class="terms-box">
+                <h4>Data Classification Declaration for Repository Uploads</h4>
+                <p>Before uploading any CT imaging or related metadata to the RHYTHM Repository, each participating institution must declare the legal and data-protection status of the data it will contribute.</p>
+                <p>The RHYTHM Repository supports the secure storage, management and authorized use of both pseudonymized and anonymized CT imaging data and associated metadata contributed by participating healthcare institutions. The selected classification is important because it determines the applicable data-protection responsibilities of the Data Provider and the Repository Operator, including processing obligations, access governance, retention rules and the handling of future data-use requests.</p>
+                <p>The classification selected for Repository Data must be consistent with the applicable Data Transfer Agreement (DTA) and any associated institutional, ethical and data protection documentation. The Data Provider is responsible that the selected classification accurately reflects the legal and data-protection status of the Data it contributes.</p>
+                <h4>Mandatory defacing and de-identification requirement</h4>
+                <p>For all uploads, regardless of whether the data are classified as anonymized or pseudonymized, the submitted CT imaging data must be de-identified before transfer and must comply with the Repository's technical specifications. In addition, all submitted imaging data must be defaced (where applicable) before upload, to reduce the risk of facial or anatomical re-identification from CT image data.</p>
+                <p>The Repository Operator must not receive, possess or have access to any information, linkage file or re-identification key capable of identifying individual data subjects. Any pseudonymization keys or other means of re-identification must remain exclusively under the control of the relevant Data Provider.</p>
+                <h4>Mandatory institutional declaration</h4>
+                <p>Please select the classification applicable to the Data contributed by your institution. The selected classification must be consistent with the applicable DTA and relevant institutional, ethical and data protection requirements.</p>
+                <p><strong>Option A — Anonymized data.</strong> Our institution declares that the data uploaded to the RHYTHM Repository are anonymized data. Our institution confirms that the CT imaging data, dose information, protocol information and related metadata have been irreversibly anonymized before transfer and no longer constitute personal data within the meaning of the GDPR.</p>
+                <p><strong>Option B — Pseudonymized data.</strong> Our institution declares that the data uploaded to the RHYTHM Repository are pseudonymized personal data. This means that direct identifiers have been removed or replaced before transfer, but the data may still be linked back to individuals by the Data Provider using additional information or pseudonymization keys retained only by the Data Provider. Such additional information or keys shall not be transferred or made available to the Repository Operator.</p>
+            </div>
+
+            <div class="form-group">
+                <label for="dataClassification">Data classification for this institution</label>
+                <select id="dataClassification" name="data_classification" required>
+                    <option value="">Select a classification...</option>
+                    <option value="anonymized">Option A — Anonymized data</option>
+                    <option value="pseudonymized">Option B — Pseudonymized data</option>
+                </select>
+                <p id="dataClassificationLockedNote" class="field-hint" style="display:none;"></p>
+                <div id="dataClassificationError" class="field-error"></div>
+            </div>
+
+            <div class="terms-box">
+                <h4>Confirmation</h4>
+                <p>I confirm that I am authorized by my institution to make this declaration and that the selected classification is consistent with the applicable DTA and relevant institutional, ethical and data protection requirements.</p>
+                <p>I have read and understood the above information and confirm that the selected classification applies to the data uploaded by my institution to the RHYTHM Repository.</p>
+            </div>
+
+            <div class="checkbox-group">
+                <input type="checkbox" id="dataClassificationConfirmed" name="data_classification_confirmed" required>
+                <label for="dataClassificationConfirmed">
+                    I confirm the Data Classification Declaration above on behalf of my institution.
+                </label>
+            </div>
+            <div id="dataClassificationConfirmedError" class="field-error" style="margin-top:-12px;margin-bottom:12px;"></div>
 
             <div class="section-divider">Terms of Use</div>
 

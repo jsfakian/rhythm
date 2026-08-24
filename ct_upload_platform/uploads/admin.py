@@ -5,10 +5,18 @@ Admin configuration for the uploads app.
 from django.contrib import admin
 from .models import (
     Patient, UploadJob, StudyMapping, Annotation, AuditLog,
-    ClinicalIndicationRow,
+    ClinicalIndicationRow, Institution,
     CTManufacturer, CTScannerModel, ProtocolChoiceCategory,
     ProtocolChoiceOption, CTScannerProfile, CTProtocol,
 )
+
+
+@admin.register(Institution)
+class InstitutionAdmin(admin.ModelAdmin):
+    list_display = ('name', 'site_code', 'data_classification')
+    list_editable = ('data_classification',)
+    list_filter = ('data_classification',)
+    search_fields = ('name', 'site_code')
 
 
 @admin.register(Patient)

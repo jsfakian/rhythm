@@ -24,7 +24,8 @@ logger = logging.getLogger(__name__)
 
 
 class SecuritySettingsView(LoginRequiredMixin, TemplateView):
-    """Self-service page where a user manages their own 2FA."""
+    """Self-service page where a user manages their own 2FA and views their
+    Data Classification Declaration."""
     template_name = 'uploads/security_settings.html'
     login_url = '/login/'
 
@@ -32,6 +33,7 @@ class SecuritySettingsView(LoginRequiredMixin, TemplateView):
         ctx = super().get_context_data(**kwargs)
         device = TOTPDevice.objects.filter(user=self.request.user).first()
         ctx['totp_enabled'] = bool(device and device.confirmed)
+        ctx['profile'] = getattr(self.request.user, 'profile', None)
         return ctx
 
 

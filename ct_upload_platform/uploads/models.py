@@ -886,16 +886,61 @@ class CTExamination(models.Model):
         return sum(float(v) for v in self.dlp_per_phase if v is not None)
 
 
+DATA_CLASSIFICATION_CHOICES = [
+    ('anonymized', 'Anonymized data'),
+    ('pseudonymized', 'Pseudonymized data'),
+]
+
+
 class Institution(models.Model):
     """Known RHYTHM partner institutions with their canonical site codes."""
     name = models.CharField(max_length=256, unique=True)
     site_code = models.CharField(max_length=16, unique=True)
+    # Data Classification Declaration made by the first user who registers for
+    # this institution (anonymized vs. pseudonymized) — see UserProfile below.
+    # Blank until the first registration; once set it applies to the whole
+    # institution and later registrants only get to see, not change, it.
+    data_classification = models.CharField(
+        max_length=20, choices=DATA_CLASSIFICATION_CHOICES, blank=True, default='',
+    )
 
     class Meta:
         ordering = ['name']
 
     def __str__(self) -> str:
         return f"{self.name} ({self.site_code})"
+
+    @classmethod
+    def set_data_classification_once(cls, institution: str, requested: str) -> str:
+        """Lock in *requested* as the institution's Data Classification Declaration.
+
+        If the institution already declared a classification (from an earlier
+        registrant), that existing value wins and *requested* is ignored — this
+        is what keeps a second registrant's tampered/stale submission from
+        overriding the institution's first declaration. Locking happens under
+        ``select_for_update()`` so two concurrent "first" registrations for the
+        same institution can't both win.
+
+        If the institution has no row in this table yet (not expected in
+        practice — the signup form only offers known institutions — but
+        handled defensively), there is nothing to lock against, so *requested*
+        is returned as-is.
+        """
+        normalized = institution.strip()
+        with transaction.atomic():
+            inst = (
+                cls.objects
+                .select_for_update()
+                .filter(name=normalized)
+                .first()
+            )
+            if inst is None:
+                return requested
+            if inst.data_classification:
+                return inst.data_classification
+            inst.data_classification = requested
+            inst.save(update_fields=['data_classification'])
+            return requested
 
 
 class UserProfile(models.Model):
@@ -922,6 +967,14 @@ class UserProfile(models.Model):
     site_code = models.CharField(max_length=16, blank=True, default='')
     terms_accepted = models.BooleanField(default=False)
     terms_accepted_at = models.DateTimeField(null=True, blank=True)
+    # Data Classification Declaration this user made at registration time
+    # (anonymized vs. pseudonymized) — see Institution.set_data_classification_once.
+    # Blank for accounts created outside self-service signup (e.g. by an admin
+    # via User Management) where no declaration was collected.
+    data_classification = models.CharField(
+        max_length=20, choices=DATA_CLASSIFICATION_CHOICES, blank=True, default='',
+    )
+    data_classification_confirmed_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     # Email verification — signup accounts start unverified/inactive; an admin
     # must send the verification email from User Management before the user

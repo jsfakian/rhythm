@@ -634,7 +634,9 @@ class SignupPageView(TemplateView):
     def get_context_data(self, **kwargs):
         from .models import Institution
         ctx = super().get_context_data(**kwargs)
-        ctx['institutions'] = list(Institution.objects.values('name', 'site_code'))
+        ctx['institutions'] = list(
+            Institution.objects.values('name', 'site_code', 'data_classification')
+        )
         return ctx
 
 

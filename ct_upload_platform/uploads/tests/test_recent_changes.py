@@ -45,6 +45,8 @@ def _valid_signup(**overrides):
         'password2': 'StrongPass99!',
         'institution': 'University Hospital Athens',
         'professional_role': 'radiologist',
+        'data_classification': 'anonymized',
+        'data_classification_confirmed': True,
         'terms_accepted': True,
     }
     base.update(overrides)

@@ -38,6 +38,8 @@ class SignupAPITestCase(APITestCase):
             'password2': 'StrongPass99!',
             'institution': 'Test University Hospital',
             'professional_role': 'radiologist',
+            'data_classification': 'anonymized',
+            'data_classification_confirmed': True,
             'terms_accepted': True,
         }
 
@@ -157,6 +159,102 @@ class SignupAPITestCase(APITestCase):
 
 
 # ---------------------------------------------------------------------------
+# Data Classification Declaration
+# ---------------------------------------------------------------------------
+
+class DataClassificationDeclarationTestCase(APITestCase):
+    """Tests for the mandatory anonymized/pseudonymized declaration at signup."""
+
+    def setUp(self):
+        self.client = APIClient()
+        self.valid_payload = {
+            'username': 'newuser',
+            'email': 'newuser@example.com',
+            'password': 'StrongPass99!',
+            'password2': 'StrongPass99!',
+            'institution': 'Test University Hospital',
+            'professional_role': 'radiologist',
+            'data_classification': 'anonymized',
+            'data_classification_confirmed': True,
+            'terms_accepted': True,
+        }
+
+    def test_missing_data_classification_rejected(self):
+        payload = {k: v for k, v in self.valid_payload.items() if k != 'data_classification'}
+        response = self.client.post(SIGNUP_URL, payload, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('data_classification', response.json()['details'])
+
+    def test_invalid_data_classification_choice_rejected(self):
+        payload = {**self.valid_payload, 'data_classification': 'not_a_real_choice'}
+        response = self.client.post(SIGNUP_URL, payload, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('data_classification', response.json()['details'])
+
+    def test_unconfirmed_declaration_rejected(self):
+        payload = {**self.valid_payload, 'data_classification_confirmed': False}
+        response = self.client.post(SIGNUP_URL, payload, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('data_classification_confirmed', response.json()['details'])
+
+    def test_declaration_stored_on_profile(self):
+        response = self.client.post(SIGNUP_URL, self.valid_payload, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        user = User.objects.get(username='newuser')
+        self.assertEqual(user.profile.data_classification, 'anonymized')
+        self.assertIsNotNone(user.profile.data_classification_confirmed_at)
+
+    def test_first_registration_locks_institution_classification(self):
+        from uploads.models import Institution
+        Institution.objects.create(name='Locking Test Hospital', site_code='S900')
+        payload = {**self.valid_payload, 'institution': 'Locking Test Hospital'}
+        self.client.post(SIGNUP_URL, payload, format='json')
+        inst = Institution.objects.get(name='Locking Test Hospital')
+        self.assertEqual(inst.data_classification, 'anonymized')
+
+    def test_second_registrant_cannot_override_locked_classification(self):
+        """A later registrant from the same institution submitting a different
+        classification (tampered request, stale form, etc.) must be silently
+        pinned to whatever the institution already declared."""
+        from uploads.models import Institution
+        Institution.objects.create(name='Locking Test Hospital', site_code='S901')
+
+        first_payload = {
+            **self.valid_payload,
+            'username': 'firstuser',
+            'email': 'firstuser@example.com',
+            'institution': 'Locking Test Hospital',
+            'data_classification': 'anonymized',
+        }
+        self.client.post(SIGNUP_URL, first_payload, format='json')
+
+        second_payload = {
+            **self.valid_payload,
+            'username': 'seconduser',
+            'email': 'seconduser@example.com',
+            'institution': 'Locking Test Hospital',
+            'data_classification': 'pseudonymized',
+        }
+        response = self.client.post(SIGNUP_URL, second_payload, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        second_user = User.objects.get(username='seconduser')
+        self.assertEqual(second_user.profile.data_classification, 'anonymized')
+        inst = Institution.objects.get(name='Locking Test Hospital')
+        self.assertEqual(inst.data_classification, 'anonymized')
+
+    def test_unknown_institution_does_not_block_signup(self):
+        """An institution name with no Institution row (not offered by the
+        dropdown, but defensively possible via the raw API) has nothing to
+        lock the classification against, so signup should still succeed."""
+        payload = {**self.valid_payload, 'institution': 'Some Unlisted Institution'}
+        response = self.client.post(SIGNUP_URL, payload, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        user = User.objects.get(username='newuser')
+        self.assertEqual(user.profile.data_classification, 'anonymized')
+
+
+# ---------------------------------------------------------------------------
 # Admin-triggered verification email + verification link
 # ---------------------------------------------------------------------------
 
@@ -175,6 +273,8 @@ class EmailVerificationFlowTestCase(APITestCase):
             'password2': 'StrongPass99!',
             'institution': 'Test University Hospital',
             'professional_role': 'radiologist',
+            'data_classification': 'anonymized',
+            'data_classification_confirmed': True,
             'terms_accepted': True,
         }, format='json')
         self.user = User.objects.get(username='pendinguser')
@@ -271,6 +371,13 @@ class SignupPageViewTestCase(TestCase):
         self.assertIn('id="email"', content)
         self.assertIn('id="password"', content)
         self.assertIn('id="password2"', content)
+
+    def test_signup_page_contains_data_classification_declaration(self):
+        response = self.client.get(SIGNUP_PAGE_URL)
+        content = response.content.decode()
+        self.assertIn('id="dataClassification"', content)
+        self.assertIn('id="dataClassificationConfirmed"', content)
+        self.assertIn('Data Classification Declaration for Repository Uploads', content)
 
     def test_signup_page_has_login_link(self):
         response = self.client.get(SIGNUP_PAGE_URL)
