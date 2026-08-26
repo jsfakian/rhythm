@@ -42,7 +42,7 @@ class Command(BaseCommand):
         old_names = ["Panepistimio Kritis", "university of crete", "University of Crete",
                      "PANEPISTIMIO KRITIS"]
         rows = UserProfile.objects.filter(institution__in=old_names)
-        count = rows.update(institution="University Of Crete", site_code="S002")
+        count = rows.update(institution="University Of Crete", site_code="S001")
         if count:
             self.stdout.write(f"  Updated {count} UserProfile(s) to 'University Of Crete'")
 
