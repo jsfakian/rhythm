@@ -14,6 +14,10 @@ rhythm.med.uoc.gr {
 
 	@static path /static/*
 	handle @static {
+		# Filenames are content-hashed by Django's ManifestStaticFilesStorage
+		# (e.g. examination_entry.a1b2c3d4.js), so a changed file is always a
+		# new URL — safe to cache aggressively and permanently here.
+		header Cache-Control "public, max-age=31536000, immutable"
 		root * /srv
 		file_server
 	}

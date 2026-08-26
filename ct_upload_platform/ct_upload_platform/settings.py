@@ -126,6 +126,19 @@ USE_TZ = True
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
+# Content-hashed static filenames (e.g. examination_entry.a1b2c3d4.js) so a
+# deploy that changes a static file's content is served under a new URL —
+# browsers that cached the old file under the old URL are unaffected, and
+# clients always get current content instead of a stale cached copy.
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "django.contrib.staticfiles.storage.ManifestStaticFilesStorage",
+    },
+}
+
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
@@ -204,7 +217,7 @@ LOGIN_URL = '/login/'
 LOGIN_REDIRECT_URL = '/'
 
 # Automatic logout after this many seconds of inactivity.
-SESSION_COOKIE_AGE = env.int('SESSION_TIMEOUT_SECONDS', default=1800)
+SESSION_COOKIE_AGE = env.int('SESSION_TIMEOUT_SECONDS', default=3600)
 # Reset the expiry countdown on every request so the timeout is idle-based
 # rather than a fixed duration from login.
 SESSION_SAVE_EVERY_REQUEST = True
