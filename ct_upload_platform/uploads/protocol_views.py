@@ -942,6 +942,8 @@ class ExaminationSaveAPIView(AjaxLoginRequiredMixin, View):
             errors.append("Patient's weight is required.")
         if not image_quality:
             errors.append("Image quality is required.")
+        if 'application/json' not in content_type and not study_set_file:
+            errors.append("Compressed study set is required.")
         if errors:
             return JsonResponse({"error": " ".join(errors)}, status=400)
 
