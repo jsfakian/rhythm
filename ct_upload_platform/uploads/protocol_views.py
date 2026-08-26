@@ -938,7 +938,7 @@ class ExaminationSaveAPIView(AjaxLoginRequiredMixin, View):
             errors.append("CTDI vol is required for every phase.")
         if any(v in (None, "") for v in dlp):
             errors.append("DLP is required for every phase.")
-        if not patient_weight:
+        if not patient_weight and protocol_type != "PEDIATRIC_HEAD":
             errors.append("Patient's weight is required.")
         if not image_quality:
             errors.append("Image quality is required.")

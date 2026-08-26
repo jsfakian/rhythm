@@ -168,6 +168,10 @@ function onProtocolTypeChange() {
     if (ptype === 'YOUNG_ADULT') {
         grpSel.value = 'Group 6 – Adolescence & Young Adulthood';
     }
+    const weightHint = document.getElementById('weight_hint');
+    if (weightHint) {
+        weightHint.textContent = ptype === 'PEDIATRIC_HEAD' ? '(optional for head exams)' : '';
+    }
     updatePidPreview();
 }
 
@@ -300,7 +304,7 @@ async function saveExamination() {
     }
 
     const weightVal = document.getElementById('inp_weight').value || null;
-    if (!weightVal) errors.push("Patient's weight is required.");
+    if (!weightVal && protocolType !== 'PEDIATRIC_HEAD') errors.push("Patient's weight is required.");
 
     if (!document.getElementById('sel_quality').value) errors.push('Image quality is required.');
 
