@@ -10,6 +10,7 @@ from pathlib import Path
 from django.conf import settings
 from django.utils import timezone
 from rest_framework import status, views
+from rest_framework.parsers import BaseParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
@@ -34,6 +35,33 @@ from .file_manager import get_raw_data_user_dir
 
 # Configure logging
 logger = logging.getLogger(__name__)
+
+
+class RawBinaryParser(BaseParser):
+    """
+    Accepts a request body of any content type as opaque raw bytes.
+
+    ChunkedUploadChunkView reads the chunk payload as a raw byte stream
+    (clients may send it as application/octet-stream, application/zip, or
+    with no Content-Type at all — the actual archive's MIME type, not a
+    DRF-parseable one). Without a registered parser for that content type,
+    DRF's content negotiation itself raises UnsupportedMediaType (415)
+    before the view ever runs. Just as importantly: under
+    SessionAuthentication, Django's CSRF check (`_check_token`) calls
+    `request.POST` first, which — via DRF's Request wrapper — triggers the
+    *default* parsers (JSON/form/multipart) for their content types. Those
+    parsers consume the underlying stream, so the view's later
+    `request.body`/`request.data` access then raises RawPostDataException
+    (500). Registering this catch-all parser makes that same `request.POST`
+    probe resolve harmlessly (raw bytes aren't form data, so it's empty)
+    without consuming the stream in a way DRF can't safely re-serve, and
+    gives the view a consistent, cached `request.data` to read regardless
+    of which authentication class handled the request.
+    """
+    media_type = '*/*'
+
+    def parse(self, stream, media_type=None, parser_context=None):
+        return stream.read()
 
 
 def _resolve_upload(session_id: str, request, owner_or_staff: bool = False):
@@ -164,6 +192,7 @@ class ChunkedUploadInitView(views.APIView):
 class ChunkedUploadChunkView(views.APIView):
     """Upload a single chunk of a chunked upload."""
     permission_classes = [IsAuthenticated]
+    parser_classes = [RawBinaryParser]
 
     def post(self, request, session_id):
         """
@@ -226,8 +255,10 @@ class ChunkedUploadChunkView(views.APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Get chunk data from request
-        chunk_data = request.body
+        # Get chunk data from request. request.data (not request.body) — see
+        # RawBinaryParser's docstring for why the raw Django body property is
+        # unsafe here under SessionAuthentication.
+        chunk_data = request.data
         if not chunk_data:
             return Response(
                 {'error': 'No chunk data provided'},

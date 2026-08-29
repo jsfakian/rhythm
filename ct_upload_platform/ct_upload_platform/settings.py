@@ -192,8 +192,13 @@ MAX_UPLOAD_SIZE_MB = env.int('MAX_UPLOAD_SIZE_MB', default=2048)
 MAX_IMAGES_PER_UPLOAD = env.int('MAX_IMAGES_PER_UPLOAD', default=10000)
 
 # GDPR-Strict Configuration
-# Path to GDPR-strict.json defining anonymization validation rules
-GDPR_STRICT_CONFIG_PATH = env('GDPR_STRICT_CONFIG_PATH', default=str(BASE_DIR.parent / 'GDPR-strict.json'))
+# Path to GDPR-strict.json defining anonymization validation rules.
+# BASE_DIR is the Django project root (/app in the container, where the
+# Dockerfile's COPY . . lands GDPR-strict.json alongside manage.py) — NOT
+# BASE_DIR.parent, which pointed one directory too high (e.g. "/" in the
+# container) and silently broke all GDPR-strict validation in every
+# deployment that didn't set GDPR_STRICT_CONFIG_PATH explicitly.
+GDPR_STRICT_CONFIG_PATH = env('GDPR_STRICT_CONFIG_PATH', default=str(BASE_DIR / 'GDPR-strict.json'))
 # Enable OCR-based pixel scanning for detecting visible identifiers (experimental)
 GDPR_PIXEL_SCAN_ENABLED = env.bool('GDPR_PIXEL_SCAN_ENABLED', default=False)
 # OCR confidence threshold (0-100) for flagging potential text

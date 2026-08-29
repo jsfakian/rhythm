@@ -15,5 +15,9 @@
   "MaximumPatientCount": 0,
   "SynchronousCMoveTimeout": 3600,
   "HttpDescribeErrors": true,
-  "HttpCompressionEnabled": true
+  "HttpCompressionEnabled": true,
+  "DicomWeb": {
+    "Enable": true,
+    "Root": "/dicom-web/"
+  }
 }
