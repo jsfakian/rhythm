@@ -1,0 +1,101 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Uploads – RHYTHM Repository Upload Platform</title>
+    {% include 'uploads/_styles.html' %}
+    <style>
+        .page-body { max-width:1200px; }
+        .badge-status   { display:inline-block; padding:2px 8px; border-radius:10px; font-size:11px; font-weight:700; }
+        .badge-PENDING    { background:#f2f4f7; color:#475467; }
+        .badge-PROCESSING { background:#fff7e6; color:#b54708; }
+        .badge-COMPLETE   { background:#e8f7ee; color:#067647; }
+        .badge-PARTIAL    { background:#fff7e6; color:#b54708; }
+        .badge-FAILED     { background:#fff2f0; color:#b42318; }
+        .filter-row { display:flex; gap:12px; align-items:center; margin-bottom:20px; flex-wrap:wrap; }
+        .filter-row select { padding:8px 12px; border:1px solid #bdc3c7; border-radius:6px; font-size:14px; }
+        .mono { font-family:monospace; font-size:12px; }
+    </style>
+</head>
+<body>
+<div class="app-container">
+    {% include 'uploads/_sidebar.html' with active_nav='my-uploads' %}
+    <div class="main-content">
+    <div class="page-body">
+
+        <div class="page-header">
+            <h1>My Uploads</h1>
+            <a href="{% url 'automated-upload' %}" class="btn btn-primary">+ Automated Upload</a>
+        </div>
+        <p class="text-muted" style="margin-top:-8px;margin-bottom:20px;">
+            Tracks batch/automated uploads and any Manual Exam Entry study sets queued through the
+            GDPR-validation / Orthanc-ingestion pipeline.
+        </p>
+
+        <form method="get" class="filter-row">
+            <select name="status" data-auto-submit>
+                <option value="">All statuses</option>
+                {% for key, label in status_choices %}
+                <option value="{{ key }}"{% if key == selected_status %} selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="btn btn-secondary">Filter</button>
+            {% if selected_status %}<a href="{% url 'upload-job-list' %}" class="btn btn-secondary">Clear</a>{% endif %}
+        </form>
+
+        <div class="card">
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Status</th>
+                            <th>Batch</th>
+                            <th>Reference</th>
+                            <th>Filename</th>
+                            <th>Submitted</th>
+                            <th>Completed</th>
+                            <th>Errors</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for job in jobs %}
+                        <tr>
+                            <td><span class="badge-status badge-{{ job.status }}">{{ job.get_status_display }}</span></td>
+                            <td class="mono">{{ job.manifest_raw.batch|default:"—" }}</td>
+                            <td class="mono">{{ job.manifest_raw.ref|default:"—" }}</td>
+                            <td class="mono">{{ job.manifest_raw.filename|default:"—" }}</td>
+                            <td>{{ job.submitted_at|date:"Y-m-d H:i" }}</td>
+                            <td>{{ job.completed_at|date:"Y-m-d H:i"|default:"—" }}</td>
+                            <td>
+                                {% if job.error_report %}
+                                <span title="{{ job.error_report }}" style="color:#b42318;cursor:help;">
+                                    {{ job.error_report|length }} error{{ job.error_report|length|pluralize }}
+                                </span>
+                                {% else %}—{% endif %}
+                            </td>
+                            <td>
+                                <div class="actions-cell">
+                                    {% if job.status == 'PENDING' %}
+                                    <a href="{% url 'upload-job-delete' job.pk %}" class="btn btn-danger btn-sm">Delete</a>
+                                    {% else %}—{% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="8" class="text-muted" style="text-align:center;padding:32px;">No uploads yet.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+    </div>
+</div>
+<script src="{% static 'uploads/js/auto_submit_select.js' %}" defer></script>
+{% include 'uploads/_footer.html' %}
+</body>
+</html>

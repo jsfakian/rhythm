@@ -1126,11 +1126,99 @@ class ExaminationDeleteView(LoginRequiredMixin, View):
         return render(request, "uploads/examination_confirm_delete.html", {"examination": exam})
 
 
+class UploadJobListView(LoginRequiredMixin, View):
+    """
+    "My Uploads" page — lists UploadJob records (automated/bulk batch
+    uploads, plus manual-entry study sets queued through the same async
+    GDPR/Orthanc pipeline), scoped to the caller's institution.
+    """
+
+    login_url = _LOGIN_URL
+    template_name = "uploads/upload_job_list.html"
+
+    def get(self, request: HttpRequest) -> HttpResponse:
+        qs = scope_queryset(
+            UploadJob.objects.all().order_by("-submitted_at"),
+            request.user,
+            owner_field="uploader_id",
+            owner_value=request.user.username,
+        )
+        status_filter = request.GET.get("status", "")
+        if status_filter:
+            qs = qs.filter(status=status_filter)
+        return render(request, self.template_name, {
+            "jobs": qs,
+            "status_choices": UploadJob.STATUS_CHOICES,
+            "selected_status": status_filter,
+        })
+
+
+class UploadJobDeleteView(LoginRequiredMixin, View):
+    """Confirm-and-delete a single UploadJob. Only PENDING jobs may be
+    deleted, mirroring the DRF UploadJobDetailView.delete() used by the
+    /upload/ SPA — a job already picked up by the worker shouldn't be
+    yanked out from under it."""
+
+    login_url = _LOGIN_URL
+
+    def _get_job(self, request: HttpRequest, pk: str) -> UploadJob:
+        job = get_object_or_404(UploadJob, pk=pk)
+        if not can_access(job, request.user, owner_field="uploader_id", owner_value=request.user.username):
+            raise Http404("No UploadJob matches the given query.")
+        return job
+
+    def get(self, request: HttpRequest, pk: str) -> HttpResponse:
+        job = self._get_job(request, pk)
+        return render(request, "uploads/upload_job_confirm_delete.html", {"job": job})
+
+    def post(self, request: HttpRequest, pk: str) -> HttpResponse:
+        job = self._get_job(request, pk)
+        if job.status != "PENDING":
+            messages.error(
+                request,
+                f"Cannot delete job with status {job.get_status_display()}. Only pending jobs can be deleted.",
+            )
+            return redirect(reverse("upload-job-list"))
+        if job.tar_temp_path and os.path.exists(job.tar_temp_path):
+            try:
+                os.unlink(job.tar_temp_path)
+            except Exception as exc:
+                logger.warning("Failed to delete archive %s: %s", job.tar_temp_path, exc)
+        job.delete()
+        return redirect(reverse("upload-job-list"))
+
+
 class JSONValidatorView(LoginRequiredMixin, View):
-    """Client-side JSON validator page — validates JSON syntax and schema (anonymization tool or manifest)."""
+    """Manifest Validator page — checks an uploaded/pasted manifest.json
+    against the real server-side schema (v1 single-study or v2
+    server-assigned batch, auto-detected). Calls the existing DRF
+    /api/v1/uploads/validate-manifest/ endpoint client-side — now reachable
+    from session-authenticated browser pages like this one, since
+    SessionAuthentication was added alongside BearerTokenAuthentication."""
 
     login_url = _LOGIN_URL
     template_name = "uploads/json_validator.html"
 
     def get(self, request: HttpRequest) -> HttpResponse:
         return render(request, self.template_name)
+
+
+class AutomatedUploadView(LoginRequiredMixin, View):
+    """
+    Automated (bulk) upload page: submit a v2 server-assigned batch
+    manifest.json (produced by the partner-side
+    create_rhythm_server_assigned_manifest_gui[_with_uid].py tools) plus
+    the ZIP archives it references. Each item is uploaded through the
+    existing chunked-upload API (/api/v1/uploads/chunked/...), tagged with
+    its manifest item and a shared batch id, so it lands as its own
+    UploadJob for the My Uploads page — reusing the same resumable,
+    hash-verified upload pipeline as the token-authenticated /upload/ SPA.
+    """
+
+    login_url = _LOGIN_URL
+    template_name = "uploads/automated_upload.html"
+
+    def get(self, request: HttpRequest) -> HttpResponse:
+        return render(request, self.template_name, {
+            "site_code": user_site_code(request.user),
+        })

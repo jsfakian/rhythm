@@ -44,6 +44,9 @@ from uploads.protocol_views import (
     ExaminationListView,
     ExaminationDeleteView,
     JSONValidatorView,
+    UploadJobListView,
+    UploadJobDeleteView,
+    AutomatedUploadView,
 )
 
 urlpatterns = [
@@ -97,6 +100,13 @@ urlpatterns = [
     path('examinations/entry/', ExaminationEntryView.as_view(), name='examination-entry'),
     path('examinations/api/save/', ExaminationSaveAPIView.as_view(), name='examination-save-api'),
     path('examinations/<str:pk>/delete/', ExaminationDeleteView.as_view(), name='examination-delete'),
+
+    # My Uploads (bulk/automated upload job tracking)
+    path('my-uploads/', UploadJobListView.as_view(), name='upload-job-list'),
+    path('my-uploads/<str:pk>/delete/', UploadJobDeleteView.as_view(), name='upload-job-delete'),
+
+    # Automated (bulk batch) upload
+    path('automated-upload/', AutomatedUploadView.as_view(), name='automated-upload'),
 
     # Protocol UI pages (human-facing; not under api/v1/)
     # Order matters: fixed paths before parameterised catch-alls.

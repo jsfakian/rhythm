@@ -1,0 +1,102 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Automated Upload – RHYTHM Repository Upload Platform</title>
+    {% include 'uploads/_styles.html' %}
+    <style>
+        .page-body { max-width:1200px; }
+        .upload-row { display:flex; align-items:center; gap:12px; margin-bottom:14px; flex-wrap:wrap; }
+        .upload-row label { font-size:13px; color:var(--text,#152238); font-weight:600; white-space:nowrap; min-width:220px; }
+        .result-box { border-radius:14px; padding:14px 18px; font-size:14px; margin-top:16px; display:none; line-height:1.5; }
+        .result-ok   { background:#e8f7ee; border:1px solid #b7e4c7; color:#067647; display:block; }
+        .result-err  { background:#fff2f0; border:1px solid #ffd5d1; color:#b42318; display:block; }
+        .result-warn { background:#fff7e6; border:1px solid #f7d68a; color:#7a3d00; display:block; }
+        .result-box ul { margin:8px 0 0; padding-left:18px; }
+        .badge-status   { display:inline-block; padding:2px 8px; border-radius:10px; font-size:11px; font-weight:700; }
+        .badge-pending    { background:#f2f4f7; color:#475467; }
+        .badge-matched    { background:#e8f1ff; color:#1e3a5f; }
+        .badge-unmatched  { background:#fff2f0; color:#b42318; }
+        .badge-uploading  { background:#fff7e6; color:#b54708; }
+        .badge-done       { background:#e8f7ee; color:#067647; }
+        .badge-error      { background:#fff2f0; color:#b42318; }
+        .mono { font-family:monospace; font-size:12px; }
+        progress.item-progress { width:120px; height:8px; }
+    </style>
+</head>
+<body>
+<div class="app-container">
+    {% include 'uploads/_sidebar.html' with active_nav='automated-upload' %}
+    <div class="main-content">
+    <div class="page-body">
+
+        <div class="page-header">
+            <h1>Automated Upload</h1>
+            <a href="{% url 'upload-job-list' %}" class="btn btn-secondary">View My Uploads</a>
+        </div>
+        <p class="text-muted" style="margin-top:-8px;margin-bottom:20px;">
+            Submit a server-assigned batch manifest (produced by the
+            <code>create_rhythm_server_assigned_manifest_gui</code> partner tool) together with the ZIP
+            archives it references — one already-anonymized CT studyset per ZIP. The server extracts and
+            validates the DICOM identifiers in each archive and assigns the Repository Study ID itself.
+        </p>
+
+        <div class="card">
+            <h2 style="margin:0 0 6px;font-size:16px;">1. Select manifest and ZIP files</h2>
+            <p class="sdesc" style="margin:0 0 16px;color:var(--muted,#667085);font-size:13px;">
+                The manifest's <code>items[].filename</code> values must match the selected ZIP filenames exactly.
+            </p>
+
+            <div class="upload-row">
+                <label for="inp_manifest">Manifest JSON (v2 batch)</label>
+                <input type="file" id="inp_manifest" accept=".json,application/json" />
+            </div>
+            <div class="upload-row">
+                <label for="inp_zips">ZIP archives</label>
+                <input type="file" id="inp_zips" accept=".zip" multiple />
+            </div>
+
+            <div class="form-actions">
+                <button class="btn btn-primary" id="btn_validate">Validate Manifest</button>
+                <button class="btn btn-save" id="btn_start_upload" disabled>Start Upload</button>
+            </div>
+
+            <div id="resultBox" class="result-box"></div>
+        </div>
+
+        <div class="card" id="items_card" style="display:none;">
+            <h2 style="margin:0 0 6px;font-size:16px;">2. Batch items</h2>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Ref</th>
+                            <th>Filename</th>
+                            <th>Indication</th>
+                            <th>Group</th>
+                            <th>File</th>
+                            <th>Progress</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="items_tbody"></tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+    </div>
+</div>
+
+<script type="application/json" id="automated-upload-data">
+{
+    "csrf_token": "{{ csrf_token|escapejs }}",
+    "site_code": "{{ site_code|escapejs }}"
+}
+</script>
+<script src="{% static 'uploads/js/automated_upload.js' %}" defer></script>
+{% include 'uploads/_footer.html' %}
+</body>
+</html>

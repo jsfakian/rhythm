@@ -146,6 +146,13 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'uploads.auth.BearerTokenAuthentication',  # Supports both Bearer and Token formats
+        # Lets browser pages served by the app itself (e.g. the Automated
+        # Upload / My Uploads GUI, which call these same API endpoints via
+        # fetch()) authenticate with the user's existing login session
+        # instead of requiring a separately-issued API token. DRF enforces
+        # CSRF for unsafe methods under this class, so callers must send the
+        # standard X-CSRFToken header (as examination_entry.js etc. already do).
+        'rest_framework.authentication.SessionAuthentication',
     ],
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 20,

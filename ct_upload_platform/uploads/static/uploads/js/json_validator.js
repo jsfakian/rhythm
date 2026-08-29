@@ -1,3 +1,52 @@
+const CSRF_TOKEN = JSON.parse(document.getElementById('manifest-validator-data').textContent).csrf_token;
+
+async function validateManifest() {
+    const text = document.getElementById('jsonInput').value.trim();
+    const box = document.getElementById('schemaResultBox');
+    box.className = 'result-box';
+    box.style.display = '';
+
+    if (!text) {
+        box.className = 'result-box result-warn';
+        box.textContent = 'No JSON text to validate. Paste some JSON or load a file first.';
+        return;
+    }
+
+    let parsed;
+    try {
+        parsed = JSON.parse(text);
+    } catch (e) {
+        box.className = 'result-box result-err';
+        box.innerHTML = '<strong>Cannot validate as manifest — invalid JSON:</strong> ' + escHtml(e.message);
+        return;
+    }
+
+    let resp, data;
+    try {
+        resp = await fetch('/api/v1/uploads/validate-manifest/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
+            body: JSON.stringify({ manifest: parsed }),
+        });
+        data = await resp.json();
+    } catch (e) {
+        box.className = 'result-box result-err';
+        box.innerHTML = '<strong>Validation request failed:</strong> ' + escHtml(e.message);
+        return;
+    }
+
+    if (data.valid) {
+        box.className = 'result-box result-ok';
+        box.innerHTML = `<strong>Valid ${escHtml(data.schema_version)} manifest</strong> — matches the RHYTHM server schema.`;
+    } else {
+        box.className = 'result-box result-err';
+        const errList = (data.errors || [])
+            .map(err => `<li><code>${escHtml(err.field || '$')}</code> — ${escHtml(err.message)} (${escHtml(err.code)})</li>`)
+            .join('');
+        box.innerHTML = `<strong>Invalid${data.schema_version ? ` ${escHtml(data.schema_version)}` : ''} manifest:</strong><ul>${errList}</ul>`;
+    }
+}
+
 function validateJSON() {
     const text = document.getElementById('jsonInput').value.trim();
     const box = document.getElementById('resultBox');
@@ -74,6 +123,8 @@ function clearAll() {
     document.getElementById('jsonInput').value = '';
     document.getElementById('resultBox').className = 'result-box';
     document.getElementById('resultBox').style.display = 'none';
+    document.getElementById('schemaResultBox').className = 'result-box';
+    document.getElementById('schemaResultBox').style.display = 'none';
     document.getElementById('prettyOut').style.display = 'none';
     document.getElementById('statRow').innerHTML = '';
     document.getElementById('fileInput').value = '';
@@ -95,6 +146,7 @@ document.getElementById('fileInput').addEventListener('change', () => {
 });
 document.getElementById('btnLoadFile').addEventListener('click', loadFile);
 document.getElementById('btnValidate').addEventListener('click', validateJSON);
+document.getElementById('btnValidateManifest').addEventListener('click', validateManifest);
 document.getElementById('btnPrettyPrint').addEventListener('click', prettyPrint);
 document.getElementById('btnMinify').addEventListener('click', minify);
 document.getElementById('btnClearAll').addEventListener('click', clearAll);

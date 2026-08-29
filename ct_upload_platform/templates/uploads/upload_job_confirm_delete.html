@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Delete Upload – RHYTHM Repository Upload Platform</title>
+    {% include 'uploads/_styles.html' %}
+    <style>.page-body { max-width:560px; }</style>
+</head>
+<body>
+<div class="app-container">
+    {% include 'uploads/_sidebar.html' with active_nav='my-uploads' %}
+    <div class="main-content"><div class="page-body">
+        <h1 style="margin-bottom:20px;color:#2c3e50;">Delete Upload</h1>
+        <div class="card" style="padding:28px;">
+            <p style="margin-bottom:20px;">Are you sure you want to delete upload job <strong>{{ job.pk }}</strong>?</p>
+            <p style="margin-bottom:24px;color:#7f8c8d;">
+                Status: <strong>{{ job.get_status_display }}</strong> &nbsp;·&nbsp;
+                Submitted: <strong>{{ job.submitted_at|date:"Y-m-d H:i" }}</strong>
+            </p>
+            {% if job.status != 'PENDING' %}
+            <p style="margin-bottom:24px;color:#b42318;">
+                Only pending jobs can be deleted — this job is already {{ job.get_status_display|lower }}.
+            </p>
+            <a href="{% url 'upload-job-list' %}" class="btn btn-secondary">Back</a>
+            {% else %}
+            <form method="post">
+                {% csrf_token %}
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-danger">Yes, delete</button>
+                    <a href="{% url 'upload-job-list' %}" class="btn btn-secondary">Cancel</a>
+                </div>
+            </form>
+            {% endif %}
+        </div>
+    </div></div>
+</div>
+{% include 'uploads/_footer.html' %}
+</body>
+</html>

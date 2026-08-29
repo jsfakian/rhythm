@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>JSON Validator – RHYTHM Repository Upload Platform</title>
+    <title>Manifest Validator – RHYTHM Repository Upload Platform</title>
     {% include 'uploads/_styles.html' %}
     <style>
         :root {
@@ -66,8 +66,8 @@
     {% include 'uploads/_sidebar.html' with active_nav='json-validator' %}
     <div class="main-content">
         <div class="page-header">
-            <h1>JSON Validator</h1>
-            <p>Validate your JSON files to catch errors early. JSON files are used in the anonymization tool and may be used when uploading files into the RHYTHM repository. Paste your JSON below or upload a file to check syntax and structure.</p>
+            <h1>Manifest Validator</h1>
+            <p>Check a manifest.json file — for either the automated batch upload (v2) or single-study (v1) format — against the real server-side schema before uploading, or just check plain JSON syntax. Paste below or load a file.</p>
         </div>
         <div class="page-body">
 
@@ -84,7 +84,8 @@
                 <textarea id="jsonInput" placeholder='Paste your JSON here, e.g. {"key": "value", ...}'></textarea>
 
                 <div class="actions">
-                    <button class="btn btn-primary" id="btnValidate">Validate</button>
+                    <button class="btn btn-primary" id="btnValidate">Check Syntax</button>
+                    <button class="btn btn-primary" id="btnValidateManifest">Validate as Manifest</button>
                     <button class="btn btn-secondary" id="btnPrettyPrint">Pretty-print</button>
                     <button class="btn btn-secondary" id="btnMinify">Minify</button>
                     <button class="btn btn-danger" id="btnClearAll">Clear</button>
@@ -92,15 +93,18 @@
 
                 <div id="resultBox" class="result-box"></div>
                 <div id="statRow" class="stat-row"></div>
+                <div id="schemaResultBox" class="result-box"></div>
                 <pre id="prettyOut"></pre>
             </div>
 
             <div class="card">
                 <h2>What JSON files are used in RHYTHM?</h2>
                 <p class="desc" style="margin-bottom:0;">
-                    <strong>Manifest file (manifest.json)</strong> — required when uploading DICOM archives. Describes the study, patient pseudo-ID, and acquisition metadata.<br>
-                    <strong>Anonymization config (anonymization_config.json)</strong> — used by the DICOM anonymization tool to define tag removal/replacement rules.<br>
-                    Use this validator to check both types before uploading or running the anonymizer.
+                    <strong>Manifest file (manifest.json)</strong> — required when uploading DICOM archives, either as a v1
+                    single-study manifest (embedded in a tar with its images) or a v2 server-assigned batch manifest (used
+                    by the <a href="{% url 'automated-upload' %}">Automated Upload</a> page). "Validate as Manifest" checks
+                    against the real server schema and tells you which version matched.<br>
+                    <strong>Anonymization config (anonymization_config.json)</strong> — used by the DICOM anonymization tool to define tag removal/replacement rules. "Check Syntax" covers this and any other JSON.
                 </p>
             </div>
 
@@ -108,6 +112,11 @@
     </div>
 </div>
 
+<script type="application/json" id="manifest-validator-data">
+{
+    "csrf_token": "{{ csrf_token|escapejs }}"
+}
+</script>
 <script src="{% static 'uploads/js/json_validator.js' %}" defer></script>
 {% include 'uploads/_footer.html' %}
 </body>

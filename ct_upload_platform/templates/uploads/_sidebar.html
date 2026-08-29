@@ -33,18 +33,22 @@
             <span>Examinations</span>
         </a>
         <div class="nav-divider"></div>
-        <span class="nav-item" style="opacity:.4;cursor:not-allowed;pointer-events:none;" title="Coming soon">
+        <div class="nav-section-label">Automated Upload</div>
+        <a class="nav-item nav-link{% if active_nav == 'automated-upload' %} active{% endif %}"
+           href="{% url 'automated-upload' %}">
             <span class="nav-icon">📤</span>
-            <span>Upload <small style="font-size:10px;background:rgba(255,255,255,.15);padding:1px 5px;border-radius:4px;margin-left:4px;">soon</small></span>
-        </span>
-        <span class="nav-item" style="opacity:.4;cursor:not-allowed;pointer-events:none;" title="Coming soon">
+            <span>Automated Upload</span>
+        </a>
+        <a class="nav-item nav-link{% if active_nav == 'json-validator' %} active{% endif %}"
+           href="{% url 'json-validator' %}">
             <span class="nav-icon">✅</span>
-            <span>JSON Validator <small style="font-size:10px;background:rgba(255,255,255,.15);padding:1px 5px;border-radius:4px;margin-left:4px;">soon</small></span>
-        </span>
-        <span class="nav-item" style="opacity:.4;cursor:not-allowed;pointer-events:none;" title="Coming soon">
-            <span class="nav-icon">📋</span>
-            <span>My Uploads <small style="font-size:10px;background:rgba(255,255,255,.15);padding:1px 5px;border-radius:4px;margin-left:4px;">soon</small></span>
-        </span>
+            <span>Manifest Validator</span>
+        </a>
+        <a class="nav-item nav-link{% if active_nav == 'my-uploads' %} active{% endif %}"
+           href="{% url 'upload-job-list' %}">
+            <span class="nav-icon">📦</span>
+            <span>My Uploads</span>
+        </a>
         <a class="nav-item nav-link{% if active_nav == 'security-settings' %} active{% endif %}"
            href="/account/security/">
             <span class="nav-icon">⚙️</span>
