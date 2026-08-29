@@ -30,8 +30,10 @@ from .models import (
     CTScannerProfile,
     MaModulationInputSpec,
     ProtocolChoiceOption,
+    UploadJob,
 )
 from .protocol_forms import CTProtocolForm, CTScannerProfileForm
+from .tasks import process_upload_job
 
 _LOGIN_URL = '/login/'
 _PROTOCOL_TYPE_CHOICES = CTProtocol.PROTOCOL_TYPE_CHOICES
@@ -978,8 +980,14 @@ class ExaminationSaveAPIView(AjaxLoginRequiredMixin, View):
 
         # Generate the RHYTHM pseudo-ID if we have enough data.
         rhythm_id = ""
+        indication_code = contrast_code = group_code = ""
         try:
-            from .repository_study_id import generate_repository_study_id
+            from .repository_study_id import (
+                CONTRAST_CODES,
+                INDICATION_CODES,
+                generate_repository_study_id,
+                get_patient_group_code,
+            )
             site_code = getattr(getattr(request.user, "profile", None), "site_code", "") or "SITE"
             indication_key = f"{anatomical_region} / {clinical_indication}"
             rhythm_id = generate_repository_study_id(
@@ -989,6 +997,9 @@ class ExaminationSaveAPIView(AjaxLoginRequiredMixin, View):
                 protocol_type=protocol_type,
                 examination_group=examination_group,
             )
+            indication_code = INDICATION_CODES.get(indication_key, "OTHER")
+            contrast_code = CONTRAST_CODES.get(contrast, "UNK")
+            group_code = get_patient_group_code(protocol_type, examination_group)
         except Exception as exc:
             logger.warning("Could not generate RHYTHM repository study ID: %s", exc)
 
@@ -1023,6 +1034,43 @@ class ExaminationSaveAPIView(AjaxLoginRequiredMixin, View):
             created_by=request.user.username,
             site_code=user_site_code(request.user),
         )
+
+        # If a study set archive was attached, queue it through the same
+        # GDPR-validation / Orthanc-push pipeline used by the automated
+        # bulk-upload route, instead of leaving it as an un-validated file
+        # on local disk. Best-effort: a queuing failure here must not lose
+        # the examination record that was just saved.
+        if exam.study_set_file:
+            try:
+                job = UploadJob.objects.create(
+                    uploader_id=request.user.username,
+                    site_code=user_site_code(request.user),
+                    tar_temp_path=exam.study_set_file.path,
+                    manifest_raw={
+                        "ref": str(exam.pk),
+                        "filename": os.path.basename(exam.study_set_file.name),
+                        "site_code": user_site_code(request.user),
+                        "clinical_indication_code": indication_code,
+                        "anatomical_region": anatomical_region,
+                        "contrast_code": contrast_code,
+                        "patient_group_code": group_code,
+                        "protocol_name": protocol.protocol_name if protocol else "",
+                        "patient_weight_kg": float(patient_weight) if patient_weight else None,
+                        "patient_age_years": float(patient_age) if patient_age else None,
+                        "ctdivol_mgy": float(ctdi_vol[0]) if ctdi_vol else None,
+                        "dlp_mgy_cm": float(dlp[0]) if dlp else None,
+                        "image_quality": image_quality,
+                        "repository_study_id_override": rhythm_id,
+                    },
+                    status="PENDING",
+                )
+                exam.upload_job = job
+                exam.save(update_fields=["upload_job"])
+                process_upload_job.delay(str(job.id))
+            except Exception as exc:
+                logger.warning(
+                    "Could not queue GDPR/Orthanc ingestion for examination %s: %s", exam.pk, exc
+                )
 
         return JsonResponse({
             "status": "created",
