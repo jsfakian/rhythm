@@ -47,6 +47,9 @@ db.sqlite3
 htmlcov/
 test-results/
 
+# Node / Playwright
+node_modules/
+
 # Celery
 celerybeat-schedule
 
