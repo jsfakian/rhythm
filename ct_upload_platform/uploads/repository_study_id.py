@@ -79,37 +79,37 @@ def _build_prefix(
     return f"RHY-{site_code}-{indication_code}-{contrast_code}-{group_code}"
 
 
-def generate_repository_study_id(
+def generate_repository_study_id_from_codes(
     site_code: str,
-    clinical_indication: str,
-    contrast: str,
-    protocol_type: str,
-    examination_group: str,
+    indication_code: str,
+    contrast_code: str,
+    group_code: str,
 ) -> str:
     """
-    Generate a globally unique RHYTHM repository study ID.
+    Generate a globally unique RHYTHM repository study ID from already-known
+    coded values (no human-readable-to-code resolution).
 
-    Resolves the four human-readable values to their codes, builds the
-    prefix, and assigns the next sequence number for that prefix under a
+    This is the low-level primitive shared by both ingestion paths:
+    - Manual Exam Entry resolves human-readable form values to codes first
+      (see ``generate_repository_study_id`` below), then calls this.
+    - The automated/bulk upload pipeline receives the codes pre-computed in
+      the partner's manifest (``clinical_indication_code``, ``contrast_code``,
+      ``patient_group_code``) and calls this directly.
+
+    Assigns the next sequence number for the resulting prefix under a
     database row-lock so concurrent uploads cannot collide.
 
     Args:
-        site_code:           Submitting institution code, e.g. ``"S001"``.
-        clinical_indication: Full clinical-indication string from the form.
-        contrast:            Contrast string from the form.
-        protocol_type:       One of ``PEDIATRIC_HEAD``, ``PEDIATRIC_BODY``,
-                             or ``YOUNG_ADULT``.
-        examination_group:   Examination-group string from the form,
-                             e.g. ``"Group 4 – Childhood"``.
+        site_code:       Submitting institution code, e.g. ``"S001"``.
+        indication_code: Coded clinical indication, e.g. ``"HEADTRAUMA"``.
+        contrast_code:   Coded contrast usage, e.g. ``"NC"``.
+        group_code:      Coded patient group, e.g. ``"PH-G4"``.
 
     Returns:
         A string like ``"RHY-S001-HEADTRAUMA-NC-PH-G4-000123"``.
     """
     from .models import RhythmPseudoIDCounter
 
-    indication_code = INDICATION_CODES.get(clinical_indication, "OTHER")
-    contrast_code = CONTRAST_CODES.get(contrast, "UNK")
-    group_code = get_patient_group_code(protocol_type, examination_group)
     prefix = _build_prefix(site_code, indication_code, contrast_code, group_code)
 
     with transaction.atomic():
@@ -127,6 +127,41 @@ def generate_repository_study_id(
     study_id = f"{prefix}-{seq:06d}"
     logger.info("Generated repository study ID: %s", study_id)
     return study_id
+
+
+def generate_repository_study_id(
+    site_code: str,
+    clinical_indication: str,
+    contrast: str,
+    protocol_type: str,
+    examination_group: str,
+) -> str:
+    """
+    Generate a globally unique RHYTHM repository study ID from the
+    human-readable values used by the Manual Exam Entry form.
+
+    Resolves the four human-readable values to their codes, then delegates
+    to ``generate_repository_study_id_from_codes`` for the actual
+    prefix-building and sequence assignment.
+
+    Args:
+        site_code:           Submitting institution code, e.g. ``"S001"``.
+        clinical_indication: Full clinical-indication string from the form.
+        contrast:            Contrast string from the form.
+        protocol_type:       One of ``PEDIATRIC_HEAD``, ``PEDIATRIC_BODY``,
+                             or ``YOUNG_ADULT``.
+        examination_group:   Examination-group string from the form,
+                             e.g. ``"Group 4 – Childhood"``.
+
+    Returns:
+        A string like ``"RHY-S001-HEADTRAUMA-NC-PH-G4-000123"``.
+    """
+    indication_code = INDICATION_CODES.get(clinical_indication, "OTHER")
+    contrast_code = CONTRAST_CODES.get(contrast, "UNK")
+    group_code = get_patient_group_code(protocol_type, examination_group)
+    return generate_repository_study_id_from_codes(
+        site_code, indication_code, contrast_code, group_code
+    )
 
 
 def is_repository_study_id(value: str) -> bool:

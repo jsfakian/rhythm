@@ -95,6 +95,8 @@ class ChunkedUploadInitView(views.APIView):
         total_size = data['total_size']
         chunk_size = data.get('chunk_size', 10485760)
         file_hash = data.get('file_hash', '')
+        batch = data.get('batch', '')
+        manifest_item = data.get('manifest_item')
 
         uploader_id = request.user.username
 
@@ -130,6 +132,8 @@ class ChunkedUploadInitView(views.APIView):
                 file_hash=file_hash if file_hash else None,
                 temp_dir=str(get_upload_session_dir(None)),  # Will be set below
                 expires_at=expires_at,
+                batch=batch,
+                manifest_item=manifest_item,
             )
 
             # Update temp_dir with actual session UUID
@@ -639,10 +643,10 @@ class ManifestValidationView(views.APIView):
             ]
         }
         """
-        from .manifest_schema import validate_manifest
-        
+        from .manifest_schema import validate_manifest_auto
+
         manifest_data = request.data.get('manifest')
-        
+
         if not manifest_data:
             return Response(
                 {
@@ -657,22 +661,26 @@ class ManifestValidationView(views.APIView):
                 },
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
-        # Validate manifest
-        errors = validate_manifest(manifest_data)
-        
+
+        # Validate manifest — auto-detects whether this is a v1 (single
+        # study/patient/images) or v2 (server-assigned batch/items) manifest
+        # and validates against the matching schema.
+        schema_version, errors = validate_manifest_auto(manifest_data)
+
         if errors:
             return Response(
                 {
                     'valid': False,
+                    'schema_version': schema_version,
                     'errors': errors
                 },
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
+
         return Response(
             {
                 'valid': True,
+                'schema_version': schema_version,
                 'errors': []
             },
             status=status.HTTP_200_OK

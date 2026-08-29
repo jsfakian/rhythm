@@ -247,6 +247,165 @@ MANIFEST_SCHEMA_V1 = {
 }
 
 
+MANIFEST_TYPE_V2 = "rhythm_server_assigned_upload_manifest"
+
+# JSON Schema for the server-assigned batch manifest (v2). Each item refers
+# to one ZIP archive containing one already-anonymized CT DICOM studyset;
+# the server extracts DICOM identifiers from the ZIP and assigns the
+# Repository Study ID itself (see repository_study_id.py). Produced by the
+# `create_rhythm_server_assigned_manifest_gui[_with_uid].py` partner tools.
+MANIFEST_SCHEMA_V2 = {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "title": "RHYTHM Server-Assigned Upload Manifest Schema v2 (batch)",
+    "required": ["v", "type", "site", "items"],
+    "properties": {
+        "v": {"type": "string", "description": "Manifest format version, e.g. \"1.0\"."},
+        "type": {
+            "type": "string",
+            "const": MANIFEST_TYPE_V2,
+            "description": "Discriminator identifying this as a server-assigned batch manifest.",
+        },
+        "server_assigns_repo_id": {"type": "boolean"},
+        "site": {"type": "string", "description": "Submitting institution site code."},
+        "batch": {"type": "string", "description": "Batch identifier grouping this manifest's items."},
+        "tool": {"type": "string"},
+        "tool_version": {"type": "string"},
+        "note": {"type": "string"},
+        "items": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+                "type": "object",
+                "required": [
+                    "ref",
+                    "filename",
+                    "site_code",
+                    "clinical_indication_code",
+                    "anatomical_region",
+                    "contrast_code",
+                    "patient_group_code",
+                    "image_quality",
+                ],
+                "properties": {
+                    "ref": {"type": "string", "description": "Row reference within the batch, e.g. \"ROW0001\"."},
+                    "filename": {"type": "string", "description": "ZIP filename containing this item's studyset."},
+                    "site_code": {"type": "string"},
+                    "clinical_indication_code": {"type": "string"},
+                    "anatomical_region": {"type": "string"},
+                    "contrast_code": {"type": "string"},
+                    "patient_group_code": {"type": "string"},
+                    "scanner_id": {"type": "string"},
+                    "protocol_name": {"type": "string"},
+                    "patient_weight_kg": {"type": ["number", "null"]},
+                    "patient_age_years": {"type": ["number", "null"]},
+                    "ctdivol_mgy": {"type": ["number", "null"]},
+                    "dlp_mgy_cm": {"type": ["number", "null"]},
+                    "image_quality": {"type": "string"},
+                    "size_bytes": {"type": "integer", "minimum": 0},
+                    "sha256": {
+                        "type": "string",
+                        "pattern": "^[a-f0-9]{64}$",
+                        "description": "SHA-256 checksum of the ZIP file (hex, 64 chars).",
+                    },
+                    "dicom_uid": {
+                        "type": "string",
+                        "description": (
+                            "Optional DICOM StudyInstanceUID, pre-extracted client-side by the "
+                            "_with_uid variant of the partner tool. The server re-extracts and "
+                            "validates this from the ZIP contents regardless."
+                        ),
+                    },
+                    "dicom": {"type": "object", "description": "Optional client-side DICOM UID summary."},
+                },
+                "additionalProperties": True,
+            },
+        },
+    },
+    "additionalProperties": True,
+}
+
+
+def validate_manifest_v2(manifest_dict) -> list[dict]:
+    """
+    Validate a batch manifest dictionary against MANIFEST_SCHEMA_V2.
+
+    Performs:
+    1. JSON Schema validation
+    2. Checks for duplicate `filename` and `ref` values across items
+
+    Args:
+        manifest_dict: Dictionary to validate
+
+    Returns:
+        List of error dicts with keys: field (JSON path), code (string), message (string)
+        Empty list if valid.
+    """
+    errors = []
+
+    validator = Draft7Validator(MANIFEST_SCHEMA_V2)
+    for error in validator.iter_errors(manifest_dict):
+        field_path = "$." + ".".join(str(p) for p in error.absolute_path) if error.absolute_path else "$"
+        error_code = error.validator if error.validator else "schema_validation_error"
+        errors.append({
+            "field": field_path,
+            "code": error_code,
+            "message": error.message,
+        })
+
+    if errors:
+        return errors
+
+    seen_filenames = set()
+    seen_refs = set()
+    for idx, item in enumerate(manifest_dict.get("items", [])):
+        filename = item.get("filename")
+        if filename:
+            if filename in seen_filenames:
+                errors.append({
+                    "field": f"$.items[{idx}].filename",
+                    "code": "duplicate_filename",
+                    "message": f"Duplicate filename: {filename}",
+                })
+            seen_filenames.add(filename)
+
+        ref = item.get("ref")
+        if ref:
+            if ref in seen_refs:
+                errors.append({
+                    "field": f"$.items[{idx}].ref",
+                    "code": "duplicate_ref",
+                    "message": f"Duplicate ref: {ref}",
+                })
+            seen_refs.add(ref)
+
+    return errors
+
+
+def is_v2_batch_manifest(manifest_dict) -> bool:
+    """Return True if *manifest_dict* looks like a v2 (batch/items) manifest
+    rather than a v1 (single study/patient/images) manifest."""
+    return (
+        isinstance(manifest_dict, dict)
+        and manifest_dict.get("type") == MANIFEST_TYPE_V2
+    ) or (
+        isinstance(manifest_dict, dict) and "items" in manifest_dict and "images" not in manifest_dict
+    )
+
+
+def validate_manifest_auto(manifest_dict) -> tuple[str, list[dict]]:
+    """
+    Detect whether *manifest_dict* is a v1 (single study) or v2 (batch)
+    manifest and validate it against the matching schema.
+
+    Returns:
+        Tuple of (schema_version: "v1" | "v2", errors: list[dict])
+    """
+    if is_v2_batch_manifest(manifest_dict):
+        return "v2", validate_manifest_v2(manifest_dict)
+    return "v1", validate_manifest(manifest_dict)
+
+
 def validate_manifest(manifest_dict) -> list[dict]:
     """
     Validate a manifest dictionary against MANIFEST_SCHEMA_V1.

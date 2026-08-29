@@ -10,7 +10,8 @@ import os
 import shutil
 import tarfile
 import tempfile
-from datetime import datetime
+import zipfile
+from datetime import date, datetime
 from io import BytesIO
 from pathlib import Path
 
@@ -20,13 +21,18 @@ from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 
-from .models import UploadJob, Patient, StudyMapping, Annotation, AuditLog
+from .models import UploadJob, Patient, StudyMapping, CTExamination, Annotation, AuditLog
 from .manifest_schema import validate_manifest
 from .orthanc_client import get_client, OrthancPushError
 from .gdpr_validator import validate_gdpr_anonymization
 from .gdpr_anonymizer import GDPRAnonymizationPipeline, PseudoIDGenerator
-from .pseudo_id_validator import PseudoIDUniquenessValidator, PseudoIDCollisionError
+from .pseudo_id_validator import (
+    PseudoIDUniquenessValidator,
+    PseudoIDCollisionError,
+    _is_valid_pseudo_id_format,
+)
 from .file_manager import get_processed_data_job_dir
+from .repository_study_id import generate_repository_study_id_from_codes
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -75,6 +81,374 @@ def validate_tar_safety(tar_path):
                     raise ValueError(
                         f"Total uncompressed size {total_size} exceeds limit of {max_size}"
                     )
+
+
+def is_zip_archive(path) -> bool:
+    """Return True if *path* is a valid ZIP file, based on content (magic
+    bytes), not the filename extension — chunked uploads are always
+    assembled under a `.tar` name regardless of the original archive type."""
+    try:
+        return zipfile.is_zipfile(path)
+    except Exception:
+        return False
+
+
+def validate_zip_safety(zip_path):
+    """
+    Perform safety checks on a ZIP file before extraction (mirrors
+    validate_tar_safety for the tar case).
+
+    Raises ValueError if any check fails.
+    """
+    with zipfile.ZipFile(zip_path, "r") as z:
+        members = z.infolist()
+
+        if len(members) > settings.MAX_IMAGES_PER_UPLOAD:
+            raise ValueError(
+                f"ZIP contains {len(members)} members, exceeds limit of {settings.MAX_IMAGES_PER_UPLOAD}"
+            )
+
+        total_size = 0
+        max_size = settings.MAX_UPLOAD_SIZE_MB * 1024 * 1024
+
+        for member in members:
+            if ".." in member.filename or member.filename.startswith("/"):
+                raise ValueError(f"Invalid path in ZIP: {member.filename}")
+            # ZipInfo has no direct symlink flag; the external_attr high bits
+            # encode Unix file mode when the ZIP was created on Unix — a
+            # symlink has S_IFLNK (0o120000) in the top 16 bits.
+            unix_mode = member.external_attr >> 16
+            if unix_mode and (unix_mode & 0o170000) == 0o120000:
+                raise ValueError(f"Symlinks not allowed: {member.filename}")
+
+            if not member.is_dir():
+                total_size += member.file_size
+                if total_size > max_size:
+                    raise ValueError(
+                        f"Total uncompressed size {total_size} exceeds limit of {max_size}"
+                    )
+
+
+# ---------------------------------------------------------------------------
+# v2 (server-assigned batch) pipeline
+#
+# Produced by the create_rhythm_server_assigned_manifest_gui[_with_uid].py
+# partner tools: one manifest per batch, each item describing one ZIP archive
+# containing one already-anonymized CT DICOM studyset. Unlike the v1 pipeline
+# (which computes and INSERTS an organ-specific pseudo PatientID into every
+# DICOM file), v2 archives are expected to already carry a valid, anonymized
+# PatientID — the server only extracts and validates it, it never rewrites it.
+# ---------------------------------------------------------------------------
+
+# Maps a v2 manifest item's contrast_code to CTExamination/StudyMapping's
+# boolean contrast_used field.
+_CONTRAST_CODE_USED = {
+    "NC": False,
+    "CE": True,
+    "MIX": True,
+}
+
+# Best-effort mapping from the free-text image_quality values partner tools
+# may send to CTExamination.IMAGE_QUALITY_CHOICES. Falls back to "MODERATE"
+# (a safe middle default) for anything unrecognized, with a warning logged.
+_IMAGE_QUALITY_ALIASES = {
+    "EXCELLENT": "EXCELLENT",
+    "GOOD": "GOOD",
+    "ACCEPTABLE": "MODERATE",
+    "MODERATE": "MODERATE",
+    "FAIR": "MODERATE",
+    "POOR": "POOR",
+    "UNACCEPTABLE": "POOR",
+}
+
+
+def _normalize_image_quality(raw_value: str) -> str:
+    key = (raw_value or "").strip().upper()
+    mapped = _IMAGE_QUALITY_ALIASES.get(key)
+    if mapped:
+        return mapped
+    logger.warning(f"Unrecognized image_quality value '{raw_value}', defaulting to MODERATE")
+    return "MODERATE"
+
+
+def _patient_group_code_to_protocol_fields(group_code: str) -> tuple[str, str]:
+    """Derive (protocol_type, examination_group) from a coded patient group
+    like 'PH-G4' — the inverse of repository_study_id.get_patient_group_code.
+    Best-effort only; used for display on the resulting CTExamination row,
+    not for repository_study_id generation (which uses the code directly)."""
+    group_code = (group_code or "").upper()
+    if group_code.startswith("PH-G"):
+        return "PEDIATRIC_HEAD", f"Group {group_code[4:]}"
+    if group_code.startswith("PB-G"):
+        return "PEDIATRIC_BODY", f"Group {group_code[4:]}"
+    if group_code.startswith("YA-G"):
+        return "YOUNG_ADULT", f"Group {group_code[4:]}"
+    return "", group_code
+
+
+def _extract_dicom_uids(dicom_path: str) -> dict | None:
+    """Read a DICOM file's identifying UIDs without modifying it.
+
+    Returns None if the file cannot be read as DICOM or has no
+    StudyInstanceUID (i.e. it's not a usable image for this pipeline).
+    """
+    try:
+        ds = pydicom.dcmread(dicom_path, stop_before_pixels=True, force=False)
+    except Exception:
+        return None
+
+    study_uid = str(getattr(ds, "StudyInstanceUID", "") or "").strip()
+    if not study_uid:
+        return None
+
+    return {
+        "patient_id": str(getattr(ds, "PatientID", "") or "").strip(),
+        "study_uid": study_uid,
+        "series_uid": str(getattr(ds, "SeriesInstanceUID", "") or "").strip(),
+        "sop_uid": str(getattr(ds, "SOPInstanceUID", "") or "").strip(),
+        "study_date": str(getattr(ds, "StudyDate", "") or "").strip(),
+    }
+
+
+def _parse_dicom_date(value: str):
+    """Parse a DICOM DA value (YYYYMMDD) into a date, or None."""
+    if not value or len(value) != 8:
+        return None
+    try:
+        return datetime.strptime(value, "%Y%m%d").date()
+    except ValueError:
+        return None
+
+
+def _fail_job(job: "UploadJob", message: str, code: str = "pipeline_error") -> None:
+    logger.error(message)
+    job.status = "FAILED"
+    job.error_report = [{"field": "-", "code": code, "message": message}]
+    job.completed_at = timezone.now()
+    job.save()
+
+
+def process_v2_batch_item(job: "UploadJob", archive_path: str, extract_dir: str) -> None:
+    """
+    Process one item of a v2 (server-assigned batch) manifest: one ZIP
+    archive containing one already-anonymized CT DICOM studyset.
+
+    job.manifest_raw holds the manifest item (site_code,
+    clinical_indication_code, contrast_code, patient_group_code,
+    patient_weight_kg, patient_age_years, ctdivol_mgy, dlp_mgy_cm,
+    image_quality, protocol_name, and optionally repository_study_id_override
+    when this job was created by Manual Exam Entry reusing an ID it already
+    assigned synchronously).
+
+    Mutates job in place (status/error_report/completed_at), mirroring the
+    v1 pipeline's error-handling style. Does not raise on validation
+    failures — only on truly unexpected errors, which propagate to the
+    caller's retry logic.
+    """
+    item = job.manifest_raw or {}
+
+    if is_zip_archive(archive_path):
+        try:
+            validate_zip_safety(archive_path)
+        except ValueError as e:
+            return _fail_job(job, f"ZIP validation failed: {e}")
+        try:
+            with zipfile.ZipFile(archive_path, "r") as z:
+                z.extractall(path=extract_dir)
+        except Exception as e:
+            return _fail_job(job, f"Failed to extract ZIP: {e}")
+    else:
+        try:
+            validate_tar_safety(archive_path)
+        except ValueError as e:
+            return _fail_job(job, f"Tar validation failed: {e}")
+        try:
+            with tarfile.open(archive_path, "r:*") as tar:
+                tar.extractall(path=extract_dir)
+        except Exception as e:
+            return _fail_job(job, f"Failed to extract archive: {e}")
+
+    # Walk every extracted file, keep the ones readable as DICOM with a
+    # StudyInstanceUID. Non-DICOM files (readme, csv, etc.) are silently
+    # skipped, matching the partner tool's own inspection logic.
+    dicom_files = []
+    study_uids = set()
+    patient_ids = set()
+    study_date_raw = ""
+    for root, _dirs, files in os.walk(extract_dir):
+        for fname in files:
+            fpath = os.path.join(root, fname)
+            uids = _extract_dicom_uids(fpath)
+            if uids is None:
+                continue
+            dicom_files.append(fpath)
+            study_uids.add(uids["study_uid"])
+            if uids["patient_id"]:
+                patient_ids.add(uids["patient_id"])
+            if uids["study_date"] and not study_date_raw:
+                study_date_raw = uids["study_date"]
+
+    if not dicom_files:
+        return _fail_job(
+            job,
+            f"No readable DICOM files with StudyInstanceUID found in archive: {item.get('filename', '-')}",
+            code="no_dicom_files",
+        )
+    if len(study_uids) > 1:
+        return _fail_job(
+            job,
+            f"Archive contains multiple StudyInstanceUID values, expected exactly one studyset per archive: {sorted(study_uids)}",
+            code="multiple_study_uids",
+        )
+    if len(patient_ids) > 1:
+        return _fail_job(
+            job,
+            f"Archive contains multiple DICOM PatientID values under one study: {sorted(patient_ids)}",
+            code="multiple_patient_ids",
+        )
+    if not patient_ids:
+        return _fail_job(
+            job,
+            "No DICOM PatientID found. Archives must already carry an anonymized pseudo patient ID.",
+            code="missing_patient_id",
+        )
+
+    study_uid = study_uids.pop()
+    pseudo_id = patient_ids.pop()
+
+    if not _is_valid_pseudo_id_format(pseudo_id):
+        return _fail_job(
+            job,
+            f"DICOM PatientID '{pseudo_id}' does not match the required pseudo-ID format "
+            "(8-64 alphanumeric characters, hyphens, underscores).",
+            code="invalid_pseudo_id_format",
+        )
+
+    # Get or create the Patient record, enforcing global pseudo-ID uniqueness.
+    patient, created, patient_error = PseudoIDUniquenessValidator.get_or_create_patient_with_pseudoid(
+        pseudo_id=pseudo_id,
+        age_at_acquisition=item.get("patient_age_years"),
+    )
+    if patient_error:
+        return _fail_job(job, f"Failed to get or create patient: {patient_error}")
+    logger.info(f"Patient {'created' if created else 'reused'} with pseudo_id: {patient.pseudo_id}")
+
+    orthanc = get_client()
+
+    error_report = []
+    images_processed = 0
+    images_failed = 0
+
+    for image_path in dicom_files:
+        try:
+            with transaction.atomic():
+                is_valid, validation_errors = validate_gdpr_anonymization(image_path, pseudo_id=pseudo_id)
+                if not is_valid:
+                    for error in validation_errors:
+                        logger.warning(
+                            f"GDPR validation failed for {os.path.basename(image_path)}: "
+                            f"{error.get('code')} - {error.get('message')}"
+                        )
+                    error_report.append({
+                        "filename": os.path.basename(image_path),
+                        "code": "gdpr_validation_failed",
+                        "message": "DICOM file is not anonymized according to GDPR-strict rules",
+                        "validation_errors": validation_errors,
+                    })
+                    images_failed += 1
+                    continue
+
+                try:
+                    with open(image_path, "rb") as f:
+                        dicom_bytes = f.read()
+                except Exception as e:
+                    error_report.append({
+                        "filename": os.path.basename(image_path),
+                        "code": "file_read_error",
+                        "message": f"Failed to read DICOM file: {e}",
+                    })
+                    images_failed += 1
+                    continue
+
+                try:
+                    orthanc.push_dicom_file(dicom_bytes)
+                    images_processed += 1
+                except OrthancPushError as e:
+                    error_report.append({
+                        "filename": os.path.basename(image_path),
+                        "code": "orthanc_push_error",
+                        "message": f"Failed to push to Orthanc: {e.message}",
+                    })
+                    images_failed += 1
+        except Exception as e:
+            images_failed += 1
+            error_msg = f"Error processing {os.path.basename(image_path)}: {e}"
+            logger.error(error_msg, exc_info=True)
+            error_report.append({"filename": os.path.basename(image_path), "code": "processing_error", "message": error_msg})
+
+    if images_processed == 0:
+        job.error_report = error_report
+        job.status = "FAILED"
+        job.completed_at = timezone.now()
+        job.save()
+        return
+
+    # Upsert StudyMapping for this study.
+    acquisition_date = _parse_dicom_date(study_date_raw) or date.today()
+    study_mapping, _ = StudyMapping.objects.update_or_create(
+        pseudo_study_uid=study_uid,
+        defaults={
+            "patient": patient,
+            "upload_job": job,
+            "site_code": item.get("site_code", job.site_code),
+            "acquisition_date": acquisition_date,
+            "clinical_indication": item.get("clinical_indication_code", ""),
+            "contrast_used": _CONTRAST_CODE_USED.get(item.get("contrast_code"), False),
+            "notes": f"protocol_name: {item.get('protocol_name', '')}".strip(),
+        },
+    )
+
+    # Assign (or reuse) the Repository Study ID.
+    repository_study_id = item.get("repository_study_id_override")
+    if not repository_study_id:
+        repository_study_id = generate_repository_study_id_from_codes(
+            site_code=item.get("site_code", ""),
+            indication_code=item.get("clinical_indication_code", "OTHER"),
+            contrast_code=item.get("contrast_code", "UNK"),
+            group_code=item.get("patient_group_code", "UNK"),
+        )
+
+    protocol_type, examination_group = _patient_group_code_to_protocol_fields(
+        item.get("patient_group_code", "")
+    )
+
+    CTExamination.objects.create(
+        rhythm_pseudo_id=repository_study_id,
+        anatomical_region=item.get("anatomical_region", ""),
+        clinical_indication=item.get("clinical_indication_code", ""),
+        contrast=item.get("contrast_code", ""),
+        protocol_type=protocol_type,
+        examination_group=examination_group,
+        patient_weight=item.get("patient_weight_kg"),
+        patient_age=item.get("patient_age_years"),
+        number_of_phases=1,
+        ctdi_vol_per_phase=[item["ctdivol_mgy"]] if item.get("ctdivol_mgy") is not None else [],
+        dlp_per_phase=[item["dlp_mgy_cm"]] if item.get("dlp_mgy_cm") is not None else [],
+        image_quality=_normalize_image_quality(item.get("image_quality", "")),
+        created_by=job.uploader_id,
+        site_code=item.get("site_code", job.site_code),
+        upload_job=job,
+    )
+
+    job.error_report = error_report if error_report else None
+    job.completed_at = timezone.now()
+    job.status = "COMPLETE" if images_failed == 0 else "PARTIAL"
+    job.save()
+
+    logger.info(
+        f"Completed v2 batch item for job {job.id}: status={job.status}, "
+        f"repository_study_id={repository_study_id}, processed={images_processed}, failed={images_failed}"
+    )
 
 
 def extract_dicom_metadata(file_path):
@@ -187,6 +561,16 @@ def process_upload_job(self, job_id: str):
             job.save()
             return
         
+        # 2b. v2 (server-assigned batch item) jobs carry their item metadata
+        # directly on manifest_raw instead of an embedded manifest.json, and
+        # may be ZIP rather than tar archives — hand off to the dedicated
+        # v2 pipeline and skip the v1-specific steps below entirely.
+        if isinstance(job.manifest_raw, dict) and "clinical_indication_code" in job.manifest_raw:
+            processed_job_dir = get_processed_data_job_dir(job_id)
+            extract_dir = str(processed_job_dir)
+            process_v2_batch_item(job, tar_path, extract_dir)
+            return
+
         # 3. Safety-check the tar
         try:
             validate_tar_safety(tar_path)
@@ -198,11 +582,11 @@ def process_upload_job(self, job_id: str):
             job.completed_at = timezone.now()
             job.save()
             return
-        
+
         # 4. Create processed_data/{job_id} directory and extract tar there
         processed_job_dir = get_processed_data_job_dir(job_id)
         extract_dir = str(processed_job_dir)
-        
+
         try:
             with tarfile.open(tar_path, "r:*") as tar:
                 tar.extractall(path=extract_dir)

@@ -143,6 +143,19 @@ class ChunkedUploadInitSerializer(serializers.Serializer):
         allow_blank=True,
         help_text='Expected SHA256 hash of complete file (optional)'
     )
+    batch = serializers.CharField(
+        max_length=128,
+        required=False,
+        allow_blank=True,
+        help_text='Batch identifier grouping this upload with sibling items from the same automated-upload manifest (optional).'
+    )
+    manifest_item = serializers.JSONField(
+        required=False,
+        help_text=(
+            'The corresponding item entry from a v2 (server-assigned batch) manifest, '
+            'if this archive is part of an automated/bulk upload rather than a standalone upload.'
+        ),
+    )
 
 
 class ChunkedUploadCompleteSerializer(serializers.Serializer):

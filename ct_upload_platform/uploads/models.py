@@ -427,6 +427,25 @@ class ChunkedUpload(models.Model):
         blank=True,
         help_text='Auto-delete incomplete uploads after this time'
     )
+    batch = models.CharField(
+        max_length=128,
+        blank=True,
+        default='',
+        help_text=(
+            'Batch identifier grouping this upload with sibling items from '
+            'the same automated-upload manifest submission, if any.'
+        ),
+    )
+    manifest_item = models.JSONField(
+        null=True,
+        blank=True,
+        help_text=(
+            'The corresponding item entry from a v2 (server-assigned batch) '
+            'manifest, carried through to the UploadJob created on '
+            'completion so process_upload_job() knows this archive\'s '
+            'metadata without needing an embedded manifest.json.'
+        ),
+    )
 
     class Meta:
         ordering = ['-created_at']
@@ -435,6 +454,7 @@ class ChunkedUpload(models.Model):
             models.Index(fields=['status']),
             models.Index(fields=['created_at']),
             models.Index(fields=['expires_at']),
+            models.Index(fields=['batch']),
         ]
 
     def __str__(self):
@@ -470,10 +490,20 @@ class ChunkedUpload(models.Model):
         uploader = User.objects.filter(username=chunked_upload.uploader_id).first()
         site_code = user_site_code(uploader) if uploader else ''
 
+        # Carry the v2 batch item's metadata (if any) onto the job so
+        # process_upload_job() can process it without an embedded
+        # manifest.json — see manifest_schema.is_v2_batch_manifest().
+        manifest_raw = None
+        if chunked_upload.manifest_item:
+            manifest_raw = dict(chunked_upload.manifest_item)
+            if chunked_upload.batch:
+                manifest_raw.setdefault('batch', chunked_upload.batch)
+
         job = UploadJob.objects.create(
             uploader_id=chunked_upload.uploader_id,
             site_code=site_code,
             tar_temp_path=tar_path,
+            manifest_raw=manifest_raw,
             status='PENDING'
         )
 
@@ -867,6 +897,18 @@ class CTExamination(models.Model):
         blank=True,
         help_text='Optional compressed study set archive (zip, tar, tar.gz, etc.)',
     )
+    upload_job = models.ForeignKey(
+        'UploadJob',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='examinations',
+        help_text=(
+            'Async GDPR-validation/Orthanc-ingestion job processing this '
+            'examination\'s study_set_file, if any. Null for examinations '
+            'created before this pipeline existed or with no study set file.'
+        ),
+    )
     created_by = models.CharField(max_length=128, blank=True)
     site_code = models.CharField(
         max_length=16,
@@ -891,6 +933,13 @@ class CTExamination(models.Model):
     @property
     def total_dlp(self) -> float:
         return sum(float(v) for v in self.dlp_per_phase if v is not None)
+
+    @property
+    def pipeline_status(self) -> str:
+        """Status of the async GDPR/Orthanc ingestion pipeline for this
+        examination's study set, or '—' if none was ever queued (e.g. no
+        file was attached, or the record predates this pipeline)."""
+        return self.upload_job.status if self.upload_job_id else '—'
 
 
 DATA_CLASSIFICATION_CHOICES = [
