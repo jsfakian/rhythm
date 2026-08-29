@@ -234,6 +234,21 @@ class ExaminationEntryViewTests(_ExamFixtures, TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertIn(b'"scanners"', resp.content)
 
+    def test_save_status_indicator_present(self) -> None:
+        """A 'Saving…' indicator must exist so the user gets feedback while
+        the (possibly large) study set upload is in flight."""
+        resp = self.client.get(reverse("examination-entry"))
+        self.assertIn(b'id="saveStatus"', resp.content)
+
+    def test_result_banners_positioned_near_save_button(self) -> None:
+        """The success/error banners must render near the Save button (bottom
+        of the form) rather than above the fold, so the user doesn't have to
+        scroll back up to see the outcome of a save."""
+        resp = self.client.get(reverse("examination-entry"))
+        body = resp.content.decode()
+        self.assertGreater(body.index('id="successBanner"'), body.index('id="inp_study_set"'))
+        self.assertGreater(body.index('id="errorBanner"'), body.index('id="inp_study_set"'))
+
 
 # ---------------------------------------------------------------------------
 # Functional tests — ExaminationSaveAPIView (POST)

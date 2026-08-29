@@ -76,6 +76,10 @@
         .btn-save:hover { filter: brightness(.93); }
         .btn-clear { background: var(--danger-bg); color: var(--danger); border: 1px solid #ffd5d1; padding: 10px 18px; border-radius: 12px; cursor: pointer; font-weight: 700; font-size: 14px; }
         .btn-list { background: #edf2f7; color: var(--text); border: 1px solid var(--border); padding: 10px 18px; border-radius: 12px; font-weight: 700; font-size: 14px; text-decoration: none; display: inline-block; }
+        .btn-save:disabled, .btn-clear:disabled { opacity: .6; cursor: not-allowed; }
+        .save-status { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); font-weight: 600; }
+        .spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid #ecf0f1; border-top-color: var(--primary2); border-radius: 50%; animation: spin .6s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
         @media(max-width:640px) { .fgrid { grid-template-columns: 1fr; } .fgrid .full { grid-column: 1; } }
     </style>
 </head>
@@ -88,9 +92,6 @@
             <p>Record examination-level dose and quality data. Select the clinical indication, protocol type, and scanner, then enter patient and acquisition details.</p>
         </div>
         <div class="exam-body">
-
-            <div id="successBanner" class="success-box"></div>
-            <div id="errorBanner" class="error-box"></div>
 
             <!-- Repository Study ID (auto-calculated) -->
             <div class="section-card">
@@ -223,10 +224,13 @@
 
             <!-- Actions -->
             <div class="section-card">
+                <div id="successBanner" class="success-box"></div>
+                <div id="errorBanner" class="error-box"></div>
                 <div class="form-actions">
                     <button class="btn-save" id="btn_save_exam">Save Examination</button>
                     <button class="btn-clear" id="btn_clear_exam">Clear form</button>
                     <a href="/examinations/" class="btn-list">View saved examinations</a>
+                    <span class="save-status" id="saveStatus" style="display:none;"><span class="spinner"></span> Saving…</span>
                 </div>
             </div>
 
