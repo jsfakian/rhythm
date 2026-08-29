@@ -7,6 +7,7 @@ Tests for CT Examination Data Entry:
 
 import json
 import uuid
+from decimal import Decimal
 
 from django.contrib.auth.models import User
 from django.test import TestCase
@@ -348,6 +349,22 @@ class ExaminationSaveAPIViewTests(_ExamFixtures, TestCase):
         resp = self._post(self._valid_payload(
             number_of_phases="not_a_number",
         ))
+        self.assertEqual(resp.status_code, 400)
+
+    def test_decimal_patient_age_accepted(self) -> None:
+        """A fractional age (e.g. 0.3 years for a newborn) must be accepted, not 500."""
+        resp = self._post(self._valid_payload(patient_age=0.3))
+        self.assertEqual(resp.status_code, 200)
+        exam = CTExamination.objects.first()
+        self.assertEqual(exam.patient_age, Decimal("0.30"))
+
+    def test_invalid_patient_age_string_returns_400(self) -> None:
+        resp = self._post(self._valid_payload(patient_age="not_a_number"))
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("error", resp.json())
+
+    def test_out_of_range_patient_age_returns_400(self) -> None:
+        resp = self._post(self._valid_payload(patient_age=200))
         self.assertEqual(resp.status_code, 400)
 
     def test_invalid_json_body_returns_400(self) -> None:

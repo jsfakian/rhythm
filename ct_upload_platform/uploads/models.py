@@ -845,7 +845,14 @@ class CTExamination(models.Model):
     examination_group = models.CharField(max_length=128, blank=True)
     patient_weight = models.DecimalField(max_digits=7, decimal_places=2, null=True, blank=True)
     water_equivalent_diameter = models.DecimalField(max_digits=7, decimal_places=2, null=True, blank=True)
-    patient_age = models.PositiveIntegerField(null=True, blank=True)
+    patient_age = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(0), MaxValueValidator(150)],
+        help_text='Patient age in years; fractional values (e.g. 0.3) are allowed for infants.',
+    )
     number_of_phases = models.PositiveIntegerField(default=1)
     ctdi_vol_per_phase = models.JSONField(default=list, blank=True)
     dlp_per_phase = models.JSONField(default=list, blank=True)

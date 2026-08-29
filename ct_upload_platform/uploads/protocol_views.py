@@ -6,6 +6,7 @@ All views require authentication via LoginRequiredMixin.
 import json
 import logging
 import os
+from decimal import Decimal, InvalidOperation
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -902,7 +903,7 @@ class ExaminationSaveAPIView(AjaxLoginRequiredMixin, View):
         examination_group = data.get("examination_group", "")
         patient_weight = data.get("patient_weight") or None
         wed = data.get("water_equivalent_diameter") or None
-        patient_age = data.get("patient_age") or None
+        patient_age_raw = data.get("patient_age") or None
         number_of_phases = data.get("number_of_phases", 1)
         ctdi_vol = data.get("ctdi_vol_per_phase", [])
         dlp = data.get("dlp_per_phase", [])
@@ -914,6 +915,17 @@ class ExaminationSaveAPIView(AjaxLoginRequiredMixin, View):
                 raise ValueError
         except (TypeError, ValueError):
             return JsonResponse({"error": "number_of_phases must be a positive integer"}, status=400)
+
+        patient_age = None
+        if patient_age_raw not in (None, ""):
+            try:
+                patient_age = Decimal(str(patient_age_raw))
+                if patient_age < 0 or patient_age > 150:
+                    raise ValueError
+            except (TypeError, ValueError, InvalidOperation):
+                return JsonResponse(
+                    {"error": "Patient's age must be a number between 0 and 150."}, status=400
+                )
 
         if len(ctdi_vol) != number_of_phases or len(dlp) != number_of_phases:
             return JsonResponse(
@@ -932,7 +944,7 @@ class ExaminationSaveAPIView(AjaxLoginRequiredMixin, View):
             errors.append("Protocol type is required.")
         if not examination_group:
             errors.append("Examination group is required.")
-        if not patient_age:
+        if patient_age is None:
             errors.append("Patient's age is required.")
         if any(v in (None, "") for v in ctdi_vol):
             errors.append("CTDI vol is required for every phase.")
