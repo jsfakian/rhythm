@@ -13,6 +13,12 @@
         .badge-MODERATE  { background:#fff7e6; color:#b54708; }
         .badge-POOR      { background:#fff2f0; color:#b42318; }
         .badge-quality   { display:inline-block; padding:2px 8px; border-radius:10px; font-size:11px; font-weight:700; }
+        .badge-pipeline  { display:inline-block; padding:2px 8px; border-radius:10px; font-size:11px; font-weight:700; }
+        .badge-PENDING    { background:#f2f4f7; color:#475467; }
+        .badge-PROCESSING { background:#fff7e6; color:#b54708; }
+        .badge-COMPLETE   { background:#e8f7ee; color:#067647; }
+        .badge-PARTIAL    { background:#fff7e6; color:#b54708; }
+        .badge-FAILED     { background:#fff2f0; color:#b42318; }
         .filter-row { display:flex; gap:12px; align-items:center; margin-bottom:20px; flex-wrap:wrap; }
         .filter-row select { padding:8px 12px; border:1px solid #bdc3c7; border-radius:6px; font-size:14px; }
         .numeric { font-variant-numeric: tabular-nums; }
@@ -60,6 +66,7 @@
                             <th>Total DLP</th>
                             <th>Image Quality</th>
                             <th>Study Set</th>
+                            <th>Pipeline Status</th>
                             <th>Recorded</th>
                             <th>Actions</th>
                         </tr>
@@ -102,6 +109,11 @@
                                 <a href="{{ e.study_set_file.url }}" download class="btn btn-secondary btn-sm">Download</a>
                                 {% else %}—{% endif %}
                             </td>
+                            <td>
+                                {% if e.upload_job %}
+                                <span class="badge-pipeline badge-{{ e.upload_job.status }}" title="GDPR validation / Orthanc ingestion status">{{ e.upload_job.get_status_display }}</span>
+                                {% else %}—{% endif %}
+                            </td>
                             <td>{{ e.created_at|date:"Y-m-d" }}</td>
                             <td>
                                 <div class="actions-cell">
@@ -110,7 +122,7 @@
                             </td>
                         </tr>
                         {% empty %}
-                        <tr><td colspan="17" class="text-muted" style="text-align:center;padding:32px;">No examination records yet.</td></tr>
+                        <tr><td colspan="18" class="text-muted" style="text-align:center;padding:32px;">No examination records yet.</td></tr>
                         {% endfor %}
                     </tbody>
                 </table>

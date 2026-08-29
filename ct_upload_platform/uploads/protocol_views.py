@@ -1089,7 +1089,7 @@ class ExaminationListView(LoginRequiredMixin, View):
     def get(self, request: HttpRequest) -> HttpResponse:
         qs = scope_queryset(
             CTExamination.objects.select_related(
-                "scanner__manufacturer", "scanner__scanner_model", "protocol"
+                "scanner__manufacturer", "scanner__scanner_model", "protocol", "upload_job"
             ).order_by("-created_at"),
             request.user,
             owner_field="created_by",

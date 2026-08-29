@@ -531,6 +531,18 @@ class ExaminationListViewTests(_ExamFixtures, TestCase):
         self.assertIn("EXCELLENT", codes)
         self.assertIn("POOR", codes)
 
+    def test_pipeline_status_dash_when_no_upload_job(self) -> None:
+        self._make_examination(self.scanner, created_by="listuser")
+        resp = self.client.get(reverse("examination-list"))
+        self.assertIn(b"Pipeline Status", resp.content)
+
+    def test_pipeline_status_shown_when_upload_job_present(self) -> None:
+        from uploads.models import UploadJob
+        job = UploadJob.objects.create(uploader_id="listuser", status="PROCESSING")
+        self._make_examination(self.scanner, created_by="listuser", upload_job=job)
+        resp = self.client.get(reverse("examination-list"))
+        self.assertIn(b"Processing", resp.content)
+
 
 # ---------------------------------------------------------------------------
 # Functional tests — ExaminationDeleteView (GET + POST)
