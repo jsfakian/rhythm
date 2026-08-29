@@ -659,21 +659,70 @@ def process_upload_job(self, job_id: str):
         
         # Log the pseudo ID for audit trail
         PseudoIDUniquenessValidator.log_pseudo_id_tracking(base_pseudo_id, str(job.id))
-        
+
+        # 5c. Pre-flight integrity check: verify every image file exists and
+        # matches its manifest checksum BEFORE anonymization touches it.
+        # This must run first — the GDPR anonymization step below rewrites
+        # each DICOM file in place (inserting the organ-specific pseudo
+        # PatientID), so checksumming afterward would compare against bytes
+        # the server itself just changed and could never match the
+        # client-supplied checksum of the original upload. Only images that
+        # pass this check are anonymized, GDPR-validated, and pushed;
+        # images that fail are reported and skipped entirely, without ever
+        # being modified on disk.
+        checksum_errors = []
+        verified_image_entries = []
+        for pre_idx, pre_image_entry in enumerate(manifest.get("images", [])):
+            pre_filename = pre_image_entry.get("filename")
+            pre_path = os.path.join(extract_dir, pre_filename)
+
+            if not os.path.exists(pre_path):
+                error_msg = f"Image file not found: {pre_filename}"
+                logger.warning(error_msg)
+                checksum_errors.append({
+                    "image_index": pre_idx,
+                    "filename": pre_filename,
+                    "code": "file_not_found",
+                    "message": error_msg,
+                })
+                continue
+
+            actual_checksum = compute_sha256(pre_path)
+            expected_checksum = pre_image_entry.get("checksum_sha256")
+
+            if actual_checksum != expected_checksum:
+                error_msg = (
+                    f"Checksum mismatch: expected {expected_checksum}, "
+                    f"got {actual_checksum}"
+                )
+                logger.warning(error_msg)
+                checksum_errors.append({
+                    "image_index": pre_idx,
+                    "filename": pre_filename,
+                    "code": "checksum_mismatch",
+                    "message": error_msg,
+                })
+                continue
+
+            verified_image_entries.append((pre_idx, pre_image_entry))
+
+        verified_images_only = [entry for _, entry in verified_image_entries]
+
         # 6. Generate organ-specific pseudo patient IDs and insert into DICOM files
-        # This happens after tar extraction but before GDPR validation
+        # This happens after tar extraction but before GDPR validation, and
+        # only for images that passed the integrity check above.
         patient_data = manifest.get("patient", {})
         base_pseudo_id = patient_data.get("pseudo_id")
-        
+
         logger.info(f"Starting GDPR anonymization pipeline for job {job_id}")
-        
+
         try:
             anonymization_pipeline = GDPRAnonymizationPipeline(
-                manifest=manifest,
+                manifest={**manifest, "images": verified_images_only},
                 extract_dir=extract_dir,
                 base_pseudo_id=base_pseudo_id
             )
-            
+
             success, anonymization_errors = anonymization_pipeline.anonymize_and_insert_pseudo_ids()
             
             anonymization_report = anonymization_pipeline.get_report()
@@ -702,10 +751,10 @@ def process_upload_job(self, job_id: str):
             job.save()
             return
         
-        # 7. Process each image
-        error_report = []
+        # 7. Process each image that passed the pre-flight integrity check.
+        error_report = list(checksum_errors)
         images_processed = 0
-        images_failed = 0
+        images_failed = len(checksum_errors)
         
         patient_data = manifest.get("patient", {})
         study_data = manifest.get("study", {})
@@ -749,50 +798,22 @@ def process_upload_job(self, job_id: str):
             },
         )
         
-        for idx, image_entry in enumerate(manifest.get("images", [])):
+        for idx, image_entry in verified_image_entries:
             try:
                 with transaction.atomic():
-                    # a. Verify file exists
+                    # File existence and checksum were already verified in
+                    # the pre-flight pass above (step 5c), before this image
+                    # was anonymized — re-checking here would compare against
+                    # the now-rewritten file and always mismatch.
                     image_filename = image_entry.get("filename")
                     image_path = os.path.join(extract_dir, image_filename)
-                    
-                    if not os.path.exists(image_path):
-                        error_msg = f"Image file not found: {image_filename}"
-                        logger.warning(error_msg)
-                        error_report.append({
-                            "image_index": idx,
-                            "filename": image_filename,
-                            "code": "file_not_found",
-                            "message": error_msg,
-                        })
-                        images_failed += 1
-                        continue
-                    
-                    # b. Compute SHA-256 and verify
-                    actual_checksum = compute_sha256(image_path)
-                    expected_checksum = image_entry.get("checksum_sha256")
-                    
-                    if actual_checksum != expected_checksum:
-                        error_msg = (
-                            f"Checksum mismatch: expected {expected_checksum}, "
-                            f"got {actual_checksum}"
-                        )
-                        logger.warning(error_msg)
-                        error_report.append({
-                            "image_index": idx,
-                            "filename": image_filename,
-                            "code": "checksum_mismatch",
-                            "message": error_msg,
-                        })
-                        images_failed += 1
-                        continue
-                    
+
                     # c. Validate GDPR-strict anonymization compliance
                     # Use organ-specific pseudo ID that was inserted by anonymization pipeline
                     body_part = image_entry.get("body_part", "OTHER")
                     organ_image_index = list(
-                        filter(lambda e: e.get("body_part") == body_part, 
-                               manifest.get("images", []))
+                        filter(lambda e: e.get("body_part") == body_part,
+                               verified_images_only)
                     ).index(image_entry) + 1
                     
                     organ_specific_pseudo_id = PseudoIDGenerator.generate_organ_specific_pseudo_id(
@@ -904,7 +925,7 @@ def process_upload_job(self, job_id: str):
                             logger.warning(f"Failed to create annotation: {ae}")
                     
                     images_processed += 1
-                    logger.info(f"Processed image {idx + 1}/{len(manifest.get('images', []))} successfully")
+                    logger.info(f"Processed image {idx + 1}/{len(manifest.get('images', []))} successfully (of {len(verified_images_only)} that passed integrity check)")
             
             except Exception as e:
                 images_failed += 1
