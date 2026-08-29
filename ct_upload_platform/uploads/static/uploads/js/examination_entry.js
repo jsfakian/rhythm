@@ -88,7 +88,7 @@ function init() {
     document.getElementById('sel_exam_group').addEventListener('change', updatePidPreview);
     document.getElementById('inp_study_set').addEventListener('change', function () { updateStudySetHint(this); });
     document.getElementById('btn_save_exam').addEventListener('click', saveExamination);
-    document.getElementById('btn_clear_exam').addEventListener('click', clearForm);
+    document.getElementById('btn_clear_exam').addEventListener('click', () => clearForm());
 }
 
 // ---------------------------------------------------------------------------
@@ -334,6 +334,7 @@ async function saveExamination() {
         fd.append('study_set_file', studyFile);
     }
 
+    setSaving(true);
     try {
         const resp = await fetch('/examinations/api/save/', {
             method: 'POST',
@@ -359,13 +360,24 @@ async function saveExamination() {
             const box = document.getElementById('successBanner');
             box.innerHTML = `${data.message}${data.repository_study_id ? `<br><strong>Repository Study ID:</strong> ${data.repository_study_id}` : ''}`;
             box.style.display = 'block';
-            clearForm();
+            // Reset the input fields for the next entry, but keep the just-assigned
+            // Repository Study ID visible (don't fall back to the "—" preview state)
+            // so it can still be copied after the form clears.
+            clearForm(/* resetRsid */ false);
         } else {
             showError(data.error || 'An error occurred.');
         }
     } catch (e) {
         showError('Network error: ' + e.message);
+    } finally {
+        setSaving(false);
     }
+}
+
+function setSaving(isSaving) {
+    document.getElementById('btn_save_exam').disabled = isSaving;
+    document.getElementById('btn_clear_exam').disabled = isSaving;
+    document.getElementById('saveStatus').style.display = isSaving ? '' : 'none';
 }
 
 function showError(msg) {
@@ -380,7 +392,7 @@ function showError(msg) {
     box.style.display = 'block';
 }
 
-function clearForm() {
+function clearForm(resetRsid = true) {
     document.getElementById('sel_indication_combo').value = '';
     document.getElementById('contrast_container').style.display = 'none';
     document.getElementById('sel_protocol_type').value = '';
@@ -394,7 +406,10 @@ function clearForm() {
     document.getElementById('inp_study_set').value = '';
     document.getElementById('study_set_hint').textContent = '';
     renderPhasesTable();
-    updatePidPreview();
+    // After a successful save, resetRsid is false so the just-assigned Repository
+    // Study ID stays visible (instead of reverting to the "—" preview state) until
+    // the user picks new indication/protocol/group values for the next entry.
+    if (resetRsid) updatePidPreview();
 }
 
 init();
