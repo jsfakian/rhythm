@@ -127,13 +127,21 @@ function renderItemsTable() {
 
 document.getElementById('btn_start_upload').addEventListener('click', async () => {
     document.getElementById('btn_start_upload').disabled = true;
+    let succeeded = 0, failed = 0;
     for (let idx = 0; idx < manifest.items.length; idx++) {
         const item = manifest.items[idx];
         const file = zipFilesByName[item.filename];
         if (!file) continue; // unmatched — skip, already flagged in the table
-        await uploadOneItem(idx, item, file);
+        const ok = await uploadOneItem(idx, item, file);
+        if (ok) succeeded++; else failed++;
     }
-    showResult('ok', 'Batch upload complete. Track ingestion progress on the My Uploads page.');
+    if (failed === 0) {
+        showResult('ok', `Batch upload complete — ${succeeded} item(s) uploaded. Track ingestion progress on the My Uploads page.`);
+    } else if (succeeded === 0) {
+        showResult('err', `Batch upload failed — all ${failed} item(s) errored. See the status column for details.`);
+    } else {
+        showResult('warn', `Batch upload finished with errors — ${succeeded} succeeded, ${failed} failed. See the status column for details.`);
+    }
 });
 
 function setItemStatus(idx, cls, label) {
@@ -166,7 +174,7 @@ async function uploadOneItem(idx, item, file) {
         if (!initResp.ok) {
             const err = await initResp.json().catch(() => ({}));
             setItemStatus(idx, 'error', err.error || `init failed (${initResp.status})`);
-            return;
+            return false;
         }
         const session = await initResp.json();
         const totalChunks = session.total_chunks;
@@ -189,7 +197,7 @@ async function uploadOneItem(idx, item, file) {
             if (!chunkResp.ok) {
                 const err = await chunkResp.json().catch(() => ({}));
                 setItemStatus(idx, 'error', err.error || `chunk ${chunkNumber} failed`);
-                return;
+                return false;
             }
             setItemProgress(idx, Math.round(((chunkNumber + 1) / totalChunks) * 100));
             setItemStatus(idx, 'uploading', `uploading (${chunkNumber + 1}/${totalChunks})`);
@@ -208,11 +216,13 @@ async function uploadOneItem(idx, item, file) {
         if (!completeResp.ok) {
             const err = await completeResp.json().catch(() => ({}));
             setItemStatus(idx, 'error', err.error || `completion failed (${completeResp.status})`);
-            return;
+            return false;
         }
         setItemProgress(idx, 100);
         setItemStatus(idx, 'done', 'queued for ingestion');
+        return true;
     } catch (e) {
         setItemStatus(idx, 'error', e.message || 'unexpected error');
+        return false;
     }
 }

@@ -288,8 +288,8 @@ MANIFEST_SCHEMA_V2 = {
                     "image_quality",
                 ],
                 "properties": {
-                    "ref": {"type": "string", "description": "Row reference within the batch, e.g. \"ROW0001\"."},
-                    "filename": {"type": "string", "description": "ZIP filename containing this item's studyset."},
+                    "ref": {"type": "string", "minLength": 1, "description": "Row reference within the batch, e.g. \"ROW0001\"."},
+                    "filename": {"type": "string", "minLength": 1, "description": "ZIP filename containing this item's studyset."},
                     "site_code": {"type": "string"},
                     "clinical_indication_code": {"type": "string"},
                     "anatomical_region": {"type": "string"},
@@ -324,6 +324,38 @@ MANIFEST_SCHEMA_V2 = {
     },
     "additionalProperties": True,
 }
+
+
+# The per-item schema, standalone — reused to validate a single manifest
+# item outside the context of a full batch manifest (e.g. one submitted to
+# ChunkedUploadInitView's manifest_item field, bypassing the client-side
+# "Validate Manifest" step on the Automated Upload page).
+_MANIFEST_ITEM_SCHEMA_V2 = MANIFEST_SCHEMA_V2["properties"]["items"]["items"]
+
+
+def validate_manifest_v2_item(item_dict) -> list[dict]:
+    """
+    Validate a single v2 manifest item (one items[] entry) against its
+    schema, independent of the surrounding batch manifest.
+
+    Args:
+        item_dict: Dictionary to validate
+
+    Returns:
+        List of error dicts with keys: field (JSON path), code (string), message (string)
+        Empty list if valid.
+    """
+    errors = []
+    validator = Draft7Validator(_MANIFEST_ITEM_SCHEMA_V2)
+    for error in validator.iter_errors(item_dict):
+        field_path = "$." + ".".join(str(p) for p in error.absolute_path) if error.absolute_path else "$"
+        error_code = error.validator if error.validator else "schema_validation_error"
+        errors.append({
+            "field": field_path,
+            "code": error_code,
+            "message": error.message,
+        })
+    return errors
 
 
 def validate_manifest_v2(manifest_dict) -> list[dict]:

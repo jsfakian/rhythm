@@ -32,10 +32,13 @@ class Patient(models.Model):
         null=True,
         blank=True
     )
-    age_at_first_acquisition = models.PositiveIntegerField(
+    age_at_first_acquisition = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
         null=True,
         blank=True,
-        validators=[MaxValueValidator(150)]
+        validators=[MinValueValidator(0), MaxValueValidator(150)],
+        help_text='Patient age in years; fractional values (e.g. 0.3) are allowed for infants.',
     )
     cohort_tag = models.CharField(
         max_length=128,

@@ -65,7 +65,7 @@ class PseudoIDUniquenessValidator:
     def get_or_create_patient_with_pseudoid(
         pseudo_id: str,
         sex: Optional[str] = None,
-        age_at_acquisition: Optional[int] = None,
+        age_at_acquisition: Optional[float] = None,
         cohort_tag: Optional[str] = None
     ) -> Tuple[object, bool, Optional[str]]:
         """

@@ -247,6 +247,22 @@ def process_v2_batch_item(job: "UploadJob", archive_path: str, extract_dir: str)
     """
     item = job.manifest_raw or {}
 
+    # If the manifest item declares an archive checksum, verify it before
+    # doing anything else with the file — mirrors the same principle the v1
+    # pipeline's pre-flight check enforces: verify integrity before trusting
+    # (extracting/anonymizing/pushing) a file, not after. sha256 isn't a
+    # required manifest field, so only enforced when present.
+    expected_archive_checksum = item.get("sha256")
+    if expected_archive_checksum:
+        actual_archive_checksum = compute_sha256(archive_path)
+        if actual_archive_checksum != expected_archive_checksum:
+            return _fail_job(
+                job,
+                f"Archive checksum mismatch: expected {expected_archive_checksum}, "
+                f"got {actual_archive_checksum}",
+                code="checksum_mismatch",
+            )
+
     if is_zip_archive(archive_path):
         try:
             validate_zip_safety(archive_path)
@@ -332,6 +348,7 @@ def process_v2_batch_item(job: "UploadJob", archive_path: str, extract_dir: str)
     if patient_error:
         return _fail_job(job, f"Failed to get or create patient: {patient_error}")
     logger.info(f"Patient {'created' if created else 'reused'} with pseudo_id: {patient.pseudo_id}")
+    PseudoIDUniquenessValidator.log_pseudo_id_tracking(pseudo_id, str(job.id))
 
     orthanc = get_client()
 
@@ -435,6 +452,23 @@ def process_v2_batch_item(job: "UploadJob", archive_path: str, extract_dir: str)
     protocol_type, examination_group = _patient_group_code_to_protocol_fields(
         item.get("patient_group_code", "")
     )
+
+    # Manual Exam Entry already creates its own CTExamination synchronously
+    # (with upload_job set) before ever queuing this async job — its item
+    # carries repository_study_id_override for exactly that reason. Without
+    # this guard, every manually-entered exam with a study set file would
+    # get a second, duplicate CTExamination row here with the same
+    # repository_study_id, once the async pipeline reached this point.
+    if job.examinations.exists():
+        logger.info(
+            f"Job {job.id} already has a CTExamination (created synchronously "
+            f"by its caller) — not creating a duplicate."
+        )
+        job.error_report = error_report if error_report else None
+        job.completed_at = timezone.now()
+        job.status = "COMPLETE" if images_failed == 0 else "PARTIAL"
+        job.save()
+        return
 
     CTExamination.objects.create(
         rhythm_pseudo_id=repository_study_id,

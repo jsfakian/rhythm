@@ -11,6 +11,7 @@ import unittest
 
 from uploads.manifest_schema import (
     validate_manifest_v2,
+    validate_manifest_v2_item,
     validate_manifest_auto,
     is_v2_batch_manifest,
 )
@@ -92,6 +93,56 @@ class ManifestV2ValidatorTestCase(unittest.TestCase):
         manifest = {**self.valid_manifest, "items": []}
         errors = validate_manifest_v2(manifest)
         self.assertTrue(any(e["code"] == "minItems" for e in errors))
+
+    def test_empty_string_ref_rejected(self):
+        """Regression: an empty-string `ref` used to pass schema validation
+        (the type check only required a string), then silently bypass the
+        duplicate-ref check's `if ref:` truthy guard — two items could both
+        carry ref="" without ever tripping test_duplicate_ref_across_items."""
+        manifest = {**self.valid_manifest, "items": [dict(self.valid_manifest["items"][0])]}
+        manifest["items"][0]["ref"] = ""
+        errors = validate_manifest_v2(manifest)
+        self.assertTrue(any(e["code"] == "minLength" for e in errors))
+
+    def test_empty_string_filename_rejected(self):
+        """Same regression as above, for `filename`."""
+        manifest = {**self.valid_manifest, "items": [dict(self.valid_manifest["items"][0])]}
+        manifest["items"][0]["filename"] = ""
+        errors = validate_manifest_v2(manifest)
+        self.assertTrue(any(e["code"] == "minLength" for e in errors))
+
+
+class ManifestV2ItemStandaloneValidatorTestCase(unittest.TestCase):
+    """Covers validate_manifest_v2_item, used by ChunkedUploadInitView to
+    validate a single `manifest_item` payload outside a full batch manifest
+    — the path a caller takes when it bypasses the "Validate Manifest" step
+    on the Automated Upload page."""
+
+    def setUp(self):
+        self.valid_item = {
+            "ref": "ROW0001",
+            "filename": "Input_volume1.zip",
+            "site_code": "S001",
+            "clinical_indication_code": "HEADTRAUMA",
+            "anatomical_region": "Head",
+            "contrast_code": "NC",
+            "patient_group_code": "PH-G4",
+            "image_quality": "Acceptable",
+        }
+
+    def test_valid_item_passes(self):
+        self.assertEqual(validate_manifest_v2_item(self.valid_item), [])
+
+    def test_missing_required_field_rejected(self):
+        item = dict(self.valid_item)
+        del item["clinical_indication_code"]
+        errors = validate_manifest_v2_item(item)
+        self.assertTrue(any(e["code"] == "required" for e in errors))
+
+    def test_empty_ref_rejected(self):
+        item = {**self.valid_item, "ref": ""}
+        errors = validate_manifest_v2_item(item)
+        self.assertTrue(any(e["code"] == "minLength" for e in errors))
 
 
 class ManifestAutoDetectTestCase(unittest.TestCase):

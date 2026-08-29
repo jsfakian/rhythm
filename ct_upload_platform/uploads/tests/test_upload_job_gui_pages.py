@@ -4,11 +4,14 @@ Validator" GUI pages (protocol_views.UploadJobListView, UploadJobDeleteView,
 AutomatedUploadView, JSONValidatorView) and their sidebar entries.
 """
 
+import os
+import tempfile
+
 from django.contrib.auth.models import User
 from django.test import TestCase
 from django.urls import reverse
 
-from uploads.models import UploadJob
+from uploads.models import CTExamination, UploadJob
 
 
 class UploadJobListViewTests(TestCase):
@@ -86,6 +89,45 @@ class UploadJobDeleteViewTests(TestCase):
         job = UploadJob.objects.create(uploader_id="someoneelse", status="PENDING")
         resp = self.client.get(reverse("upload-job-delete", kwargs={"pk": str(job.pk)}))
         self.assertEqual(resp.status_code, 404)
+
+    def test_deletes_orphaned_archive_file(self) -> None:
+        """A bulk/automated-upload job has no CTExamination — its staging
+        archive is genuinely orphaned once the job is deleted, and should
+        be removed from disk."""
+        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".tar")
+        tmp.write(b"fake archive contents")
+        tmp.close()
+        job = UploadJob.objects.create(
+            uploader_id="deleteuser", status="PENDING", tar_temp_path=tmp.name
+        )
+        try:
+            resp = self.client.post(reverse("upload-job-delete", kwargs={"pk": str(job.pk)}))
+            self.assertRedirects(resp, reverse("upload-job-list"))
+            self.assertFalse(os.path.exists(tmp.name))
+        finally:
+            if os.path.exists(tmp.name):
+                os.unlink(tmp.name)
+
+    def test_preserves_archive_file_referenced_by_examination(self) -> None:
+        """Regression: for a job queued by Manual Exam Entry, tar_temp_path
+        IS exam.study_set_file.path — the same file the CTExamination still
+        references for download. Deleting a PENDING job must not unlink
+        that file out from under the examination."""
+        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".tar")
+        tmp.write(b"fake archive contents")
+        tmp.close()
+        job = UploadJob.objects.create(
+            uploader_id="deleteuser", status="PENDING", tar_temp_path=tmp.name
+        )
+        CTExamination.objects.create(upload_job=job)
+        try:
+            resp = self.client.post(reverse("upload-job-delete", kwargs={"pk": str(job.pk)}))
+            self.assertRedirects(resp, reverse("upload-job-list"))
+            self.assertFalse(UploadJob.objects.filter(pk=job.pk).exists())
+            self.assertTrue(os.path.exists(tmp.name))
+        finally:
+            if os.path.exists(tmp.name):
+                os.unlink(tmp.name)
 
 
 class AutomatedUploadViewTests(TestCase):

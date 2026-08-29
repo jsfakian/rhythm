@@ -126,6 +126,20 @@ class ChunkedUploadInitView(views.APIView):
         batch = data.get('batch', '')
         manifest_item = data.get('manifest_item')
 
+        # Enforce the same v2 item schema the "Validate Manifest" step on
+        # the Automated Upload page checks client-side — a caller that
+        # bypasses that step (or posts directly to this endpoint) must not
+        # be able to get a CTExamination/repository_study_id created from a
+        # manifest item missing its required coded fields.
+        if manifest_item is not None:
+            from .manifest_schema import validate_manifest_v2_item
+            item_errors = validate_manifest_v2_item(manifest_item)
+            if item_errors:
+                return Response(
+                    {'error': item_errors, 'code': 'invalid_manifest_item'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
         uploader_id = request.user.username
 
         # Calculate total chunks

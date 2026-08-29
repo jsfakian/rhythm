@@ -488,6 +488,63 @@ class ChunkedUploadInitViewTest(APITestCase):
 
         self.assertEqual(response.status_code, 401)
 
+    def _valid_manifest_item(self):
+        return {
+            "ref": "ROW0001",
+            "filename": "Input_volume1.zip",
+            "site_code": "S001",
+            "clinical_indication_code": "HEADTRAUMA",
+            "anatomical_region": "Head",
+            "contrast_code": "NC",
+            "patient_group_code": "PH-G4",
+            "scanner_id": "CT01",
+            "protocol_name": "Pediatric head trauma non-contrast",
+            "patient_weight_kg": 28.0,
+            "patient_age_years": 8.0,
+            "ctdivol_mgy": 18.4,
+            "dlp_mgy_cm": 320.5,
+            "image_quality": "Acceptable",
+            "size_bytes": 13695187,
+        }
+
+    def test_init_upload_with_valid_manifest_item_succeeds(self):
+        """Regression: a caller that bypasses the client-side "Validate
+        Manifest" step must still get a real schema check on manifest_item
+        here — a valid item must not be rejected by that check."""
+        response = self.client.post(
+            '/api/v1/uploads/chunked/init/',
+            {
+                'filename': 'Input_volume1.zip',
+                'total_size': 1024 * 1024,
+                'batch': 'S001-BATCH001',
+                'manifest_item': self._valid_manifest_item(),
+            },
+            format='json'
+        )
+
+        self.assertEqual(response.status_code, 201)
+
+    def test_init_upload_with_invalid_manifest_item_rejected(self):
+        """Regression: a caller posting directly to this endpoint (bypassing
+        the "Validate Manifest" step) must not be able to get a
+        CTExamination/repository_study_id created from a manifest item
+        missing its required coded fields."""
+        item = self._valid_manifest_item()
+        del item["clinical_indication_code"]
+        response = self.client.post(
+            '/api/v1/uploads/chunked/init/',
+            {
+                'filename': 'Input_volume1.zip',
+                'total_size': 1024 * 1024,
+                'batch': 'S001-BATCH001',
+                'manifest_item': item,
+            },
+            format='json'
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data['code'], 'invalid_manifest_item')
+
     def test_init_upload_file_too_large(self):
         """Test init fails for oversized file."""
         response = self.client.post(

@@ -136,6 +136,20 @@ class PseudoIDUniquenessTest(TestCase):
         self.assertEqual(patient.age_at_first_acquisition, 60)
         self.assertEqual(patient.cohort_tag, "TEST")
     
+    def test_get_or_create_patient_preserves_fractional_age(self):
+        """Regression: age_at_first_acquisition used to be a
+        PositiveIntegerField, silently truncating a fractional infant age
+        (e.g. 0.3 years) to 0 via int(0.3) rather than raising or
+        preserving it — inconsistent with CTExamination.patient_age, which
+        already supports fractional years."""
+        patient, created, error = PseudoIDUniquenessValidator.get_or_create_patient_with_pseudoid(
+            pseudo_id="PATFRACTIONALAGE",
+            sex="F",
+            age_at_acquisition=0.3,
+        )
+        self.assertIsNone(error)
+        self.assertEqual(float(patient.age_at_first_acquisition), 0.3)
+
     def test_get_or_create_patient_reuses_existing(self):
         """Test that get_or_create reuses existing patient."""
         patient, created, error = PseudoIDUniquenessValidator.get_or_create_patient_with_pseudoid(

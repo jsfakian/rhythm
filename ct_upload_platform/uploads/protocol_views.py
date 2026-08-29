@@ -1040,7 +1040,17 @@ class ExaminationSaveAPIView(AjaxLoginRequiredMixin, View):
         # bulk-upload route, instead of leaving it as an un-validated file
         # on local disk. Best-effort: a queuing failure here must not lose
         # the examination record that was just saved.
-        if exam.study_set_file:
+        if exam.study_set_file and not rhythm_id:
+            logger.warning(
+                "Skipping GDPR/Orthanc ingestion queue for examination %s: "
+                "no repository_study_id was assigned (see prior warning), so "
+                "the async pipeline would derive an empty/malformed prefix "
+                "from indication_code/contrast_code/group_code instead of "
+                "falling back to OTHER/UNK — those keys would be present "
+                "but empty, not absent.",
+                exam.pk,
+            )
+        elif exam.study_set_file:
             try:
                 job = UploadJob.objects.create(
                     uploader_id=request.user.username,
@@ -1056,7 +1066,9 @@ class ExaminationSaveAPIView(AjaxLoginRequiredMixin, View):
                         "patient_group_code": group_code,
                         "protocol_name": protocol.protocol_name if protocol else "",
                         "patient_weight_kg": float(patient_weight) if patient_weight else None,
-                        "patient_age_years": float(patient_age) if patient_age else None,
+                        # `is not None`, not truthiness — patient_age is a Decimal
+                        # here, and Decimal("0") (a valid newborn age) is falsy.
+                        "patient_age_years": float(patient_age) if patient_age is not None else None,
                         "ctdivol_mgy": float(ctdi_vol[0]) if ctdi_vol else None,
                         "dlp_mgy_cm": float(dlp[0]) if dlp else None,
                         "image_quality": image_quality,
@@ -1179,7 +1191,12 @@ class UploadJobDeleteView(LoginRequiredMixin, View):
                 f"Cannot delete job with status {job.get_status_display()}. Only pending jobs can be deleted.",
             )
             return redirect(reverse("upload-job-list"))
-        if job.tar_temp_path and os.path.exists(job.tar_temp_path):
+        # For a job queued by Manual Exam Entry, tar_temp_path IS
+        # exam.study_set_file.path — the same file the CTExamination still
+        # references for download. Unlinking it here would break that
+        # examination's download link, so only remove genuinely orphaned
+        # staging archives (bulk/automated uploads have no CTExamination).
+        if not job.examinations.exists() and job.tar_temp_path and os.path.exists(job.tar_temp_path):
             try:
                 os.unlink(job.tar_temp_path)
             except Exception as exc:
