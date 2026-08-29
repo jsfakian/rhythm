@@ -275,9 +275,51 @@ class LoginPageTestCase(TestCase):
         """Already logged-in users should be redirected from login page."""
         self.client.login(username='testuser', password='testpass123')
         response = self.client.get('/login/')
-        
+
         # Should be redirected
         self.assertEqual(response.status_code, 302)
+
+
+class LogoutViewTestCase(TestCase):
+    """Logging out must end the session and send the user back to /login/."""
+
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(username='testuser', password='testpass123')
+
+    def test_get_logout_redirects_to_login(self):
+        self.client.login(username='testuser', password='testpass123')
+        response = self.client.get('/logout/')
+        self.assertRedirects(response, '/login/')
+
+    def test_post_logout_redirects_to_login(self):
+        self.client.login(username='testuser', password='testpass123')
+        response = self.client.post('/logout/')
+        self.assertRedirects(response, '/login/')
+
+    def test_logout_ends_the_session(self):
+        """After logout, a subsequent request to a protected page must bounce
+        back to /login/ rather than staying authenticated."""
+        self.client.login(username='testuser', password='testpass123')
+        self.client.get('/logout/')
+
+        response = self.client.get('/account/security/')
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(response.url.startswith('/login/'))
+
+
+class SessionTimeoutSettingsTestCase(TestCase):
+    """The automatic-logout timeout is configured for 1 hour of inactivity."""
+
+    def test_session_cookie_age_is_one_hour(self):
+        from django.conf import settings
+        self.assertEqual(settings.SESSION_COOKIE_AGE, 3600)
+
+    def test_session_is_idle_based(self):
+        """SESSION_SAVE_EVERY_REQUEST resets the countdown on activity, so the
+        1-hour timeout is measured from the last request, not from login."""
+        from django.conf import settings
+        self.assertTrue(settings.SESSION_SAVE_EVERY_REQUEST)
 
 
 class CreateUserManagementCommandTestCase(TestCase):
