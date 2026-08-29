@@ -265,3 +265,97 @@ class ProcessV2BatchItemFailureTests(TestCase):
         self.assertEqual(job.status, "PARTIAL")
         # Still creates the CTExamination/StudyMapping since at least one image succeeded.
         self.assertTrue(CTExamination.objects.exists())
+
+
+# ---------------------------------------------------------------------------
+# Real (unmocked) GDPR-strict validation
+#
+# Every test above mocks validate_gdpr_anonymization, so it never exercises
+# the actual GDPR-strict.json rule set against a real DICOM file. These
+# tests intentionally do NOT mock it — only Orthanc (external infra) is
+# mocked, matching the v1 pipeline's own test conventions.
+# ---------------------------------------------------------------------------
+
+def _create_compliant_dicom_file(path: str, patient_id: str = "PARTNERPAT001", study_uid: str = None) -> str:
+    """Build a DICOM file that satisfies GDPR-strict.json for real: no PHI
+    tags, no temporal tags (RetainStudyDate: false), no private/overlay/
+    curve/audio tags — just the identifying UIDs and an already-anonymized
+    PatientID, matching what the partner tools' docstrings promise."""
+    meta = Dataset()
+    meta.MediaStorageSOPClassUID = "1.2.840.10008.5.1.4.1.1.2"
+    meta.MediaStorageSOPInstanceUID = generate_uid()
+    meta.TransferSyntaxUID = ExplicitVRLittleEndian
+
+    ds = FileDataset(path, {}, file_meta=meta, preamble=b"\0" * 128)
+    ds.SOPClassUID = "1.2.840.10008.5.1.4.1.1.2"
+    ds.SOPInstanceUID = generate_uid()
+    ds.StudyInstanceUID = study_uid or generate_uid()
+    ds.SeriesInstanceUID = generate_uid()
+    ds.PatientID = patient_id
+    # Deliberately no StudyDate/PatientName/PatientBirthDate/etc.
+    ds.save_as(path)
+    return path
+
+
+class ProcessV2BatchItemRealGdprValidationTests(TestCase):
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.extract_dir = tempfile.mkdtemp()
+
+    def tearDown(self):
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
+        shutil.rmtree(self.extract_dir, ignore_errors=True)
+
+    def test_compliant_dicom_passes_real_validation_and_completes(self):
+        src = tempfile.mkdtemp()
+        study_uid = generate_uid()
+        _create_compliant_dicom_file(os.path.join(src, "slice.dcm"), patient_id="PARTNERPAT001", study_uid=study_uid)
+        zip_path = os.path.join(self.tmpdir, "Input_volume1.zip")
+        with zipfile.ZipFile(zip_path, "w") as z:
+            z.write(os.path.join(src, "slice.dcm"), arcname="slice.dcm")
+        shutil.rmtree(src)
+
+        job = _make_v2_job(zip_path, _v2_item())
+        mock_orthanc = MagicMock()
+        mock_orthanc.push_dicom_file.return_value = {"orthanc_study_id": "orthanc-1"}
+        # No patch of validate_gdpr_anonymization — exercises the real
+        # GDPR-strict.json rule set end to end.
+        with patch("uploads.tasks.get_processed_data_job_dir", return_value=self.extract_dir), \
+             patch("uploads.tasks.get_client", return_value=mock_orthanc):
+            process_upload_job.apply(args=[str(job.pk)])
+
+        job.refresh_from_db()
+        self.assertEqual(job.status, "COMPLETE", job.error_report)
+        exam = CTExamination.objects.first()
+        self.assertIsNotNone(exam)
+        # No StudyDate on the DICOM (GDPR-strict requires it absent) — the
+        # pipeline must fall back to today's date rather than erroring.
+        mapping = StudyMapping.objects.first()
+        self.assertIsNotNone(mapping.acquisition_date)
+
+    def test_leftover_phi_tag_fails_real_validation(self):
+        """A DICOM that still carries a PHI tag (PatientBirthDate here) must
+        be rejected by the real validator, not silently accepted."""
+        src = tempfile.mkdtemp()
+        path = os.path.join(src, "slice.dcm")
+        _create_compliant_dicom_file(path, patient_id="PARTNERPAT001")
+        # Re-open and add a leftover PHI tag the partner's anonymizer missed.
+        import pydicom
+        ds = pydicom.dcmread(path)
+        ds.PatientBirthDate = "19800101"
+        ds.save_as(path)
+
+        zip_path = os.path.join(self.tmpdir, "Input_volume1.zip")
+        with zipfile.ZipFile(zip_path, "w") as z:
+            z.write(path, arcname="slice.dcm")
+        shutil.rmtree(src)
+
+        job = _make_v2_job(zip_path, _v2_item())
+        with patch("uploads.tasks.get_processed_data_job_dir", return_value=self.extract_dir), \
+             patch("uploads.tasks.get_client", return_value=MagicMock()):
+            process_upload_job.apply(args=[str(job.pk)])
+
+        job.refresh_from_db()
+        self.assertEqual(job.status, "FAILED")
+        self.assertFalse(CTExamination.objects.exists())
