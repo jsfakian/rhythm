@@ -814,7 +814,8 @@ class ExaminationEntryView(LoginRequiredMixin, View):
                 "display": (
                     f"{p.get_protocol_type_display()} – "
                     f"{p.anatomical_region or '—'} / {p.clinical_indication or '—'} "
-                    f"({p.scanner.manufacturer.name} {p.scanner.scanner_model.name})"
+                    f"({p.scanner.manufacturer.name} {p.scanner.scanner_model.name}) — "
+                    f"{p.examination_group or '—'}"
                 ),
                 "scanner_id": str(p.scanner_id),
                 "anatomical_region": p.anatomical_region,

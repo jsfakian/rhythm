@@ -235,6 +235,23 @@ class ExaminationEntryViewTests(_ExamFixtures, TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertIn(b'"scanners"', resp.content)
 
+    def test_protocol_display_includes_examination_group(self) -> None:
+        """The 'Protocol Used' dropdown must show the examination group next
+        to each protocol so that otherwise-identical protocols (same scanner,
+        region, and indication) targeting different patient groups can be
+        told apart."""
+        protocol = self._make_protocol(self.scanner)
+        resp = self.client.get(reverse("examination-entry"))
+        body = resp.content.decode()
+        self.assertIn(protocol.examination_group, body)
+        # The group must be part of the same "display" string as the region/
+        # indication, not just present somewhere else on the page.
+        self.assertIn(f"{protocol.anatomical_region}", body)
+        protocols_start = body.index('"protocols":')
+        display_start = body.index('"display"', protocols_start)
+        display_snippet = body[display_start:display_start + 300]
+        self.assertIn(protocol.examination_group, display_snippet)
+
     def test_save_status_indicator_present(self) -> None:
         """A 'Saving…' indicator must exist so the user gets feedback while
         the (possibly large) study set upload is in flight."""
