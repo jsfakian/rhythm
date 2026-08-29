@@ -17,7 +17,7 @@ from django.test import TestCase
 from pydicom.dataset import Dataset, FileDataset
 from pydicom.uid import generate_uid, ExplicitVRLittleEndian
 
-from uploads.models import UploadJob, Patient, StudyMapping, CTExamination
+from uploads.models import UploadJob, Patient, StudyMapping, CTExamination, Image
 from uploads.orthanc_client import OrthancPushError
 from uploads.tasks import process_upload_job
 
@@ -106,7 +106,7 @@ class ProcessV2BatchItemSuccessTests(TestCase):
 
     def _run(self, job):
         mock_orthanc = MagicMock()
-        mock_orthanc.push_dicom_file.return_value = {"orthanc_study_id": "orthanc-1"}
+        mock_orthanc.push_dicom_file.return_value = {"orthanc_study_id": "orthanc-1", "orthanc_instance_id": "orthanc-inst-1"}
         with patch("uploads.tasks.get_processed_data_job_dir", return_value=self.extract_dir), \
              patch("uploads.tasks.validate_gdpr_anonymization", return_value=(True, [])), \
              patch("uploads.tasks.get_client", return_value=mock_orthanc):
@@ -161,6 +161,19 @@ class ProcessV2BatchItemSuccessTests(TestCase):
         job = _make_v2_job(zip_path, _v2_item())
         mock_orthanc = self._run(job)
         mock_orthanc.push_dicom_file.assert_called_once()
+
+    def test_image_record_and_study_mapping_orthanc_id_created(self):
+        """Regression: the v2 pipeline never created Image rows, and never
+        captured push_dicom_file's return value at all (so
+        StudyMapping.orthanc_study_id was always left unset)."""
+        zip_path = _build_v2_zip(self.tmpdir)
+        job = _make_v2_job(zip_path, _v2_item())
+        self._run(job)
+        mapping = StudyMapping.objects.first()
+        self.assertEqual(mapping.orthanc_study_id, "orthanc-1")
+        image = Image.objects.filter(study_mapping=mapping).first()
+        self.assertIsNotNone(image)
+        self.assertEqual(image.orthanc_instance_id, "orthanc-inst-1")
 
     def test_repository_study_id_override_reused(self):
         zip_path = _build_v2_zip(self.tmpdir)

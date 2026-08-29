@@ -26,6 +26,7 @@ from pydicom.dataset import Dataset, FileDataset
 from pydicom.uid import generate_uid, ExplicitVRLittleEndian
 
 from uploads.models import UploadJob, Patient, StudyMapping, Image
+from uploads.tests.test_orthanc_task_integration import _stow_success_response
 from uploads.tasks import process_upload_job
 
 
@@ -131,6 +132,38 @@ class ChecksumOrderingRealPipelineTests(TestCase):
         job, _ = self._run(tar_path)
         self.assertTrue(Patient.objects.filter(pseudo_id="CHECKSUMORDPAT01").exists())
         self.assertEqual(StudyMapping.objects.count(), 1)
+        # Regression: the v1 pipeline previously never created Image rows at
+        # all, for any upload — only Patient/StudyMapping.
+        image = Image.objects.filter(study_mapping=StudyMapping.objects.first()).first()
+        self.assertIsNotNone(image)
+        self.assertEqual(image.filename, "slice_000.dcm")
+        self.assertEqual(image.orthanc_instance_id, "inst-1")
+
+    def test_study_mapping_orthanc_study_id_populated_from_real_stow_response(self):
+        """Regression: orthanc_client.py used to look for flat
+        {"StudyInstanceUID": ...} keys that Orthanc's real STOW-RS response
+        never contains, so orthanc_study_id was always empty/None in real
+        usage. Here the mocked HTTP layer returns the real DICOM JSON shape,
+        exercised through the actual (unmocked) push_dicom_file parsing."""
+        tar_path, manifest = _build_compliant_tar(self.tmpdir)
+        job = UploadJob.objects.create(uploader_id="test_user", tar_temp_path=tar_path)
+
+        with patch("uploads.tasks.get_processed_data_job_dir", return_value=self.extract_dir), \
+             patch("uploads.orthanc_client.requests.Session.post") as mock_post:
+            mock_response = MagicMock()
+            mock_response.status_code = 200
+            mock_response.json.return_value = _stow_success_response(
+                "1.2.3.4.5", "1.2.3.4.5.1", "1.2.3.4.5.1.1"
+            )
+            mock_post.return_value = mock_response
+            process_upload_job.apply(args=[str(job.pk)])
+
+        job.refresh_from_db()
+        self.assertEqual(job.status, "COMPLETE", job.error_report)
+        mapping = StudyMapping.objects.first()
+        self.assertEqual(mapping.orthanc_study_id, "1.2.3.4.5")
+        image = Image.objects.filter(study_mapping=mapping).first()
+        self.assertEqual(image.orthanc_instance_id, "1.2.3.4.5.1.1")
 
     def test_multiple_images_all_survive_real_anonymization(self):
         tar_path, manifest = _build_compliant_tar(self.tmpdir, n_images=3)

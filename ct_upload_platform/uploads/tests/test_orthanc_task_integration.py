@@ -29,6 +29,33 @@ from uploads.pseudo_id_validator import PseudoIDUniquenessValidator
 from uploads.tasks import process_upload_job
 
 
+def _stow_success_response(study_uid: str, series_uid: str, sop_uid: str) -> dict:
+    """Real STOW-RS response shape (DICOM JSON, PS3.18 §6.6.1.2) — Orthanc
+    never returns flat {"StudyInstanceUID": ...} keys; UIDs are embedded in
+    RetrieveURLs and a ReferencedSOPSequence, keyed by tag."""
+    return {
+        "00081190": {
+            "vr": "UR",
+            "Value": [f"http://orthanc:8042/dicom-web/studies/{study_uid}"],
+        },
+        "00081199": {
+            "vr": "SQ",
+            "Value": [
+                {
+                    "00081155": {"vr": "UI", "Value": [sop_uid]},
+                    "00081190": {
+                        "vr": "UR",
+                        "Value": [
+                            f"http://orthanc:8042/dicom-web/studies/{study_uid}"
+                            f"/series/{series_uid}/instances/{sop_uid}"
+                        ],
+                    },
+                }
+            ],
+        },
+    }
+
+
 class TaskManifestValidationTest(TestCase):
     """Test task manifest validation with Orthanc integration."""
     
@@ -182,13 +209,11 @@ class TaskOrthancPushTest(TransactionTestCase):
         with patch('uploads.orthanc_client.requests.Session.post') as mock_post:
             mock_response = MagicMock()
             mock_response.status_code = 200
-            mock_response.json.return_value = {
-                'StudyInstanceUID': '1.2.3.4.5',
-                'SeriesInstanceUID': '1.2.3.4.5.1',
-                'SOPInstanceUID': '1.2.3.4.5.1.1',
-            }
+            mock_response.json.return_value = _stow_success_response(
+                '1.2.3.4.5', '1.2.3.4.5.1', '1.2.3.4.5.1.1'
+            )
             mock_post.return_value = mock_response
-            
+
             # Simulate Step 8
             client = get_client()
             push_result = client.push_dicom_file(dicom_bytes)
@@ -215,13 +240,11 @@ class TaskOrthancPushTest(TransactionTestCase):
         with patch('uploads.orthanc_client.requests.Session.post') as mock_post:
             mock_response = MagicMock()
             mock_response.status_code = 200
-            mock_response.json.return_value = {
-                'StudyInstanceUID': orthanc_study_id,
-                'SeriesInstanceUID': '1.2.3.4.5.1',
-                'SOPInstanceUID': '1.2.3.4.5.1.1',
-            }
+            mock_response.json.return_value = _stow_success_response(
+                orthanc_study_id, '1.2.3.4.5.1', '1.2.3.4.5.1.1'
+            )
             mock_post.return_value = mock_response
-            
+
             # Simulate Step 8 + 9
             client = get_client()
             push_result = client.push_dicom_file(dicom_bytes)
@@ -302,25 +325,21 @@ class TaskFailureRecoveryTest(TransactionTestCase):
             # First call: success
             mock_response_ok = MagicMock()
             mock_response_ok.status_code = 200
-            mock_response_ok.json.return_value = {
-                'StudyInstanceUID': '1.2.3.4.5',
-                'SeriesInstanceUID': '1.2.3.4.5.1',
-                'SOPInstanceUID': '1.2.3.4.5.1.1',
-            }
-            
+            mock_response_ok.json.return_value = _stow_success_response(
+                '1.2.3.4.5', '1.2.3.4.5.1', '1.2.3.4.5.1.1'
+            )
+
             # Second call: failure
             mock_response_error = MagicMock()
             mock_response_error.status_code = 400
             mock_response_error.text = 'Invalid DICOM'
-            
+
             # Third call: success
             mock_response_ok2 = MagicMock()
             mock_response_ok2.status_code = 200
-            mock_response_ok2.json.return_value = {
-                'StudyInstanceUID': '1.2.3.4.5',
-                'SeriesInstanceUID': '1.2.3.4.5.1',
-                'SOPInstanceUID': '1.2.3.4.5.1.3',
-            }
+            mock_response_ok2.json.return_value = _stow_success_response(
+                '1.2.3.4.5', '1.2.3.4.5.1', '1.2.3.4.5.1.3'
+            )
             
             mock_post.side_effect = [
                 mock_response_ok,

@@ -68,16 +68,38 @@ class OrthancPushDicomTest(TestCase):
         ORTHANC_PASSWORD='orthanc'
     )
     def test_push_dicom_success(self):
-        """Test successful DICOM push to Orthanc."""
+        """Test successful DICOM push to Orthanc.
+
+        The response body is real STOW-RS DICOM JSON (PS3.18 §6.6.1.2) —
+        tag-keyed, with UIDs embedded in RetrieveURLs — not the flat
+        {"StudyInstanceUID": ...} shape Orthanc never actually sends.
+        """
         dicom_bytes = b'\x00' * 1000  # Mock DICOM data
-        
+
         with patch('uploads.orthanc_client.requests.Session.post') as mock_post:
             mock_response = MagicMock()
             mock_response.status_code = 200
             mock_response.json.return_value = {
-                'StudyInstanceUID': '1.2.3.4.5',
-                'SeriesInstanceUID': '1.2.3.4.5.1',
-                'SOPInstanceUID': '1.2.3.4.5.1.1',
+                "00081190": {
+                    "vr": "UR",
+                    "Value": ["http://orthanc:8042/dicom-web/studies/1.2.3.4.5"],
+                },
+                "00081199": {
+                    "vr": "SQ",
+                    "Value": [
+                        {
+                            "00081150": {"vr": "UI", "Value": ["1.2.840.10008.5.1.4.1.1.2"]},
+                            "00081155": {"vr": "UI", "Value": ["1.2.3.4.5.1.1"]},
+                            "00081190": {
+                                "vr": "UR",
+                                "Value": [
+                                    "http://orthanc:8042/dicom-web/studies/1.2.3.4.5"
+                                    "/series/1.2.3.4.5.1/instances/1.2.3.4.5.1.1"
+                                ],
+                            },
+                        }
+                    ],
+                },
             }
             mock_post.return_value = mock_response
             
@@ -147,22 +169,50 @@ class OrthancPushDicomTest(TestCase):
         ORTHANC_PASSWORD='orthanc'
     )
     def test_push_dicom_missing_response_data(self):
-        """Test DICOM push handles missing UIDs in response."""
+        """An unparseable/empty response body means we can't confirm the
+        instance was actually referenced by Orthanc — treat that as a
+        failure (raise) rather than silently reporting fabricated success
+        with empty UIDs, since the HTTP status alone doesn't guarantee the
+        instance was accepted (STOW-RS allows 2xx with FailedSOPSequence)."""
         dicom_bytes = b'\x00' * 1000
-        
+
         with patch('uploads.orthanc_client.requests.Session.post') as mock_post:
             mock_response = MagicMock()
             mock_response.status_code = 200
             mock_response.json.side_effect = ValueError('Invalid JSON')
             mock_post.return_value = mock_response
-            
+
             client = OrthancClient()
-            result = client.push_dicom_file(dicom_bytes)
-            
-            # Should return empty strings when UIDs not available
-            self.assertEqual(result['orthanc_study_id'], '')
-            self.assertEqual(result['orthanc_series_id'], '')
-            self.assertEqual(result['orthanc_instance_id'], '')
+
+            with self.assertRaises(OrthancPushError):
+                client.push_dicom_file(dicom_bytes)
+
+    @override_settings(
+        ORTHANC_BASE_URL='http://orthanc:8042',
+        ORTHANC_USERNAME='orthanc',
+        ORTHANC_PASSWORD='orthanc'
+    )
+    def test_push_dicom_failed_sop_sequence_raises(self):
+        """A STOW-RS response can be HTTP 200 yet report the (only)
+        instance as failed via FailedSOPSequence — this must raise, not
+        report a fake success."""
+        dicom_bytes = b'\x00' * 1000
+
+        with patch('uploads.orthanc_client.requests.Session.post') as mock_post:
+            mock_response = MagicMock()
+            mock_response.status_code = 200
+            mock_response.json.return_value = {
+                "00081198": {
+                    "vr": "SQ",
+                    "Value": [{"00081150": {"vr": "UI", "Value": ["1.2.840.10008.5.1.4.1.1.2"]}}],
+                },
+            }
+            mock_post.return_value = mock_response
+
+            client = OrthancClient()
+
+            with self.assertRaises(OrthancPushError):
+                client.push_dicom_file(dicom_bytes)
 
 
 class OrthancQueryTest(TestCase):
@@ -332,14 +382,17 @@ class OrthancMultipartBodyTest(TestCase):
     def test_multipart_body_format(self):
         """Test that multipart/related body is correctly formatted."""
         dicom_bytes = b'DICM_DATA'
-        
+
         with patch('uploads.orthanc_client.requests.Session.post') as mock_post:
             mock_response = MagicMock()
             mock_response.status_code = 200
             mock_response.json.return_value = {
-                'StudyInstanceUID': '1.2.3.4.5',
-                'SeriesInstanceUID': '1.2.3.4.5.1',
-                'SOPInstanceUID': '1.2.3.4.5.1.1',
+                "00081199": {
+                    "vr": "SQ",
+                    "Value": [
+                        {"00081155": {"vr": "UI", "Value": ["1.2.3.4.5.1.1"]}}
+                    ],
+                },
             }
             mock_post.return_value = mock_response
             

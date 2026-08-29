@@ -21,7 +21,7 @@ from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 
-from .models import UploadJob, Patient, StudyMapping, CTExamination, Annotation, AuditLog
+from .models import UploadJob, Patient, StudyMapping, CTExamination, Image, Annotation, AuditLog
 from .manifest_schema import validate_manifest
 from .orthanc_client import get_client, OrthancPushError
 from .gdpr_validator import validate_gdpr_anonymization
@@ -338,6 +338,8 @@ def process_v2_batch_item(job: "UploadJob", archive_path: str, extract_dir: str)
     error_report = []
     images_processed = 0
     images_failed = 0
+    pushed_images = []  # (filename, orthanc_instance_id) for successfully pushed files
+    orthanc_study_id = ""
 
     for image_path in dicom_files:
         try:
@@ -371,7 +373,10 @@ def process_v2_batch_item(job: "UploadJob", archive_path: str, extract_dir: str)
                     continue
 
                 try:
-                    orthanc.push_dicom_file(dicom_bytes)
+                    push_result = orthanc.push_dicom_file(dicom_bytes)
+                    if not orthanc_study_id:
+                        orthanc_study_id = push_result.get("orthanc_study_id", "")
+                    pushed_images.append((os.path.basename(image_path), push_result.get("orthanc_instance_id", "")))
                     images_processed += 1
                 except OrthancPushError as e:
                     error_report.append({
@@ -405,8 +410,17 @@ def process_v2_batch_item(job: "UploadJob", archive_path: str, extract_dir: str)
             "clinical_indication": item.get("clinical_indication_code", ""),
             "contrast_used": _CONTRAST_CODE_USED.get(item.get("contrast_code"), False),
             "notes": f"protocol_name: {item.get('protocol_name', '')}".strip(),
+            "orthanc_study_id": orthanc_study_id or None,
         },
     )
+
+    for pushed_filename, pushed_instance_id in pushed_images:
+        Image.objects.create(
+            study_mapping=study_mapping,
+            filename=pushed_filename,
+            orthanc_instance_id=pushed_instance_id,
+            sop_instance_uid=pushed_instance_id,
+        )
 
     # Assign (or reuse) the Repository Study ID.
     repository_study_id = item.get("repository_study_id_override")
@@ -876,9 +890,16 @@ def process_upload_job(self, job_id: str):
                         if orthanc_study_id and not study_mapping.orthanc_study_id:
                             study_mapping.orthanc_study_id = orthanc_study_id
                             study_mapping.save()
-                        
+
+                        Image.objects.create(
+                            study_mapping=study_mapping,
+                            filename=image_filename,
+                            orthanc_instance_id=orthanc_instance_id or "",
+                            sop_instance_uid=orthanc_instance_id or "",
+                        )
+
                         logger.info(f"Successfully pushed image {idx + 1} to Orthanc")
-                        
+
                     except OrthancPushError as e:
                         error_msg = f"Failed to push to Orthanc: {e.message}"
                         logger.warning(error_msg)

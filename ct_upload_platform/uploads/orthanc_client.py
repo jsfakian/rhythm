@@ -26,6 +26,66 @@ class OrthancQueryError(Exception):
         super().__init__(message)
 
 
+# DICOM tags used in a STOW-RS response (PS3.18 §6.6.1.2), keyed the way
+# Orthanc (and DICOMweb servers generally) render DICOM JSON: group+element
+# as an 8-digit hex string, each with {"vr": ..., "Value": [...]}.
+_TAG_RETRIEVE_URL = "00081190"        # RetrieveURL
+_TAG_REFERENCED_SOP_SEQUENCE = "00081199"   # ReferencedSOPSequence (succeeded instances)
+_TAG_FAILED_SOP_SEQUENCE = "00081198"       # FailedSOPSequence
+_TAG_REFERENCED_SOP_INSTANCE_UID = "00081155"  # ReferencedSOPInstanceUID
+
+
+def _tag_value(dicom_json: dict, tag: str):
+    """Return the first Value entry for *tag* in a DICOM JSON object, or None."""
+    values = (dicom_json or {}).get(tag, {}).get("Value")
+    return values[0] if values else None
+
+
+def _uid_from_retrieve_url(url: str, segment: str) -> str:
+    """Extract the UID following *segment* in a DICOMweb retrieve URL, e.g.
+    segment="series" on ".../studies/S/series/SE/instances/I" -> "SE"."""
+    if not url:
+        return ""
+    parts = url.rstrip("/").split("/")
+    try:
+        return parts[parts.index(segment) + 1]
+    except (ValueError, IndexError):
+        return ""
+
+
+def _stow_response_has_failure(response_data: dict) -> bool:
+    """True if the STOW-RS response's FailedSOPSequence is non-empty — the
+    HTTP status can still be 2xx even when the (only) instance we sent
+    failed, per the DICOM STOW-RS spec's partial-success semantics."""
+    failed = (response_data or {}).get(_TAG_FAILED_SOP_SEQUENCE, {}).get("Value")
+    return bool(failed)
+
+
+def _parse_stow_response(response_data: dict) -> dict:
+    """Parse a STOW-RS (DICOM JSON, PS3.18) response into the flat
+    orthanc_study_id / orthanc_series_id / orthanc_instance_id shape the
+    rest of the app expects, extracting UIDs from the response's
+    RetrieveURLs rather than assuming (nonexistent) flat top-level keys
+    like "StudyInstanceUID"."""
+    result = {"orthanc_study_id": "", "orthanc_series_id": "", "orthanc_instance_id": ""}
+
+    study_url = _tag_value(response_data, _TAG_RETRIEVE_URL)
+    if study_url:
+        result["orthanc_study_id"] = _uid_from_retrieve_url(study_url, "studies")
+
+    referenced = (response_data or {}).get(_TAG_REFERENCED_SOP_SEQUENCE, {}).get("Value") or []
+    if referenced:
+        entry = referenced[0]
+        result["orthanc_instance_id"] = _tag_value(entry, _TAG_REFERENCED_SOP_INSTANCE_UID) or ""
+        instance_url = _tag_value(entry, _TAG_RETRIEVE_URL)
+        if instance_url:
+            result["orthanc_series_id"] = _uid_from_retrieve_url(instance_url, "series")
+            if not result["orthanc_instance_id"]:
+                result["orthanc_instance_id"] = _uid_from_retrieve_url(instance_url, "instances")
+
+    return result
+
+
 class OrthancClient:
     """Client for interacting with Orthanc REST and DICOMweb APIs."""
     
@@ -74,30 +134,38 @@ class OrthancClient:
         
         try:
             response = self.session.post(url, data=multipart_body, headers=headers)
-            
+
             if not (200 <= response.status_code < 300):
                 raise OrthancPushError(
                     f"STOW-RS push failed with status {response.status_code}",
                     response.status_code,
                     response.text
                 )
-            
-            # Parse STOW-RS response (typically JSON)
+
+            # Parse STOW-RS response (DICOM JSON per PS3.18, not flat keys)
             try:
                 response_data = response.json()
             except Exception:
                 response_data = {}
-            
-            # Extract UIDs from response
-            # Orthanc returns StudyInstanceUID, SeriesInstanceUID, SOPInstanceUID
-            result = {
-                'orthanc_study_id': response_data.get('StudyInstanceUID', ''),
-                'orthanc_series_id': response_data.get('SeriesInstanceUID', ''),
-                'orthanc_instance_id': response_data.get('SOPInstanceUID', ''),
-            }
-            
+
+            if _stow_response_has_failure(response_data):
+                raise OrthancPushError(
+                    "STOW-RS reported the instance as failed (FailedSOPSequence present)",
+                    response.status_code,
+                    response.text
+                )
+
+            result = _parse_stow_response(response_data)
+            if not result['orthanc_instance_id']:
+                raise OrthancPushError(
+                    "STOW-RS response did not reference the pushed instance "
+                    "(no ReferencedSOPSequence entry)",
+                    response.status_code,
+                    response.text
+                )
+
             return result
-        
+
         except requests.RequestException as e:
             raise OrthancPushError(
                 f"Request failed: {str(e)}",
