@@ -1,0 +1,7 @@
+version: 2
+secret:
+  ignored-matches:
+    # Deliberately-fake @override_settings(ORTHANC_PASSWORD=...) test double
+    # used across uploads/tests/test_orthanc_*.py — not a real credential.
+    - name: test-orthanc-password test fixture
+      match: test-orthanc-password
