@@ -56,3 +56,4 @@ celerybeat-schedule
 # Upload storage
 raw_data/
 processed_data/
+temp_test_data/
