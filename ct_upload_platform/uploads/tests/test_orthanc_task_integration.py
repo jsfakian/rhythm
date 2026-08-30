@@ -200,7 +200,7 @@ class TaskOrthancPushTest(TransactionTestCase):
     @override_settings(
         ORTHANC_BASE_URL='http://orthanc:8042',
         ORTHANC_USERNAME='orthanc',
-        ORTHANC_PASSWORD='orthanc',
+        ORTHANC_PASSWORD='test-orthanc-password',
     )
     def test_task_pushes_dicom_to_orthanc(self):
         """Test that task Step 8 pushes DICOM to Orthanc via STOW-RS."""
@@ -230,7 +230,7 @@ class TaskOrthancPushTest(TransactionTestCase):
     @override_settings(
         ORTHANC_BASE_URL='http://orthanc:8042',
         ORTHANC_USERNAME='orthanc',
-        ORTHANC_PASSWORD='orthanc',
+        ORTHANC_PASSWORD='test-orthanc-password',
     )
     def test_task_updates_study_mapping_after_orthanc_push(self):
         """Test that task Step 9 updates StudyMapping with Orthanc study ID."""
@@ -260,7 +260,7 @@ class TaskOrthancPushTest(TransactionTestCase):
     @override_settings(
         ORTHANC_BASE_URL='http://orthanc:8042',
         ORTHANC_USERNAME='orthanc',
-        ORTHANC_PASSWORD='orthanc',
+        ORTHANC_PASSWORD='test-orthanc-password',
     )
     def test_task_handles_orthanc_push_error(self):
         """Test that task handles Orthanc push failure gracefully."""
@@ -301,7 +301,7 @@ class TaskFailureRecoveryTest(TransactionTestCase):
     @override_settings(
         ORTHANC_BASE_URL='http://orthanc:8042',
         ORTHANC_USERNAME='orthanc',
-        ORTHANC_PASSWORD='orthanc',
+        ORTHANC_PASSWORD='test-orthanc-password',
     )
     def test_task_continues_after_single_image_push_error(self):
         """Test that task continues processing remaining images if one fails."""

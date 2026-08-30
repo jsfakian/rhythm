@@ -29,14 +29,14 @@ class OrthancClientInitTest(TestCase):
     @override_settings(
         ORTHANC_BASE_URL='http://orthanc:8042',
         ORTHANC_USERNAME='orthanc',
-        ORTHANC_PASSWORD='orthanc'
+        ORTHANC_PASSWORD='test-orthanc-password'
     )
     def test_client_initialization(self):
         """Test that OrthancClient initializes with correct settings."""
         client = OrthancClient()
         
         self.assertEqual(client.base_url, 'http://orthanc:8042')
-        self.assertEqual(client.session.auth, ('orthanc', 'orthanc'))
+        self.assertEqual(client.session.auth, ('orthanc', 'test-orthanc-password'))
         self.assertEqual(client.session.timeout, 30)
     
     @override_settings(
@@ -65,7 +65,7 @@ class OrthancPushDicomTest(TestCase):
     @override_settings(
         ORTHANC_BASE_URL='http://orthanc:8042',
         ORTHANC_USERNAME='orthanc',
-        ORTHANC_PASSWORD='orthanc'
+        ORTHANC_PASSWORD='test-orthanc-password'
     )
     def test_push_dicom_success(self):
         """Test successful DICOM push to Orthanc.
@@ -122,7 +122,7 @@ class OrthancPushDicomTest(TestCase):
     @override_settings(
         ORTHANC_BASE_URL='http://orthanc:8042',
         ORTHANC_USERNAME='orthanc',
-        ORTHANC_PASSWORD='orthanc'
+        ORTHANC_PASSWORD='test-orthanc-password'
     )
     def test_push_dicom_server_error(self):
         """Test DICOM push fails with server error."""
@@ -146,7 +146,7 @@ class OrthancPushDicomTest(TestCase):
     @override_settings(
         ORTHANC_BASE_URL='http://orthanc:8042',
         ORTHANC_USERNAME='orthanc',
-        ORTHANC_PASSWORD='orthanc'
+        ORTHANC_PASSWORD='test-orthanc-password'
     )
     def test_push_dicom_connection_error(self):
         """Test DICOM push fails with connection error."""
@@ -166,7 +166,7 @@ class OrthancPushDicomTest(TestCase):
     @override_settings(
         ORTHANC_BASE_URL='http://orthanc:8042',
         ORTHANC_USERNAME='orthanc',
-        ORTHANC_PASSWORD='orthanc'
+        ORTHANC_PASSWORD='test-orthanc-password'
     )
     def test_push_dicom_missing_response_data(self):
         """An unparseable/empty response body means we can't confirm the
@@ -190,7 +190,7 @@ class OrthancPushDicomTest(TestCase):
     @override_settings(
         ORTHANC_BASE_URL='http://orthanc:8042',
         ORTHANC_USERNAME='orthanc',
-        ORTHANC_PASSWORD='orthanc'
+        ORTHANC_PASSWORD='test-orthanc-password'
     )
     def test_push_dicom_failed_sop_sequence_raises(self):
         """A STOW-RS response can be HTTP 200 yet report the (only)
@@ -221,7 +221,7 @@ class OrthancQueryTest(TestCase):
     @override_settings(
         ORTHANC_BASE_URL='http://orthanc:8042',
         ORTHANC_USERNAME='orthanc',
-        ORTHANC_PASSWORD='orthanc'
+        ORTHANC_PASSWORD='test-orthanc-password'
     )
     def test_get_study_series_success(self):
         """Test successful series query from Orthanc."""
@@ -259,7 +259,7 @@ class OrthancQueryTest(TestCase):
     @override_settings(
         ORTHANC_BASE_URL='http://orthanc:8042',
         ORTHANC_USERNAME='orthanc',
-        ORTHANC_PASSWORD='orthanc'
+        ORTHANC_PASSWORD='test-orthanc-password'
     )
     def test_get_study_series_not_found(self):
         """Test series query fails when study not found."""
@@ -280,7 +280,7 @@ class OrthancQueryTest(TestCase):
     @override_settings(
         ORTHANC_BASE_URL='http://orthanc:8042',
         ORTHANC_USERNAME='orthanc',
-        ORTHANC_PASSWORD='orthanc'
+        ORTHANC_PASSWORD='test-orthanc-password'
     )
     def test_get_study_instances_success(self):
         """Test successful instances query from Orthanc."""
@@ -320,7 +320,7 @@ class OrthancHealthCheckTest(TestCase):
     @override_settings(
         ORTHANC_BASE_URL='http://orthanc:8042',
         ORTHANC_USERNAME='orthanc',
-        ORTHANC_PASSWORD='orthanc'
+        ORTHANC_PASSWORD='test-orthanc-password'
     )
     def test_health_check_success(self):
         """Test successful health check."""
@@ -341,7 +341,7 @@ class OrthancHealthCheckTest(TestCase):
     @override_settings(
         ORTHANC_BASE_URL='http://orthanc:8042',
         ORTHANC_USERNAME='orthanc',
-        ORTHANC_PASSWORD='orthanc'
+        ORTHANC_PASSWORD='test-orthanc-password'
     )
     def test_health_check_failure(self):
         """Test health check when Orthanc unreachable."""
@@ -358,7 +358,7 @@ class OrthancHealthCheckTest(TestCase):
     @override_settings(
         ORTHANC_BASE_URL='http://orthanc:8042',
         ORTHANC_USERNAME='orthanc',
-        ORTHANC_PASSWORD='orthanc'
+        ORTHANC_PASSWORD='test-orthanc-password'
     )
     def test_health_check_connection_error(self):
         """Test health check with connection error."""
@@ -377,7 +377,7 @@ class OrthancMultipartBodyTest(TestCase):
     @override_settings(
         ORTHANC_BASE_URL='http://orthanc:8042',
         ORTHANC_USERNAME='orthanc',
-        ORTHANC_PASSWORD='orthanc'
+        ORTHANC_PASSWORD='test-orthanc-password'
     )
     def test_multipart_body_format(self):
         """Test that multipart/related body is correctly formatted."""

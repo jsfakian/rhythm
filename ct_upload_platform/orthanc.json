@@ -4,9 +4,6 @@
   "HttpThreadsCount": 8,
   "RemoteAccessAllowed": true,
   "AuthenticationEnabled": true,
-  "RegisteredUsers": {
-    "orthanc": "REDACTED"
-  },
   "DicomAET": "ORTHANC",
   "DicomServerEnabled": true,
   "DicomPort": 4242,

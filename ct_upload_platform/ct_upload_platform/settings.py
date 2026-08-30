@@ -25,6 +25,17 @@ SECRET_KEY = env('SECRET_KEY', default='django-insecure-your-secret-key-change-i
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env('DEBUG', default=False)
 
+# A deployment that never set SECRET_KEY still silently ran on the
+# placeholder default above — this is exactly how a real .env ended up with
+# an unrotated SECRET_KEY on a live, internet-facing instance. Fail loudly
+# instead once DEBUG is off.
+if not DEBUG and SECRET_KEY.startswith('django-insecure-'):
+    from django.core.exceptions import ImproperlyConfigured
+    raise ImproperlyConfigured(
+        'SECRET_KEY is still the insecure placeholder default. Set a real '
+        'SECRET_KEY in .env before running with DEBUG=False.'
+    )
+
 ALLOWED_HOSTS = env('ALLOWED_HOSTS', default='localhost,127.0.0.1').split(',')
 
 CSRF_TRUSTED_ORIGINS = env('CSRF_TRUSTED_ORIGINS', default='').split(',') if env('CSRF_TRUSTED_ORIGINS', default='') else []

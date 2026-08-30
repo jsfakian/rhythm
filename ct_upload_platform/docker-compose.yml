@@ -5,7 +5,11 @@ services:
     environment:
       POSTGRES_DB: ${DB_NAME:-ct_upload_platform}
       POSTGRES_USER: ${DB_USER:-postgres}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      # No default here on purpose — a silently-guessable fallback password
+      # is exactly how the Orthanc credential ended up hardcoded (and later
+      # leaked via git history) elsewhere in this file. Set DB_PASSWORD in
+      # .env; compose fails fast at startup if it's missing.
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
@@ -53,7 +57,9 @@ services:
       REDIS_URL: redis://redis:6379/0
       ORTHANC_BASE_URL: http://orthanc:8042
       ORTHANC_USERNAME: ${ORTHANC_USERNAME:-orthanc}
-      ORTHANC_PASSWORD: ${ORTHANC_PASSWORD:-orthanc}
+      # No insecure fallback — see orthanc.secrets.json.example / the orthanc
+      # service below for why this must come from .env.
+      ORTHANC_PASSWORD: ${ORTHANC_PASSWORD:?Set ORTHANC_PASSWORD in .env}
     depends_on:
       db:
         condition: service_healthy
@@ -81,7 +87,9 @@ services:
       REDIS_URL: redis://redis:6379/0
       ORTHANC_BASE_URL: http://orthanc:8042
       ORTHANC_USERNAME: ${ORTHANC_USERNAME:-orthanc}
-      ORTHANC_PASSWORD: ${ORTHANC_PASSWORD:-orthanc}
+      # No insecure fallback — see orthanc.secrets.json.example / the orthanc
+      # service below for why this must come from .env.
+      ORTHANC_PASSWORD: ${ORTHANC_PASSWORD:?Set ORTHANC_PASSWORD in .env}
     depends_on:
       - db
       - redis
@@ -99,9 +107,19 @@ services:
     volumes:
       - orthanc_data:/var/lib/orthanc/db
       - ./orthanc.json:/etc/orthanc/orthanc.json:ro
+      # RegisteredUsers lives here instead, gitignored — Orthanc merges every
+      # .json file it finds under /etc/orthanc/. Copy
+      # orthanc.secrets.json.example to orthanc.secrets.json and set a real
+      # password before first run (see README/setup docs).
+      - ./orthanc.secrets.json:/etc/orthanc/orthanc.secrets.json:ro
+    environment:
+      # Read by the healthcheck below — never hardcode the credential here,
+      # that's exactly how it ended up committed (and leaked) before.
+      ORTHANC_USERNAME: ${ORTHANC_USERNAME:-orthanc}
+      ORTHANC_PASSWORD: ${ORTHANC_PASSWORD:?Set ORTHANC_PASSWORD in .env}
     stop_grace_period: 5s
     healthcheck:
-      test: ["CMD-SHELL", "python3 -c \"import urllib.request as u; u.urlopen(u.Request('http://localhost:8042/system', headers={'Authorization': 'Basic UkVEQUNURUQ6UkVEQUNURUQ='}))\" || exit 1"]
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request as u, base64, os; auth = base64.b64encode(('%s:%s' % (os.environ['ORTHANC_USERNAME'], os.environ['ORTHANC_PASSWORD'])).encode()).decode(); u.urlopen(u.Request('http://localhost:8042/system', headers={'Authorization': 'Basic ' + auth}))\" || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 5

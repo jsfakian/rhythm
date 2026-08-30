@@ -69,7 +69,7 @@ class OrthancIntegrationUploadTest(TransactionTestCase):
     @override_settings(
         ORTHANC_BASE_URL='http://orthanc:8042',
         ORTHANC_USERNAME='orthanc',
-        ORTHANC_PASSWORD='orthanc',
+        ORTHANC_PASSWORD='test-orthanc-password',
         RAW_DATA_DIR=tempfile.gettempdir(),
     )
     def test_patient_creation_on_first_upload(self):
@@ -97,7 +97,7 @@ class OrthancIntegrationUploadTest(TransactionTestCase):
     @override_settings(
         ORTHANC_BASE_URL='http://orthanc:8042',
         ORTHANC_USERNAME='orthanc',
-        ORTHANC_PASSWORD='orthanc',
+        ORTHANC_PASSWORD='test-orthanc-password',
     )
     def test_patient_reuse_on_second_upload(self):
         """Test that second upload reuses Patient record."""
@@ -129,7 +129,7 @@ class OrthancIntegrationUploadTest(TransactionTestCase):
     @override_settings(
         ORTHANC_BASE_URL='http://orthanc:8042',
         ORTHANC_USERNAME='orthanc',
-        ORTHANC_PASSWORD='orthanc',
+        ORTHANC_PASSWORD='test-orthanc-password',
     )
     def test_patient_id_collision_prevention(self):
         """Test that different patients cannot use same pseudo_id."""
@@ -162,7 +162,7 @@ class OrthancIntegrationUploadTest(TransactionTestCase):
     @override_settings(
         ORTHANC_BASE_URL='http://orthanc:8042',
         ORTHANC_USERNAME='orthanc',
-        ORTHANC_PASSWORD='orthanc',
+        ORTHANC_PASSWORD='test-orthanc-password',
     )
     def test_study_mapping_created_on_upload(self):
         """Test that StudyMapping is created linking pseudo_id to orthanc_study_id."""
@@ -199,7 +199,7 @@ class OrthancIntegrationUploadTest(TransactionTestCase):
     @override_settings(
         ORTHANC_BASE_URL='http://orthanc:8042',
         ORTHANC_USERNAME='orthanc',
-        ORTHANC_PASSWORD='orthanc',
+        ORTHANC_PASSWORD='test-orthanc-password',
     )
     def test_image_record_with_orthanc_instance_id(self):
         """Test that Image records store Orthanc instance IDs."""
@@ -248,7 +248,7 @@ class OrthancPushErrorHandlingTest(TransactionTestCase):
     @override_settings(
         ORTHANC_BASE_URL='http://orthanc:8042',
         ORTHANC_USERNAME='orthanc',
-        ORTHANC_PASSWORD='orthanc',
+        ORTHANC_PASSWORD='test-orthanc-password',
     )
     def test_orthanc_push_error_captured(self):
         """Test that Orthanc push errors are captured and reported."""
@@ -272,7 +272,7 @@ class OrthancPushErrorHandlingTest(TransactionTestCase):
     @override_settings(
         ORTHANC_BASE_URL='http://orthanc:8042',
         ORTHANC_USERNAME='orthanc',
-        ORTHANC_PASSWORD='orthanc',
+        ORTHANC_PASSWORD='test-orthanc-password',
     )
     def test_orthanc_server_timeout(self):
         """Test handling of Orthanc server timeout."""
@@ -292,7 +292,7 @@ class OrthancPushErrorHandlingTest(TransactionTestCase):
     @override_settings(
         ORTHANC_BASE_URL='http://orthanc-down:8042',
         ORTHANC_USERNAME='orthanc',
-        ORTHANC_PASSWORD='orthanc',
+        ORTHANC_PASSWORD='test-orthanc-password',
     )
     def test_orthanc_connection_refused(self):
         """Test handling when Orthanc connection is refused."""
@@ -323,7 +323,7 @@ class OrthancMultiUploadWorkflowTest(TransactionTestCase):
     @override_settings(
         ORTHANC_BASE_URL='http://orthanc:8042',
         ORTHANC_USERNAME='orthanc',
-        ORTHANC_PASSWORD='orthanc',
+        ORTHANC_PASSWORD='test-orthanc-password',
     )
     def test_multiple_uploads_same_patient(self):
         """Test multiple uploads of same patient reuse Patient record."""
@@ -382,7 +382,7 @@ class OrthancMultiUploadWorkflowTest(TransactionTestCase):
     @override_settings(
         ORTHANC_BASE_URL='http://orthanc:8042',
         ORTHANC_USERNAME='orthanc',
-        ORTHANC_PASSWORD='orthanc',
+        ORTHANC_PASSWORD='test-orthanc-password',
     )
     def test_multiple_uploads_different_patients(self):
         """Test multiple uploads of different patients create separate records."""
