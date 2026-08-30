@@ -150,6 +150,13 @@ class AutomatedUploadViewTests(TestCase):
         self.assertIn(b'id="inp_manifest"', resp.content)
         self.assertIn(b'id="inp_zips"', resp.content)
 
+    def test_page_links_to_manifest_generator_tool_repo(self) -> None:
+        """Partners need the manifest generator tool (py source, Windows
+        .exe, and manifest template) before they can use this page at all —
+        it must link to where those are published."""
+        resp = self.client.get(reverse("automated-upload"))
+        self.assertContains(resp, 'href="https://github.com/jsfakian/rhythm"')
+
 
 class ManifestValidatorPageTests(TestCase):
 
