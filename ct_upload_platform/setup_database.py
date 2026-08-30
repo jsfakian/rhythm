@@ -19,6 +19,7 @@ Prerequisites:
 
 import os
 import sys
+import secrets
 import subprocess
 import argparse
 from pathlib import Path
@@ -230,7 +231,12 @@ def main():
     
     django_user = "admin"
     django_email = "admin@localhost"
-    django_password = "admin_password"
+    # Generated per run rather than a fixed default — a hardcoded default
+    # superuser password here is exactly the pattern that led to this
+    # project's real Orthanc/DB/SECRET_KEY credentials being left at their
+    # insecure defaults in a live deployment. Printed once below so the
+    # operator can capture it.
+    django_password = secrets.token_urlsafe(12)
     
     # Check if user exists
     check_cmd = f'{sys.executable} manage.py shell -c "from django.contrib.auth.models import User; print(User.objects.filter(username=\'{django_user}\').exists())"'
