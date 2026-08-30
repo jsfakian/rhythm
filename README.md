@@ -71,7 +71,17 @@ Both pipelines run the same GDPR anonymization validation (see below) before any
 
 **2. Get the manifest generator tool.** Partners prepare their upload package with a small companion tool (Python script + Windows `.exe`, same behavior either way), available at **[github.com/jsfakian/rhythm](https://github.com/jsfakian/rhythm)** along with the Excel metadata template. It does not anonymize DICOM files — it only reads already-anonymized ZIPs and builds the upload manifest.
 
-**3. Prepare one ZIP per studyset.** Each ZIP contains only the DICOM files for one CT studyset (one `StudyInstanceUID`) — no reports, screenshots, or nested archives.
+**3. Prepare one ZIP per studyset.** Each ZIP contains only the DICOM files for one CT studyset (one `StudyInstanceUID`) — no reports, screenshots, or nested archives. Suggested layout for the working folder:
+
+```text
+RHYTHM_Upload/
+├── metadata/
+│   └── rhythm_server_assigned_metadata_template.xlsx
+├── zips/
+│   ├── study_001_anonymized.zip
+│   └── study_002_anonymized.zip
+└── output/
+```
 
 **4. Fill in one Excel row per ZIP:**
 
@@ -127,7 +137,30 @@ python create_rhythm_server_assigned_manifest_gui_with_uid.py \
   --batch S001-2026-07-12-001
 ```
 
-This produces `rhythm_upload_manifest.json` (submit this) and `rhythm_upload_manifest_index.csv` (for your own review). The tool inspects each ZIP, extracts its DICOM `StudyInstanceUID`, and computes a SHA-256 checksum — it stops with an error if a ZIP contains more than one study.
+This produces `rhythm_upload_manifest.json` (submit this) and `rhythm_upload_manifest_index.csv` (for your own review). Before writing them, the tool checks that: the Excel file is readable and has the required columns; every `filename` exists in the ZIP folder and is a valid ZIP; each ZIP contains readable DICOM files with exactly **one** `StudyInstanceUID` (it stops with an error otherwise — split the ZIP and re-run); and, if enabled, computes each ZIP's SHA-256 checksum.
+
+A generated item looks like this:
+
+```json
+{
+  "ref": "ROW0001",
+  "filename": "study_001_anonymized.zip",
+  "dicom_uid": "2.25.23890534782093478203948203948203948",
+  "dicom": {
+    "patient_id": "P-8F3KQ9M2X7AD",
+    "series_uids": ["2.25.90823475098237450982374509823745098"],
+    "series_count": 1,
+    "instance_count": 180
+  },
+  "site_code": "S001",
+  "clinical_indication_code": "HEADTRAUMA",
+  "contrast_code": "NC",
+  "patient_group_code": "PH-G4",
+  "image_quality": "Acceptable"
+}
+```
+
+`dicom_uid`/`dicom` are informational only — the server independently re-extracts the `StudyInstanceUID` from the ZIP rather than trusting these fields (see step 7).
 
 **6. Upload** `rhythm_upload_manifest.json` together with the ZIP files, through the **Automated Upload** page (`/automated-upload/`, requires a logged-in account). It validates the manifest against the live server schema, then drives the same resumable, checksum-verified chunked-upload API the API client uses — see [REST API](#rest-api) below.
 
@@ -140,6 +173,25 @@ This produces `rhythm_upload_manifest.json` (submit this) and `rhythm_upload_man
 - Pushes validated images to Orthanc
 
 Assignment happens **asynchronously** — there is no synchronous "here's your Repository Study ID" response at upload time. Track progress on the **My Uploads** page (`/my-uploads/`) or by polling the job status URL returned when the upload completes.
+
+**Before uploading, confirm:**
+- [ ] Every studyset is anonymized
+- [ ] Each ZIP contains one studyset only
+- [ ] No ZIP contains direct patient identifiers
+- [ ] The Excel template has one row per ZIP, and each `filename` matches a ZIP exactly
+- [ ] The manifest generated successfully with no reported errors
+- [ ] The ZIP files and the JSON manifest are uploaded together
+
+**Manifest generator troubleshooting**
+
+| Problem | Fix |
+|---|---|
+| ZIP file not found | The Excel `filename` must exactly match a file in the selected ZIP folder |
+| File is not a valid ZIP | Re-create it with standard ZIP compression |
+| No readable DICOM files found | Check the ZIP holds DICOM files, not a nested ZIP or only screenshots/reports |
+| Multiple `StudyInstanceUID` values found | The ZIP has more than one study — split it, one ZIP per studyset |
+| Excel file cannot be read | Python: `pip install openpyxl`. Executable: close the Excel file before running the tool |
+| DICOM UID extraction fails | Python: `pip install pydicom`. Also confirm the ZIP contains valid DICOM files |
 
 ### v1: Single-Study Archive (legacy)
 
