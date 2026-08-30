@@ -35,7 +35,7 @@ class SessionAuthForManifestValidationTests(TestCase):
         )
         self.assertEqual(resp.status_code, 401)
 
-    @override_settings(RAW_DATA_DIR="/tmp/eutempe_test_session_auth")
+    @override_settings(RAW_DATA_DIR="/tmp/test_session_auth")
     def test_authenticated_session_can_init_chunked_upload(self) -> None:
         self.client.force_login(self.user)
         resp = self.client.post(
@@ -45,7 +45,7 @@ class SessionAuthForManifestValidationTests(TestCase):
         )
         self.assertEqual(resp.status_code, 201)
 
-    @override_settings(RAW_DATA_DIR="/tmp/eutempe_test_session_auth_chunk")
+    @override_settings(RAW_DATA_DIR="/tmp/test_session_auth_chunk")
     def test_authenticated_session_can_upload_a_chunk(self) -> None:
         """Regression test: under SessionAuthentication, Django's CSRF check
         (_check_token) accesses request.POST first, which — via DRF's

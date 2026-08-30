@@ -19,7 +19,7 @@ from uploads.models import ChunkedUpload, UploadChunk
 from uploads.chunk_manager import store_chunk, calculate_bytes_crc32, calculate_file_crc32
 
 
-@override_settings(RAW_DATA_DIR='/tmp/eutempe_test_auto_verify')
+@override_settings(RAW_DATA_DIR='/tmp/test_auto_verify')
 class AutomaticVerificationDuringUploadTest(APITestCase):
     """Test automatic chunk verification during upload."""
 
@@ -159,7 +159,7 @@ class AutomaticVerificationDuringUploadTest(APITestCase):
         self.assertEqual(data['corrupted_chunks'], 0)
 
 
-@override_settings(RAW_DATA_DIR='/tmp/eutempe_test_auto_verify')
+@override_settings(RAW_DATA_DIR='/tmp/test_auto_verify')
 class ResumeUploadCapabilityTest(APITestCase):
     """Test resuming uploads after detecting corruption."""
 
@@ -399,7 +399,7 @@ class UploadChunkVerificationStateTest(TestCase):
         self.assertTrue(chunk.is_verified())
 
 
-@override_settings(RAW_DATA_DIR='/tmp/eutempe_test_auto_verify')
+@override_settings(RAW_DATA_DIR='/tmp/test_auto_verify')
 class UploadProgressResponseTest(APITestCase):
     """Test detailed information in chunk upload responses."""
 

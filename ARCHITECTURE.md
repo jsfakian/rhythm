@@ -1,8 +1,8 @@
-# Eutempe — System Architecture
+# RHYTHM — System Architecture
 
 ## 1. Overview
 
-Eutempe is a Django-based ingestion pipeline for pre-anonymized DICOM CT images. Research institutions submit `.tar` archives of DICOM files, the platform validates GDPR anonymization compliance, and stores accepted images in an Orthanc DICOM server. Django functions as the validation and audit layer — it does not transform DICOM data and does not duplicate image storage.
+RHYTHM is a Django-based ingestion pipeline for pre-anonymized DICOM CT images. Research institutions submit `.tar` archives of DICOM files, the platform validates GDPR anonymization compliance, and stores accepted images in an Orthanc DICOM server. Django functions as the validation and audit layer — it does not transform DICOM data and does not duplicate image storage.
 
 **Core invariant:** No PHI (Protected Health Information) ever enters the Django database. The database stores only pseudo-identifiers and audit records.
 

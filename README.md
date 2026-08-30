@@ -1,4 +1,4 @@
-# Eutempe — CT Medical Image Upload Platform
+# RHYTHM — CT Medical Image Upload Platform
 
 A Django-based ingestion pipeline for pre-anonymized DICOM CT images. Research partners submit `.tar` archives, the platform validates GDPR anonymization compliance, and stores accepted images in an Orthanc DICOM server.
 
@@ -389,7 +389,7 @@ EMAIL_HOST_PASSWORD=<app password>
 ## Project Structure
 
 ```
-eutempe-repo/
+rhythm-repo/
 ├── README.md                 # This file
 ├── CLAUDE.md                 # Developer notes and codebase guide
 ├── GDPR-strict.json          # DICOM anonymization rule set

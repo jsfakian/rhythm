@@ -238,7 +238,7 @@ class UploadChunkModelTest(TestCase):
 # STORE CHUNK WITH CRC32 TESTS
 # ============================================================================
 
-@override_settings(RAW_DATA_DIR='/tmp/eutempe_test_uploads')
+@override_settings(RAW_DATA_DIR='/tmp/test_uploads')
 class StoreChunkWithCRC32Test(TestCase):
     """Test enhanced store_chunk function that returns CRC32."""
 
@@ -294,7 +294,7 @@ class StoreChunkWithCRC32Test(TestCase):
 # VERIFY UPLOADED CHUNKS TESTS
 # ============================================================================
 
-@override_settings(RAW_DATA_DIR='/tmp/eutempe_test_uploads')
+@override_settings(RAW_DATA_DIR='/tmp/test_uploads')
 class VerifyUploadedChunksTest(TestCase):
     """Test comprehensive chunk verification with corruption detection."""
 
@@ -561,7 +561,7 @@ class ManifestValidationViewTest(APITestCase):
 # CHUNK VERIFICATION VIEW TESTS
 # ============================================================================
 
-@override_settings(RAW_DATA_DIR='/tmp/eutempe_test_uploads')
+@override_settings(RAW_DATA_DIR='/tmp/test_uploads')
 class ChunkVerificationViewTest(APITestCase):
     """Test ChunkVerificationView for corruption detection endpoint."""
 
@@ -706,7 +706,7 @@ class ChunkVerificationViewTest(APITestCase):
 # INTEGRATION TESTS
 # ============================================================================
 
-@override_settings(RAW_DATA_DIR='/tmp/eutempe_test_uploads')
+@override_settings(RAW_DATA_DIR='/tmp/test_uploads')
 class UploadImprovementsIntegrationTest(APITestCase):
     """Integration tests for early validation + chunk verification workflow."""
     
