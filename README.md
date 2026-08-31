@@ -473,11 +473,14 @@ Scheduled via the host crontab, once daily at end of day:
 ```
 (`crontab -e` to view/edit; not part of this repo since it's host config, not a project file.) Run it manually with `./scripts/backup_db.sh`, or `make db-backup` for a one-off dump without the log/retention logic.
 
-**Restoring** a dump:
+**Restoring** a dump — the dump is a plain `pg_dump` of an already-populated database, so load it into an *empty* database, not over a live one with existing rows (you'll get conflicts):
 ```bash
-docker compose exec -T db psql -U postgres -d ct_upload_platform < backups/db_backup_YYYYMMDD_HHMMSS.sql
+docker compose exec -T db psql -U postgres -c "CREATE DATABASE ct_upload_platform_restored;"
+docker compose exec -T db psql -U postgres -d ct_upload_platform_restored < backups/db_backup_YYYYMMDD_HHMMSS.sql
 ```
-This has not yet been rehearsed end-to-end against a throwaway database — do that before relying on it in an actual incident.
+Verify it (e.g. compare row counts against the live DB — `SELECT COUNT(*) FROM uploads_ctexamination;` etc.), then either point `DB_NAME` at the restored database, or drop the old one and rename the restored one to `ct_upload_platform`.
+
+Rehearsed 2026-08-31: a fresh dump was restored into a throwaway database and verified with matching table/row counts (33 tables; `uploads_ctexamination`, `uploads_uploadjob`, `uploads_studymapping`, `auth_user` row counts all identical to the live DB) before being dropped. The dump format and this restore procedure are confirmed working end-to-end.
 
 ---
 
@@ -540,7 +543,7 @@ EMAIL_HOST_PASSWORD=<app password>
 - [ ] `IP_WHITELIST` configured if needed
 - [ ] Audit logging monitored
 - [x] Database backups: `scripts/backup_db.sh` runs daily via cron (30-day retention) — see [Database Backups](#database-backups)
-- [ ] Backup restore actually rehearsed (`make db-restore` against a real dump)
+- [x] Backup restore rehearsed 2026-08-31 (restored into a throwaway DB, row counts verified, dropped) — see [Database Backups](#database-backups)
 - [ ] Backups encrypted at rest / shipped off-host (currently plain `.sql` files on the same disk as the live DB)
 - [ ] Dependency scanning in CI/CD (`pip-audit` or `safety`)
 - [ ] Secret scanning (e.g. GitGuardian) enabled on the repo; `.gitguardian.yaml` allowlists known test-only fixtures
