@@ -904,8 +904,8 @@ class ExaminationSaveAPIView(AjaxLoginRequiredMixin, View):
         contrast = data.get("contrast", "")
         protocol_type = data.get("protocol_type", "")
         examination_group = data.get("examination_group", "")
-        patient_weight = data.get("patient_weight") or None
-        wed = data.get("water_equivalent_diameter") or None
+        patient_weight_raw = data.get("patient_weight") or None
+        wed_raw = data.get("water_equivalent_diameter") or None
         patient_age_raw = data.get("patient_age") or None
         number_of_phases = data.get("number_of_phases", 1)
         ctdi_vol = data.get("ctdi_vol_per_phase", [])
@@ -928,6 +928,40 @@ class ExaminationSaveAPIView(AjaxLoginRequiredMixin, View):
             except (TypeError, ValueError, InvalidOperation):
                 return JsonResponse(
                     {"error": "Patient's age must be a number between 0 and 150."}, status=400
+                )
+
+        # Regression: patient_weight and water_equivalent_diameter used to be
+        # passed straight to CTExamination.objects.create() as raw strings,
+        # with no parsing or range check (unlike patient_age just above). A
+        # malformed value (wrong decimal separator, too many digits for
+        # DecimalField(max_digits=7), non-numeric input) raised an UNCAUGHT
+        # exception *inside* .create() — by which point the repository_study_id
+        # had already been consumed from the sequence counter and the study
+        # set file already written to disk (Django commits a FileField to
+        # storage before the row's own INSERT). The browser saw a raw 500,
+        # the file was orphaned, and no CTExamination row existed to retry
+        # from. Validate up front, like patient_age, so a bad value fails
+        # cleanly *before* anything is generated or written.
+        patient_weight = None
+        if patient_weight_raw not in (None, ""):
+            try:
+                patient_weight = Decimal(str(patient_weight_raw))
+                if patient_weight < 0 or patient_weight > 99999.99:
+                    raise ValueError
+            except (TypeError, ValueError, InvalidOperation):
+                return JsonResponse(
+                    {"error": "Patient's weight must be a valid number (kg)."}, status=400
+                )
+
+        wed = None
+        if wed_raw not in (None, ""):
+            try:
+                wed = Decimal(str(wed_raw))
+                if wed < 0 or wed > 99999.99:
+                    raise ValueError
+            except (TypeError, ValueError, InvalidOperation):
+                return JsonResponse(
+                    {"error": "Water equivalent diameter must be a valid number."}, status=400
                 )
 
         if len(ctdi_vol) != number_of_phases or len(dlp) != number_of_phases:
@@ -953,7 +987,7 @@ class ExaminationSaveAPIView(AjaxLoginRequiredMixin, View):
             errors.append("CTDI vol is required for every phase.")
         if any(v in (None, "") for v in dlp):
             errors.append("DLP is required for every phase.")
-        if not patient_weight and protocol_type != "PEDIATRIC_HEAD":
+        if patient_weight is None and protocol_type != "PEDIATRIC_HEAD":
             errors.append("Patient's weight is required.")
         if not image_quality:
             errors.append("Image quality is required.")
@@ -961,6 +995,17 @@ class ExaminationSaveAPIView(AjaxLoginRequiredMixin, View):
             errors.append("Compressed study set is required.")
         if errors:
             return JsonResponse({"error": " ".join(errors)}, status=400)
+
+        # Same class of bug as patient_weight above: these were converted
+        # with float(v) only at the .create() call site, i.e. as late as
+        # possible. Convert now, before anything else is generated.
+        try:
+            ctdi_vol = [float(v) for v in ctdi_vol]
+            dlp = [float(v) for v in dlp]
+        except (TypeError, ValueError):
+            return JsonResponse(
+                {"error": "CTDI vol and DLP values must be numbers."}, status=400
+            )
 
         protocol = None
         if protocol_id:
@@ -1014,26 +1059,50 @@ class ExaminationSaveAPIView(AjaxLoginRequiredMixin, View):
                 _, file_ext = os.path.splitext(orig_name)
             study_set_file.name = f"{rhythm_id}{file_ext}"
 
-        exam = CTExamination.objects.create(
-            protocol=protocol,
-            scanner=scanner,
-            anatomical_region=anatomical_region,
-            clinical_indication=clinical_indication,
-            contrast=contrast,
-            protocol_type=protocol_type,
-            examination_group=examination_group,
-            rhythm_pseudo_id=rhythm_id,
-            study_set_file=study_set_file,
-            patient_weight=patient_weight,
-            water_equivalent_diameter=wed,
-            patient_age=patient_age,
-            number_of_phases=number_of_phases,
-            ctdi_vol_per_phase=[float(v) for v in ctdi_vol],
-            dlp_per_phase=[float(v) for v in dlp],
-            image_quality=image_quality,
-            created_by=request.user.username,
-            site_code=user_site_code(request.user),
-        )
+        try:
+            exam = CTExamination.objects.create(
+                protocol=protocol,
+                scanner=scanner,
+                anatomical_region=anatomical_region,
+                clinical_indication=clinical_indication,
+                contrast=contrast,
+                protocol_type=protocol_type,
+                examination_group=examination_group,
+                rhythm_pseudo_id=rhythm_id,
+                study_set_file=study_set_file,
+                patient_weight=patient_weight,
+                water_equivalent_diameter=wed,
+                patient_age=patient_age,
+                number_of_phases=number_of_phases,
+                ctdi_vol_per_phase=ctdi_vol,
+                dlp_per_phase=dlp,
+                image_quality=image_quality,
+                created_by=request.user.username,
+                site_code=user_site_code(request.user),
+            )
+        except Exception as exc:
+            # Defense in depth: every field above is now pre-validated, so
+            # this shouldn't normally trigger — but if it ever does again
+            # (DB outage, unforeseen edge case), don't leave an orphaned
+            # file behind with a consumed repository_study_id and no
+            # record. study_set_file.name reflects the *actual* stored path
+            # by this point (Django writes the file to storage before the
+            # row's INSERT), so clean it up before failing the request.
+            logger.error("Failed to save examination (rhythm_id=%s): %s", rhythm_id, exc)
+            if study_set_file and getattr(study_set_file, "name", None):
+                try:
+                    from django.core.files.storage import default_storage
+                    if default_storage.exists(study_set_file.name):
+                        default_storage.delete(study_set_file.name)
+                except Exception:
+                    logger.warning(
+                        "Also failed to clean up orphaned file %s after a failed save",
+                        getattr(study_set_file, "name", "<unknown>"),
+                    )
+            return JsonResponse(
+                {"error": "Could not save the examination due to a server error. Please try again."},
+                status=500,
+            )
 
         # If a study set archive was attached, queue it through the same
         # GDPR-validation / Orthanc-push pipeline used by the automated

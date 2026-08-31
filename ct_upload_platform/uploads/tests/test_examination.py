@@ -383,6 +383,38 @@ class ExaminationSaveAPIViewTests(_ExamFixtures, TestCase):
         ))
         self.assertEqual(resp.status_code, 400)
 
+    def test_malformed_patient_weight_returns_400_not_500(self) -> None:
+        """Regression: patient_weight used to be passed straight to
+        CTExamination.objects.create() with no parsing, unlike patient_age.
+        A comma-decimal or otherwise non-numeric value raised an uncaught
+        exception INSIDE .create() — after the repository_study_id had
+        already been consumed and (for a multipart request) the file
+        already written to disk — leaving an orphaned file and no record.
+        A bad value must fail cleanly, with no side effects."""
+        resp = self._post(self._valid_payload(patient_weight="12,5"))
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(CTExamination.objects.count(), 0)
+
+    def test_patient_weight_exceeding_max_digits_returns_400_not_500(self) -> None:
+        """DecimalField(max_digits=7, decimal_places=2) allows up to
+        99999.99 — a larger value used to reach Postgres as a raw string
+        and raise 'numeric field overflow' uncaught inside .create()."""
+        resp = self._post(self._valid_payload(patient_weight=1234567.89))
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(CTExamination.objects.count(), 0)
+
+    def test_malformed_water_equivalent_diameter_returns_400_not_500(self) -> None:
+        resp = self._post(self._valid_payload(water_equivalent_diameter="not-a-number"))
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(CTExamination.objects.count(), 0)
+
+    def test_malformed_ctdi_vol_returns_400_not_500(self) -> None:
+        resp = self._post(self._valid_payload(
+            ctdi_vol_per_phase=["oops", 4.2],
+        ))
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(CTExamination.objects.count(), 0)
+
     def test_decimal_patient_age_accepted(self) -> None:
         """A fractional age (e.g. 0.3 years for a newborn) must be accepted, not 500."""
         resp = self._post(self._valid_payload(patient_age=0.3))
