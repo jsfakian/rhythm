@@ -463,6 +463,24 @@ docker compose exec web python manage.py create_upload_token john.doe
 
 ---
 
+## Database Backups
+
+`scripts/backup_db.sh` dumps the live PostgreSQL database via `pg_dump`, timestamped, with a log at `backups/backup.log`. It fails loudly (and removes the partial file) rather than silently writing a broken dump, and prunes dumps older than 30 days (`RETENTION_DAYS` env var to override).
+
+Scheduled via the host crontab, once daily at end of day:
+```bash
+55 23 * * * /path/to/rhythm-repo/ct_upload_platform/scripts/backup_db.sh
+```
+(`crontab -e` to view/edit; not part of this repo since it's host config, not a project file.) Run it manually with `./scripts/backup_db.sh`, or `make db-backup` for a one-off dump without the log/retention logic.
+
+**Restoring** a dump:
+```bash
+docker compose exec -T db psql -U postgres -d ct_upload_platform < backups/db_backup_YYYYMMDD_HHMMSS.sql
+```
+This has not yet been rehearsed end-to-end against a throwaway database — do that before relying on it in an actual incident.
+
+---
+
 ## Configuration
 
 Copy `.env.example` to `.env` and fill in these values. **Never leave a credential at a guessable default** — `docker-compose.yml` deliberately fails fast at startup if `DB_PASSWORD` or `ORTHANC_PASSWORD` is unset, and Django refuses to start with `DEBUG=False` if `SECRET_KEY` is still the placeholder default.
@@ -521,7 +539,9 @@ EMAIL_HOST_PASSWORD=<app password>
 - [ ] Redis not exposed to the internet
 - [ ] `IP_WHITELIST` configured if needed
 - [ ] Audit logging monitored
-- [ ] Database backups tested and encrypted
+- [x] Database backups: `scripts/backup_db.sh` runs daily via cron (30-day retention) — see [Database Backups](#database-backups)
+- [ ] Backup restore actually rehearsed (`make db-restore` against a real dump)
+- [ ] Backups encrypted at rest / shipped off-host (currently plain `.sql` files on the same disk as the live DB)
 - [ ] Dependency scanning in CI/CD (`pip-audit` or `safety`)
 - [ ] Secret scanning (e.g. GitGuardian) enabled on the repo; `.gitguardian.yaml` allowlists known test-only fixtures
 
