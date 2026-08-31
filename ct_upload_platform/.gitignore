@@ -58,3 +58,6 @@ celerybeat-schedule
 raw_data/
 processed_data/
 temp_test_data/
+
+# Database dumps (real pseudo-patient data — never committed)
+backups/
