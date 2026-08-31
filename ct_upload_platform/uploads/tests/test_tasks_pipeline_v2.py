@@ -120,11 +120,21 @@ class ProcessV2BatchItemSuccessTests(TestCase):
         job.refresh_from_db()
         self.assertEqual(job.status, "COMPLETE")
 
-    def test_patient_created_with_dicom_patient_id(self):
+    def test_patient_created_with_repository_study_id_not_dicom_patient_id(self):
+        """Regression: Patient identity is keyed by the platform's own
+        repository_study_id, never by the partner-supplied DICOM
+        PatientID — a real partner tool once wrote the same literal
+        placeholder ("PID1") for every patient, which would have merged
+        distinct real patients into one Patient record under the old
+        scheme. The DICOM's own PatientID (here "PARTNERPAT001") must not
+        become a Patient record at all."""
         zip_path = _build_v2_zip(self.tmpdir, patient_id="PARTNERPAT001")
         job = _make_v2_job(zip_path, _v2_item())
         self._run(job)
-        self.assertTrue(Patient.objects.filter(pseudo_id="PARTNERPAT001").exists())
+        exam = CTExamination.objects.first()
+        self.assertIsNotNone(exam)
+        self.assertTrue(Patient.objects.filter(pseudo_id=exam.rhythm_pseudo_id).exists())
+        self.assertFalse(Patient.objects.filter(pseudo_id="PARTNERPAT001").exists())
 
     def test_study_mapping_created(self):
         zip_path = _build_v2_zip(self.tmpdir)
@@ -222,23 +232,33 @@ class ProcessV2BatchItemFailureTests(TestCase):
         self.assertEqual(job.status, "FAILED")
         self.assertEqual(job.error_report[0]["code"], "multiple_study_uids")
 
-    def test_missing_patient_id_fails(self):
-        zip_path = _build_v2_zip(self.tmpdir, patient_id="")
-        job = _make_v2_job(zip_path, _v2_item())
-        with patch("uploads.tasks.get_processed_data_job_dir", return_value=self.extract_dir):
-            process_upload_job.apply(args=[str(job.pk)])
-        job.refresh_from_db()
-        self.assertEqual(job.status, "FAILED")
-        self.assertEqual(job.error_report[0]["code"], "missing_patient_id")
+    def test_absent_patient_id_does_not_fail_archive_scan(self):
+        """Regression: an archive where no file carries a PatientID at all
+        used to hard-fail with missing_patient_id — but that's exactly
+        what a properly-anonymized archive looks like per the
+        authoritative anonymization tool (PatientID's directive is null/
+        "remove", not a pseudonym to preserve). The archive-level scan
+        must not reject on absence; per-file GDPR validation is what
+        actually enforces this now (see
+        ProcessV2BatchItemRealGdprValidationTests)."""
+        src = tempfile.mkdtemp()
+        path = os.path.join(src, "slice.dcm")
+        _create_compliant_dicom_file(path)  # no patient_id at all
+        zip_path = os.path.join(self.tmpdir, "Input_volume1.zip")
+        with zipfile.ZipFile(zip_path, "w") as z:
+            z.write(path, arcname="slice.dcm")
+        shutil.rmtree(src)
 
-    def test_invalid_pseudo_id_format_fails(self):
-        zip_path = _build_v2_zip(self.tmpdir, patient_id="short")
         job = _make_v2_job(zip_path, _v2_item())
-        with patch("uploads.tasks.get_processed_data_job_dir", return_value=self.extract_dir):
+        mock_orthanc = MagicMock()
+        mock_orthanc.push_dicom_file.return_value = {"orthanc_study_id": "orthanc-1"}
+        with patch("uploads.tasks.get_processed_data_job_dir", return_value=self.extract_dir), \
+             patch("uploads.tasks.get_client", return_value=mock_orthanc):
             process_upload_job.apply(args=[str(job.pk)])
         job.refresh_from_db()
-        self.assertEqual(job.status, "FAILED")
-        self.assertEqual(job.error_report[0]["code"], "invalid_pseudo_id_format")
+        self.assertNotEqual(job.status, "FAILED", job.error_report)
+        if job.error_report:
+            self.assertNotIn("missing_patient_id", [e.get("code") for e in job.error_report])
 
     def test_no_dicom_files_fails(self):
         zip_path = os.path.join(self.tmpdir, "empty.zip")
@@ -289,11 +309,15 @@ class ProcessV2BatchItemFailureTests(TestCase):
 # mocked, matching the v1 pipeline's own test conventions.
 # ---------------------------------------------------------------------------
 
-def _create_compliant_dicom_file(path: str, patient_id: str = "PARTNERPAT001", study_uid: str = None) -> str:
+def _create_compliant_dicom_file(path: str, patient_id: str = None, study_uid: str = None) -> str:
     """Build a DICOM file that satisfies GDPR-strict.json for real: no PHI
     tags, no temporal tags (RetainStudyDate: false), no private/overlay/
-    curve/audio tags — just the identifying UIDs and an already-anonymized
-    PatientID, matching what the partner tools' docstrings promise."""
+    curve/audio tags, and — per the authoritative anonymization tool
+    (github.com/jsfakian/dicom_anonymization) — no PatientID at all
+    (its directive is null/"remove", not a pseudonym to preserve).
+    `patient_id` is accepted for call-site compatibility but ignored: a
+    partner-supplied value is never written into a "compliant" fixture,
+    since the platform doesn't use or trust it either way."""
     meta = Dataset()
     meta.MediaStorageSOPClassUID = "1.2.840.10008.5.1.4.1.1.2"
     meta.MediaStorageSOPInstanceUID = generate_uid()
@@ -304,8 +328,7 @@ def _create_compliant_dicom_file(path: str, patient_id: str = "PARTNERPAT001", s
     ds.SOPInstanceUID = generate_uid()
     ds.StudyInstanceUID = study_uid or generate_uid()
     ds.SeriesInstanceUID = generate_uid()
-    ds.PatientID = patient_id
-    # Deliberately no StudyDate/PatientName/PatientBirthDate/etc.
+    # Deliberately no PatientID/StudyDate/PatientName/PatientBirthDate/etc.
     ds.save_as(path)
     return path
 

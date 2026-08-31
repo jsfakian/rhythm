@@ -107,9 +107,13 @@ class ManualEntryAsyncPipelineTests(_ExamFixtures, TestCase):
         self.assertEqual(CTExamination.objects.count(), 1)
 
 
-def _build_compliant_zip_bytes(patient_id: str = "MANUALENTRYASYNC01") -> bytes:
+def _build_compliant_zip_bytes(patient_id: str = None) -> bytes:
     """A GDPR-strict-compliant DICOM, zipped, as raw bytes — suitable as a
-    study_set_file upload that the real async pipeline can actually process."""
+    study_set_file upload that the real async pipeline can actually
+    process. `patient_id` is accepted for call-site compatibility but
+    ignored: per the authoritative anonymization tool
+    (github.com/jsfakian/dicom_anonymization), a properly-anonymized file
+    has no PatientID at all — it isn't preserved as a pseudonym."""
     meta = Dataset()
     meta.MediaStorageSOPClassUID = "1.2.840.10008.5.1.4.1.1.2"
     meta.MediaStorageSOPInstanceUID = generate_uid()
@@ -120,7 +124,6 @@ def _build_compliant_zip_bytes(patient_id: str = "MANUALENTRYASYNC01") -> bytes:
     ds.SOPInstanceUID = generate_uid()
     ds.StudyInstanceUID = generate_uid()
     ds.SeriesInstanceUID = generate_uid()
-    ds.PatientID = patient_id
 
     dcm_buf = BytesIO()
     ds.save_as(dcm_buf, enforce_file_format=True)
