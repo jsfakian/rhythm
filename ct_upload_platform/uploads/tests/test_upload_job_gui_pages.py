@@ -155,7 +155,10 @@ class AutomatedUploadViewTests(TestCase):
         .exe, and manifest template) before they can use this page at all —
         it must link to where those are published."""
         resp = self.client.get(reverse("automated-upload"))
-        self.assertContains(resp, 'href="https://github.com/jsfakian/rhythm"')
+        self.assertContains(
+            resp,
+            'href="https://github.com/jsfakian/rhythm/tree/main/create_rhythm_service_manifest_gui_with_uid"',
+        )
 
 
 class ManifestValidatorPageTests(TestCase):

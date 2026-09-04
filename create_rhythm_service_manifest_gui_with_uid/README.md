@@ -69,12 +69,14 @@ Open `rhythm_server_assigned_metadata_template.xlsx` and complete one row per ZI
 | `contrast_code` | `NC`, `CE`, or `MIX` |
 | `patient_group_code` | See table below |
 | `scanner_id` | Locally registered CT scanner ID, e.g. `CT01` |
-| `protocol_name` | Name of the CT protocol used |
+| `protocol_name` | Full descriptive name of the CT protocol used, e.g. `Pediatric head trauma non-contrast` — see note below |
 | `patient_weight_kg` | Patient weight in kg |
 | `patient_age_years` | Patient age in years |
 | `ctdivol_mgy` | CTDIvol in mGy |
 | `dlp_mgy_cm` | DLP in mGy·cm |
 | `image_quality` | Image-quality category, e.g. `Acceptable` |
+
+> ⚠️ **`protocol_name` must be a descriptive name, not just a protocol number.** This field is stored as free text and is not cross-referenced against any protocol registry — whatever string is submitted is exactly what gets saved and later displayed, with no code that resolves a bare number (e.g. `"1"`, `"2"`, `"3"`) back to what protocol it refers to. A number alone is unrecoverable later, especially across sites, since different sites may number their protocols differently. Use the actual protocol name (optionally prefixed with a local number for your own reference, e.g. `P3 – Pediatric head trauma NC`).
 
 **Clinical indication codes**
 
