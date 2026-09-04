@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RHYTHM Repository Automated Upload Instructions</title>
+  <style>
+    :root {
+      --rhythm-primary: #1e3a5f;
+      --rhythm-primary-soft: #eef4ff;
+      --rhythm-accent: #5c6bc0;
+      --rhythm-bg: #f6f8fb;
+      --rhythm-panel: #ffffff;
+      --rhythm-border: #d8dee9;
+      --rhythm-text: #1f2937;
+      --rhythm-muted: #667085;
+      --rhythm-warning-bg: #fff7e6;
+      --rhythm-warning-border: #ffbf3f;
+      --rhythm-code-bg: #0f172a;
+      --rhythm-code-text: #e5e7eb;
+    }
+
+    body {
+      margin: 0;
+      background: var(--rhythm-bg);
+      color: var(--rhythm-text);
+      font-family: Arial, Helvetica, sans-serif;
+      line-height: 1.55;
+    }
+
+    .rhythm-upload-guide {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    .rhythm-hero {
+      background: linear-gradient(135deg, var(--rhythm-primary), #334e75);
+      color: white;
+      border-radius: 16px;
+      padding: 28px 32px;
+      margin-bottom: 22px;
+      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+    }
+
+    .rhythm-hero h1 {
+      margin: 0 0 8px 0;
+      font-size: 1.9rem;
+      line-height: 1.2;
+    }
+
+    .rhythm-hero p {
+      max-width: 900px;
+      margin: 0;
+      color: #e6edf7;
+      font-size: 1rem;
+    }
+
+    .rhythm-alert {
+      background: var(--rhythm-warning-bg);
+      border-left: 5px solid var(--rhythm-warning-border);
+      border-radius: 12px;
+      padding: 14px 16px;
+      margin: 16px 0 22px 0;
+    }
+
+    .rhythm-body {
+      background: var(--rhythm-panel);
+      border: 1px solid var(--rhythm-border);
+      border-radius: 14px;
+      padding: 24px 28px;
+      box-shadow: 0 2px 10px rgba(15, 23, 42, 0.04);
+    }
+
+    .rhythm-body h1 {
+      color: var(--rhythm-primary);
+      border-bottom: 2px solid var(--rhythm-border);
+      padding-bottom: 10px;
+      margin-top: 0;
+    }
+
+    .rhythm-body h2 {
+      color: var(--rhythm-primary);
+      margin-top: 30px;
+      border-top: 1px solid var(--rhythm-border);
+      padding-top: 22px;
+    }
+
+    .rhythm-body h3 {
+      color: var(--rhythm-primary);
+      margin-top: 22px;
+    }
+
+    .rhythm-body p {
+      margin: 10px 0;
+    }
+
+    .rhythm-body ul, .rhythm-body ol {
+      padding-left: 24px;
+    }
+
+    .rhythm-body li {
+      margin: 6px 0;
+    }
+
+    .rhythm-body table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 16px 0;
+      font-size: 0.95rem;
+    }
+
+    .rhythm-body th,
+    .rhythm-body td {
+      border: 1px solid var(--rhythm-border);
+      padding: 10px 12px;
+      vertical-align: top;
+      text-align: left;
+    }
+
+    .rhythm-body th {
+      background: var(--rhythm-primary);
+      color: white;
+    }
+
+    .rhythm-body tr:nth-child(even) td {
+      background: #f9fbff;
+    }
+
+    .rhythm-body code {
+      background: #eef2f7;
+      color: #111827;
+      padding: 2px 5px;
+      border-radius: 5px;
+      font-family: Consolas, Monaco, 'Courier New', monospace;
+      font-size: 0.93em;
+    }
+
+    .rhythm-body pre {
+      background: var(--rhythm-code-bg);
+      color: var(--rhythm-code-text);
+      padding: 16px;
+      border-radius: 12px;
+      overflow-x: auto;
+      white-space: pre;
+      font-family: Consolas, Monaco, 'Courier New', monospace;
+      font-size: 0.9rem;
+      line-height: 1.45;
+    }
+
+    .rhythm-body pre code {
+      background: transparent;
+      color: inherit;
+      padding: 0;
+    }
+
+    .rhythm-footer {
+      margin-top: 18px;
+      color: var(--rhythm-muted);
+      font-size: 0.9rem;
+      text-align: center;
+    }
+
+    @media (max-width: 720px) {
+      .rhythm-upload-guide { padding: 14px; }
+      .rhythm-hero { padding: 22px; }
+      .rhythm-hero h1 { font-size: 1.5rem; }
+      .rhythm-body { padding: 18px; }
+      .rhythm-body table { display: block; overflow-x: auto; white-space: nowrap; }
+    }
+  </style>
+</head>
+<body>
+  <main class="rhythm-upload-guide">
+    <section class="rhythm-hero">
+      <h1>RHYTHM Repository Automated Upload Instructions</h1>
+      <p>Guidance for partners preparing Excel metadata, anonymized CT ZIP files and the JSON manifest for automated upload.</p>
+    </section>
+
+    <section class="rhythm-alert">
+      <strong>Important:</strong> the automated upload tool does not anonymize DICOM files. All CT studysets must be anonymized locally before packaging and upload. The final RHYTHM Repository Study ID is assigned by the server, not by the partner-side tool.
+    </section>
+
+    <section class="rhythm-body">
+<h1>RHYTHM Repository Upload Tool</h1>
+<h2>Provider Instructions for Metadata Manifest and Anonymized CT ZIP Upload</h2>
+<h3>1. Purpose</h3>
+<p>This tool helps RHYTHM partners prepare a structured upload package for the RHYTHM Repository Upload Platform.</p>
+<p>Each provider prepares:</p>
+<ol>
+<li>An Excel metadata file with one row per CT studyset.</li>
+<li>One ZIP file per anonymized CT studyset.</li>
+<li>A JSON manifest generated by the RHYTHM manifest tool.</li>
+</ol>
+<p>The JSON manifest is uploaded together with the ZIP files. The repository server validates the upload and assigns the final RHYTHM Repository Study ID.</p>
+<p>The partner does <strong>not</strong> manually create the Repository Study ID.</p>
+<hr />
+<h2>2. Privacy and anonymization requirements</h2>
+<p>Before using this tool, all CT studysets must already be anonymized locally by the submitting institution.</p>
+<p>The ZIP files and Excel template must <strong>not</strong> contain:</p>
+<ul>
+<li>Patient name</li>
+<li>Original hospital PatientID</li>
+<li>Accession number</li>
+<li>Date of birth</li>
+<li>National identifier</li>
+<li>Any other direct patient identifier</li>
+</ul>
+<p>The tool does <strong>not</strong> anonymize DICOM files. It only prepares the upload manifest.</p>
+<hr />
+<h2>3. Files supplied to partners</h2>
+<p>Partners will receive:</p>
+<pre><code class="language-text">rhythm_server_assigned_metadata_template.xlsx
+create_rhythm_server_assigned_manifest_gui_with_uid.py
+create_rhythm_server_assigned_manifest_gui_with_uid.exe
+</code></pre>
+<p>The Python script and Windows executable perform the same task. The executable can be used on Windows without running Python commands.</p>
+<hr />
+<h2>4. Recommended folder structure</h2>
+<p>Create one working folder, for example:</p>
+<pre><code class="language-text">C:\RHYTHM_Upload\
+│
+├── metadata\
+│   └── rhythm_server_assigned_metadata_template.xlsx
+│
+├── zips\
+│   ├── study_001_anonymized.zip
+│   ├── study_002_anonymized.zip
+│   └── study_003_anonymized.zip
+│
+└── output\
+</code></pre>
+<p>The <code>zips</code> folder should contain the anonymized CT studyset ZIP files.</p>
+<p>Each ZIP file should contain <strong>one CT studyset only</strong>.</p>
+<hr />
+<h2>5. Completing the Excel metadata template</h2>
+<p>Open:</p>
+<pre><code class="language-text">rhythm_server_assigned_metadata_template.xlsx
+</code></pre>
+<p>Complete one row per ZIP file.</p>
+<table>
+<thead>
+<tr>
+  <th>Column</th>
+  <th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td><code>filename</code></td>
+  <td>Exact ZIP filename, for example <code>study_001_anonymized.zip</code></td>
+</tr>
+<tr>
+  <td><code>site_code</code></td>
+  <td>Coded submitting site, for example <code>S001</code></td>
+</tr>
+<tr>
+  <td><code>clinical_indication_code</code></td>
+  <td>RHYTHM clinical indication code, e.g. <code>HEADTRAUMA</code>, <code>HRCTILD</code>, <code>ACUTEABD</code></td>
+</tr>
+<tr>
+  <td><code>anatomical_region</code></td>
+  <td>Anatomical region, e.g. <code>Head</code>, <code>Chest/HRCT</code>, <code>Abdomen</code></td>
+</tr>
+<tr>
+  <td><code>contrast_code</code></td>
+  <td>Contrast category: <code>NC</code>, <code>CE</code>, or <code>MIX</code></td>
+</tr>
+<tr>
+  <td><code>patient_group_code</code></td>
+  <td>Patient/protocol group, e.g. <code>PH-G4</code>, <code>PB-G3</code>, <code>YA-G6</code></td>
+</tr>
+<tr>
+  <td><code>scanner_id</code></td>
+  <td>Local registered CT scanner ID, e.g. <code>CT01</code></td>
+</tr>
+<tr>
+  <td><code>protocol_name</code></td>
+  <td>Name of the CT protocol used</td>
+</tr>
+<tr>
+  <td><code>patient_weight_kg</code></td>
+  <td>Patient weight in kg</td>
+</tr>
+<tr>
+  <td><code>patient_age_years</code></td>
+  <td>Patient age in years</td>
+</tr>
+<tr>
+  <td><code>ctdivol_mgy</code></td>
+  <td>CTDIvol in mGy</td>
+</tr>
+<tr>
+  <td><code>dlp_mgy_cm</code></td>
+  <td>DLP in mGy·cm</td>
+</tr>
+<tr>
+  <td><code>image_quality</code></td>
+  <td>Image-quality category, e.g. <code>Acceptable</code></td>
+</tr>
+</tbody>
+</table>
+<p>The value in <code>filename</code> must exactly match the ZIP filename in the selected ZIP folder.</p>
+<p>Example:</p>
+<pre><code class="language-text">filename: study_001_anonymized.zip
+</code></pre>
+<p>must match:</p>
+<pre><code class="language-text">C:\RHYTHM_Upload\zips\study_001_anonymized.zip
+</code></pre>
+<hr />
+<h2>6. Clinical indication codes</h2>
+<table>
+<thead>
+<tr>
+  <th>Code</th>
+  <th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td><code>HEADTRAUMA</code></td>
+  <td>Head / Trauma</td>
+</tr>
+<tr>
+  <td><code>MASTOID</code></td>
+  <td>Mastoid bone / Inner ear</td>
+</tr>
+<tr>
+  <td><code>CHESTCOMP</code></td>
+  <td>Chest / Complicated infections</td>
+</tr>
+<tr>
+  <td><code>CHESTFUNG</code></td>
+  <td>Chest / Fungal infections</td>
+</tr>
+<tr>
+  <td><code>HRCTILD</code></td>
+  <td>Chest/HRCT for interstitial lung disease and related conditions</td>
+</tr>
+<tr>
+  <td><code>ACUTEABD</code></td>
+  <td>Abdomen / Acute abdomen</td>
+</tr>
+<tr>
+  <td><code>LYMPHOMA</code></td>
+  <td>Neck-Chest-Abdomen / Lymphoma</td>
+</tr>
+<tr>
+  <td><code>CABDTUMOR</code></td>
+  <td>Chest-Abdomen / Tumor staging and follow-up</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>7. Contrast codes</h2>
+<table>
+<thead>
+<tr>
+  <th>Code</th>
+  <th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td><code>NC</code></td>
+  <td>Non-contrast</td>
+</tr>
+<tr>
+  <td><code>CE</code></td>
+  <td>Contrast-enhanced</td>
+</tr>
+<tr>
+  <td><code>MIX</code></td>
+  <td>Non-contrast and contrast-enhanced / mixed</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>8. Patient group codes</h2>
+<table>
+<thead>
+<tr>
+  <th>Code</th>
+  <th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td><code>PH-G1</code></td>
+  <td>Pediatric Head Group 1</td>
+</tr>
+<tr>
+  <td><code>PH-G2</code></td>
+  <td>Pediatric Head Group 2</td>
+</tr>
+<tr>
+  <td><code>PH-G3</code></td>
+  <td>Pediatric Head Group 3</td>
+</tr>
+<tr>
+  <td><code>PH-G4</code></td>
+  <td>Pediatric Head Group 4</td>
+</tr>
+<tr>
+  <td><code>PB-G1</code></td>
+  <td>Pediatric Body Group 1</td>
+</tr>
+<tr>
+  <td><code>PB-G2</code></td>
+  <td>Pediatric Body Group 2</td>
+</tr>
+<tr>
+  <td><code>PB-G3</code></td>
+  <td>Pediatric Body Group 3</td>
+</tr>
+<tr>
+  <td><code>PB-G4</code></td>
+  <td>Pediatric Body Group 4</td>
+</tr>
+<tr>
+  <td><code>PB-G5</code></td>
+  <td>Pediatric Body Group 5</td>
+</tr>
+<tr>
+  <td><code>YA-G6</code></td>
+  <td>Young Adult Group 6</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>9. Preparing ZIP files</h2>
+<p>Each ZIP file should contain the already anonymized DICOM files for one CT studyset.</p>
+<p>Recommended rules:</p>
+<ol>
+<li>One ZIP file corresponds to one CT studyset.</li>
+<li>The ZIP should contain DICOM files only, where possible.</li>
+<li>The ZIP should not contain identifiable reports, screenshots, or hospital exports.</li>
+<li>The ZIP filename must match the <code>filename</code> column in the Excel template.</li>
+<li>The ZIP should not contain multiple different <code>StudyInstanceUID</code> values.</li>
+</ol>
+<p>The tool inspects each ZIP file and extracts the anonymized DICOM <code>StudyInstanceUID</code>.</p>
+<hr />
+<h2>10. Running the Windows executable version</h2>
+<p>Use this option if you receive:</p>
+<pre><code class="language-text">create_rhythm_server_assigned_manifest_gui_with_uid.exe
+</code></pre>
+<p>Steps:</p>
+<ol>
+<li>Double-click the executable.</li>
+<li>Select the completed Excel metadata template.</li>
+<li>Select the folder containing the ZIP files.</li>
+<li>Select where to save the output JSON manifest.</li>
+<li>Optionally enter a batch ID, for example:</li>
+</ol>
+<pre><code class="language-text">S001-2026-07-12-001
+</code></pre>
+<ol start="6">
+<li>Keep <strong>Include ZIP SHA-256 checksums in manifest</strong> enabled.</li>
+<li>Click <strong>Generate JSON Manifest</strong>.</li>
+<li>Wait until the tool reports that the manifest has been created successfully.</li>
+</ol>
+<p>The tool creates:</p>
+<pre><code class="language-text">rhythm_upload_manifest.json
+rhythm_upload_manifest_index.csv
+</code></pre>
+<p>The JSON file is submitted to the repository together with the ZIP files. The CSV index file is for partner review.</p>
+<hr />
+<h2>11. Running the Python version</h2>
+<p>Use this option if you receive:</p>
+<pre><code class="language-text">create_rhythm_server_assigned_manifest_gui_with_uid.py
+</code></pre>
+<p>Install prerequisites:</p>
+<pre><code class="language-bash">pip install pydicom openpyxl
+</code></pre>
+<p>Start the graphical interface:</p>
+<pre><code class="language-bash">python create_rhythm_server_assigned_manifest_gui_with_uid.py
+</code></pre>
+<p>Optional command-line use:</p>
+<pre><code class="language-bash">python create_rhythm_server_assigned_manifest_gui_with_uid.py ^
+  --input C:\RHYTHM_Upload\metadata\rhythm_server_assigned_metadata_template.xlsx ^
+  --zip-folder C:\RHYTHM_Upload\zips ^
+  --out C:\RHYTHM_Upload\output\rhythm_upload_manifest.json ^
+  --batch S001-2026-07-12-001
+</code></pre>
+<hr />
+<h2>12. What the tool checks</h2>
+<p>The tool checks that:</p>
+<ol>
+<li>The metadata file can be read.</li>
+<li>The required metadata columns are present.</li>
+<li>Each <code>filename</code> exists in the selected ZIP folder.</li>
+<li>Each listed file is a valid ZIP archive.</li>
+<li>Each ZIP contains readable DICOM files.</li>
+<li>Each ZIP contains one DICOM <code>StudyInstanceUID</code>.</li>
+<li>The DICOM <code>StudyInstanceUID</code> can be extracted and included in the JSON manifest.</li>
+<li>A ZIP SHA-256 checksum can be calculated, if enabled.</li>
+</ol>
+<p>If a ZIP contains more than one <code>StudyInstanceUID</code>, the tool stops and reports an error. The ZIP should then be reviewed and split so that each ZIP contains only one CT studyset.</p>
+<hr />
+<h2>13. What the generated JSON contains</h2>
+<p>The generated JSON manifest includes:</p>
+<ul>
+<li>ZIP filename</li>
+<li>ZIP file size</li>
+<li>ZIP SHA-256 checksum</li>
+<li>DICOM <code>StudyInstanceUID</code></li>
+<li>DICOM <code>PatientID</code>, if present in the anonymized DICOM headers</li>
+<li>DICOM <code>SeriesInstanceUID</code> list</li>
+<li>Number of DICOM series</li>
+<li>Number of DICOM instances</li>
+<li>Site code</li>
+<li>Clinical indication code</li>
+<li>Anatomical region</li>
+<li>Contrast code</li>
+<li>Patient group code</li>
+<li>Scanner ID</li>
+<li>Protocol name</li>
+<li>Patient weight</li>
+<li>Patient age</li>
+<li>CTDIvol</li>
+<li>DLP</li>
+<li>Image-quality category</li>
+</ul>
+<p>Example JSON item:</p>
+<pre><code class="language-json">{
+  &quot;ref&quot;: &quot;ROW0001&quot;,
+  &quot;filename&quot;: &quot;study_001_anonymized.zip&quot;,
+  &quot;dicom_uid&quot;: &quot;2.25.23890534782093478203948203948203948&quot;,
+  &quot;dicom&quot;: {
+    &quot;patient_id&quot;: &quot;P-8F3KQ9M2X7AD&quot;,
+    &quot;study_uid&quot;: &quot;2.25.23890534782093478203948203948203948&quot;,
+    &quot;uid_type&quot;: &quot;StudyInstanceUID&quot;,
+    &quot;series_uids&quot;: [
+      &quot;2.25.90823475098237450982374509823745098&quot;
+    ],
+    &quot;series_count&quot;: 1,
+    &quot;instance_count&quot;: 180
+  },
+  &quot;site_code&quot;: &quot;S001&quot;,
+  &quot;clinical_indication_code&quot;: &quot;HEADTRAUMA&quot;,
+  &quot;anatomical_region&quot;: &quot;Head&quot;,
+  &quot;contrast_code&quot;: &quot;NC&quot;,
+  &quot;patient_group_code&quot;: &quot;PH-G4&quot;,
+  &quot;scanner_id&quot;: &quot;CT01&quot;,
+  &quot;protocol_name&quot;: &quot;Pediatric head trauma non-contrast&quot;,
+  &quot;patient_weight_kg&quot;: 28,
+  &quot;patient_age_years&quot;: 8,
+  &quot;ctdivol_mgy&quot;: 18.4,
+  &quot;dlp_mgy_cm&quot;: 320.5,
+  &quot;image_quality&quot;: &quot;Acceptable&quot;
+}
+</code></pre>
+<hr />
+<h2>14. Uploading to the repository</h2>
+<p>After generating the manifest, upload the following through the RHYTHM Repository Upload Platform:</p>
+<ol>
+<li><code>rhythm_upload_manifest.json</code></li>
+<li>All ZIP files listed in the manifest</li>
+</ol>
+<p>The repository server will:</p>
+<ol>
+<li>Read the JSON manifest.</li>
+<li>Receive the corresponding ZIP files.</li>
+<li>Verify ZIP checksums.</li>
+<li>Re-inspect DICOM headers inside the ZIP files.</li>
+<li>Confirm that the DICOM <code>StudyInstanceUID</code> inside each ZIP matches the <code>dicom_uid</code> in the manifest.</li>
+<li>Check for duplicate uploaded studies.</li>
+<li>Assign the final RHYTHM Repository Study ID centrally.</li>
+<li>Return a compact response listing the assigned Repository Study IDs.</li>
+</ol>
+<hr />
+<h2>15. Example server response</h2>
+<pre><code class="language-json">{
+  &quot;v&quot;: &quot;1.0&quot;,
+  &quot;type&quot;: &quot;server_assigned_repo_id_response&quot;,
+  &quot;site&quot;: &quot;S001&quot;,
+  &quot;batch&quot;: &quot;S001-2026-07-12-001&quot;,
+  &quot;items&quot;: [
+    {
+      &quot;ref&quot;: &quot;ROW0001&quot;,
+      &quot;filename&quot;: &quot;study_001_anonymized.zip&quot;,
+      &quot;repo_id&quot;: &quot;RHY-S001-HEADTRAUMA-NC-PH-G4-000126&quot;,
+      &quot;dicom_uid&quot;: &quot;2.25.23890534782093478203948203948203948&quot;,
+      &quot;status&quot;: &quot;ACCEPTED&quot;
+    }
+  ]
+}
+</code></pre>
+<p>The final Repository Study ID is assigned by the server, not by the partner-side tool.</p>
+<hr />
+<h2>16. Troubleshooting</h2>
+<h3>ZIP file not found</h3>
+<p>Check that the filename in the Excel template exactly matches the ZIP file in the selected ZIP folder.</p>
+<h3>File is not a valid ZIP</h3>
+<p>Re-create the ZIP file using standard ZIP compression and try again.</p>
+<h3>No readable DICOM files found</h3>
+<p>Check that the ZIP contains DICOM files and not another nested ZIP file or only screenshots/reports.</p>
+<h3>Multiple StudyInstanceUID values found</h3>
+<p>The ZIP likely contains more than one DICOM study. Split the contents into separate ZIP files, one per CT studyset.</p>
+<h3>Multiple DICOM PatientID values found</h3>
+<p>This may indicate mixed DICOM datasets or inconsistent anonymization. Review the ZIP contents before upload.</p>
+<h3>Excel file cannot be read</h3>
+<p>If using the Python version, install:</p>
+<pre><code class="language-bash">pip install openpyxl
+</code></pre>
+<p>If using the executable version, ensure the Excel file is closed before running the tool.</p>
+<h3>DICOM UID extraction fails</h3>
+<p>If using the Python version, install:</p>
+<pre><code class="language-bash">pip install pydicom
+</code></pre>
+<p>Also check that the ZIP files contain valid DICOM files.</p>
+<hr />
+<h2>17. Final checklist before upload</h2>
+<p>Before submitting to the repository, confirm that:</p>
+<ul>
+<li>All CT studysets are anonymized.</li>
+<li>Each ZIP contains one CT studyset only.</li>
+<li>No ZIP contains direct patient identifiers.</li>
+<li>The Excel template contains one row per ZIP file.</li>
+<li>Each filename in the Excel template exactly matches a ZIP filename.</li>
+<li>The JSON manifest was generated successfully.</li>
+<li>The ZIP files and JSON manifest are uploaded together.</li>
+<li>The partner does not manually assign the Repository Study ID.</li>
+</ul>
+
+    </section>
+
+    <footer class="rhythm-footer">
+      RHYTHM Repository Upload Platform — Automated Upload Instructions for Partners
+    </footer>
+  </main>
+</body>
+</html>

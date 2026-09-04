@@ -1,0 +1,48 @@
+{
+  "v": "1.0",
+  "type": "rhythm_server_assigned_upload_manifest",
+  "server_assigns_repo_id": true,
+  "site": "S001",
+  "batch": "S001-BATCH001",
+  "tool": "create_rhythm_server_assigned_manifest_gui",
+  "tool_version": "3.0",
+  "note": "Each filename refers to one ZIP file containing one already anonymized CT DICOM studyset. The partner does not assign repo_id. The server assigns the RHYTHM Repository Study ID after validating the manifest, ZIP checksum, and DICOM identifiers inside the ZIP.",
+  "items": [
+    {
+      "ref": "ROW0001",
+      "filename": "Input_volume1.zip",
+      "site_code": "S001",
+      "clinical_indication_code": "HEADTRAUMA",
+      "anatomical_region": "Head",
+      "contrast_code": "NC",
+      "patient_group_code": "PH-G4",
+      "scanner_id": "CT01",
+      "protocol_name": "Pediatric head trauma non-contrast",
+      "patient_weight_kg": 28.0,
+      "patient_age_years": 8.0,
+      "ctdivol_mgy": 18.4,
+      "dlp_mgy_cm": 320.5,
+      "image_quality": "Acceptable",
+      "size_bytes": 13695187,
+      "sha256": "bc5bd2fb66736779c6f33d23dfa865680f97cb6e6755b2bae98da0996413bbd3"
+    },
+    {
+      "ref": "ROW0002",
+      "filename": "Input_volume2.zip",
+      "site_code": "S001",
+      "clinical_indication_code": "HEADTRAUMA",
+      "anatomical_region": "Head",
+      "contrast_code": "NC",
+      "patient_group_code": "PH-G4",
+      "scanner_id": "CT01",
+      "protocol_name": "Pediatric head trauma non-contrast",
+      "patient_weight_kg": 31.0,
+      "patient_age_years": 11.0,
+      "ctdivol_mgy": 20.0,
+      "dlp_mgy_cm": 400.0,
+      "image_quality": "Acceptable",
+      "size_bytes": 13695187,
+      "sha256": "bc5bd2fb66736779c6f33d23dfa865680f97cb6e6755b2bae98da0996413bbd3"
+    }
+  ]
+}
