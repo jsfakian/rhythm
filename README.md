@@ -69,7 +69,7 @@ Both pipelines run the same GDPR anonymization validation (see below) before any
 
 **1. Anonymize locally, first.** This platform validates anonymization; it does not perform it. Before packaging anything, every studyset must already have patient name, original hospital `PatientID`, accession number, date of birth, national identifier, and any other direct identifier removed.
 
-**2. Get the manifest generator tool.** Partners prepare their upload package with a small companion tool (Python script + Windows `.exe`, same behavior either way), available at **[github.com/jsfakian/rhythm](https://github.com/jsfakian/rhythm)** along with the Excel metadata template. It does not anonymize DICOM files — it only reads already-anonymized ZIPs and builds the upload manifest.
+**2. Get the manifest generator tool.** Partners prepare their upload package with a small companion tool (Python script + Windows `.exe`, same behavior either way), in [`create_rhythm_service_manifest_gui_with_uid/`](create_rhythm_service_manifest_gui_with_uid/) along with the Excel metadata template. It does not anonymize DICOM files — it only reads already-anonymized ZIPs and builds the upload manifest. Full partner-facing instructions: [`create_rhythm_service_manifest_gui_with_uid/README.md`](create_rhythm_service_manifest_gui_with_uid/README.md) (also available as a standalone HTML file in the same folder).
 
 **3. Prepare one ZIP per studyset.** Each ZIP contains only the DICOM files for one CT studyset (one `StudyInstanceUID`) — no reports, screenshots, or nested archives. Suggested layout for the working folder:
 
@@ -560,6 +560,13 @@ rhythm-repo/
 ├── chunked_upload_client.py  # Standalone upload client
 ├── design_document.md        # System design spec
 ├── manifest.json             # Example v1 manifest
+├── create_rhythm_service_manifest_gui_with_uid/  # v2 manifest generator tool (partner-facing)
+│   ├── README.md                                             # Usage instructions
+│   ├── create_rhythm_server_assigned_manifest_gui_with_uid.py
+│   ├── RHYTHM_manifest_tool.exe
+│   ├── rhythm_server_assigned_metadata_template.xlsx
+│   ├── rhythm_upload_manifest.json                           # Example output
+│   └── rhythm_automated_upload_instructions_for_tool.html    # Standalone HTML instructions
 └── ct_upload_platform/       # Django project root
     ├── manage.py
     ├── docker-compose.yml
