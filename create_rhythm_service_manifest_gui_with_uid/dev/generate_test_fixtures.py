@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-Build synthetic test fixtures for build_windows_exe.sh's smoke test:
+Build synthetic test fixtures for build_windows_exe.sh's smoke test and
+test_exe_automated_upload.sh's end-to-end pipeline test:
   - one GDPR-strict-compliant DICOM file, zipped (no PatientID/PatientName/
     StudyDate — matches the "remove" directive the real anonymization tool
     uses, same fixture style as ct_upload_platform's own test suite)
@@ -8,9 +9,14 @@ Build synthetic test fixtures for build_windows_exe.sh's smoke test:
     directly from the manifest tool script (so this can't silently drift
     out of sync with it)
 
-Not shipped to partners — used only by build_windows_exe.sh to prove a
-freshly built .exe actually runs and produces a schema-valid manifest,
-not just that it exists.
+By default site_code/protocol_id are throwaway values, enough to prove the
+.exe runs and produces a schema-valid manifest (build_windows_exe.sh's use
+case). Pass --protocol-id/--site-code to reference a real, already
+registered CTProtocol instead, when the manifest this produces needs to
+actually be accepted by the live server (test_exe_automated_upload.sh's
+use case).
+
+Not shipped to partners.
 """
 
 from __future__ import annotations
@@ -49,6 +55,17 @@ def build_dicom_zip(zip_path: Path) -> None:
     meta.TransferSyntaxUID = ExplicitVRLittleEndian
 
     ds = FileDataset(str(zip_path), {}, file_meta=meta, preamble=b"\0" * 128)
+    # Older pydicom (2.x, the newest the build image's Python 3.7 can
+    # install) writes Implicit VR by default unless these are set
+    # explicitly, regardless of what file_meta.TransferSyntaxUID declares
+    # — producing a file whose header and encoding disagree. pydicom's own
+    # reader tolerates that (auto-detects and warns), but Orthanc's
+    # stricter STOW-RS parser correctly rejects it with 400. Newer pydicom
+    # (3.x, what ct_upload_platform itself runs) infers this from
+    # file_meta automatically, which is why this only surfaced once a
+    # synthetic file generated here was actually pushed to a real Orthanc.
+    ds.is_little_endian = True
+    ds.is_implicit_VR = False
     ds.SOPClassUID = "1.2.840.10008.5.1.4.1.1.2"
     ds.SOPInstanceUID = generate_uid()
     ds.StudyInstanceUID = generate_uid()
@@ -62,7 +79,9 @@ def build_dicom_zip(zip_path: Path) -> None:
     dcm_path.unlink()
 
 
-def build_template_xlsx(xlsx_path: Path, columns: list[str], zip_filename: str) -> None:
+def build_template_xlsx(
+    xlsx_path: Path, columns: list[str], zip_filename: str, site_code: str, protocol_id: str
+) -> None:
     import openpyxl
 
     wb = openpyxl.Workbook()
@@ -71,8 +90,8 @@ def build_template_xlsx(xlsx_path: Path, columns: list[str], zip_filename: str) 
 
     row = {
         "filename": zip_filename,
-        "site_code": "S001",
-        "protocol_id": str(uuid.uuid4()),
+        "site_code": site_code,
+        "protocol_id": protocol_id,
         "patient_weight_kg": 28.0,
         "patient_age_years": 8.0,
         "ctdivol_mgy": 18.4,
@@ -86,6 +105,14 @@ def build_template_xlsx(xlsx_path: Path, columns: list[str], zip_filename: str) 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--out-dir", required=True, help="Directory to write template.xlsx and zips/ into.")
+    ap.add_argument("--site-code", default="S001", help="site_code to put in the template row.")
+    ap.add_argument(
+        "--protocol-id", default=None,
+        help="protocol_id to put in the template row (default: a random UUID, for build_windows_exe.sh's "
+             "purposes only — it never reaches a real server). Pass a real registered CTProtocol's id "
+             "for an end-to-end test the server will actually accept.",
+    )
+    ap.add_argument("--zip-filename", default="smoke_test_study.zip")
     args = ap.parse_args()
 
     out_dir = Path(args.out_dir)
@@ -95,12 +122,12 @@ def main() -> None:
 
     tool = _load_tool_module()
 
-    zip_filename = "smoke_test_study.zip"
-    build_dicom_zip(zips_dir / zip_filename)
-    build_template_xlsx(out_dir / "template.xlsx", tool.REQUIRED_COLUMNS, zip_filename)
+    protocol_id = args.protocol_id or str(uuid.uuid4())
+    build_dicom_zip(zips_dir / args.zip_filename)
+    build_template_xlsx(out_dir / "template.xlsx", tool.REQUIRED_COLUMNS, args.zip_filename, args.site_code, protocol_id)
 
-    print(f"Wrote {zips_dir / zip_filename}")
-    print(f"Wrote {out_dir / 'template.xlsx'}")
+    print(f"Wrote {zips_dir / args.zip_filename}")
+    print(f"Wrote {out_dir / 'template.xlsx'} (site_code={args.site_code}, protocol_id={protocol_id})")
 
 
 if __name__ == "__main__":

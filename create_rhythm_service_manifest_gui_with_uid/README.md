@@ -14,7 +14,9 @@ Tool for RHYTHM partner institutions to prepare the Excel metadata, anonymized C
 | `rhythm_upload_manifest.json` | Example of the manifest the tool generates |
 | `rhythm_automated_upload_instructions_for_tool.html` | Standalone HTML version of these instructions (self-contained, can be opened offline or emailed to a partner) |
 | `build_windows_exe.sh` | **Maintainers only.** Rebuilds `RHYTHM_manifest_tool.exe` from the `.py` and smoke-tests it — see below. |
-| `dev/generate_test_fixtures.py` | Helper used only by `build_windows_exe.sh`; not needed by partners. |
+| `test_exe_automated_upload.sh` | **Maintainers only.** Runs the committed `.exe` against a real registered protocol and drives the real Automated Upload API — see below. |
+| `dev/generate_test_fixtures.py` | Helper shared by both scripts above; not needed by partners. |
+| `dev/e2e_django_steps.py` | Helper used only by `test_exe_automated_upload.sh`; not needed by partners. |
 
 ## Rebuilding RHYTHM_manifest_tool.exe (maintainers)
 
@@ -25,6 +27,16 @@ Whenever `create_rhythm_server_assigned_manifest_gui_with_uid.py` changes, `RHYT
 ```
 
 Requires Docker and a host `python3` with `jsonschema` installed; no local pydicom/openpyxl needed. PyInstaller can't cross-compile directly (it bundles the interpreter for whatever OS it runs on), so this drives it under Wine via the `cdrx/pyinstaller-windows` image to produce a real Windows PE binary from Linux/macOS. It then actually **runs** that binary under Wine against a synthetic GDPR-compliant DICOM ZIP + Excel template and validates the manifest it produces against the platform's real schema (`ct_upload_platform/uploads/manifest_schema.py`, imported directly) — `RHYTHM_manifest_tool.exe` is only overwritten if every step succeeds. See the comments at the top of the script for what it does and does not prove (it can't confirm the Tk GUI window itself renders on real Windows — do a double-click smoke test there before a wide partner rollout).
+
+## Testing the .exe against a real Automated Upload (maintainers)
+
+`build_windows_exe.sh` only proves the `.exe` runs and produces a schema-valid manifest — it never touches a running app. To prove the `.exe`'s output actually round-trips through the real Automated Upload pipeline (server-side protocol resolution, the real Celery worker, a real Orthanc push) with the same outcome Manual Exam Entry would produce, run:
+
+```bash
+./test_exe_automated_upload.sh
+```
+
+Requires the `ct_upload_platform` Docker stack already running (`make up`) and a built `RHYTHM_manifest_tool.exe`. It creates a real, throwaway `CTProtocol` + scanner + user in the live dev DB, generates a synthetic DICOM ZIP + Excel template referencing it, runs the committed `.exe` under Wine to produce a real manifest, drives that manifest through the actual `validate-manifest` → `chunked/init` → `chunk` → `complete` API, waits for the real worker, and checks the resulting `CTExamination`/`StudyMapping` against the protocol. **Every row and Orthanc study it creates is deleted again on exit — success, failure, or Ctrl-C.** This talks to the live stack, not a disposable test database, so only point it at a dev/test instance.
 
 ## 1. Purpose
 
