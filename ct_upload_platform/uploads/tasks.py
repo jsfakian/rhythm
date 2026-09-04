@@ -34,6 +34,7 @@ from .pseudo_id_validator import (
 from .file_manager import get_processed_data_job_dir
 from .repository_study_id import (
     CONTRAST_CODES,
+    INDICATION_CODES,
     generate_repository_study_id,
     generate_repository_study_id_from_codes,
 )
@@ -498,7 +499,13 @@ def process_v2_batch_item(job: "UploadJob", archive_path: str, extract_dir: str)
     # as CTExamination below); otherwise fall back to the legacy coded
     # fields for a manifest item with no protocol_id.
     if protocol:
-        study_mapping_clinical_indication = protocol.clinical_indication
+        # Same coded value Manual Exam Entry's own manifest_raw carries
+        # (see ExaminationSaveAPIView's indication_code) — StudyMapping.
+        # clinical_indication stores the code, not the protocol's raw text,
+        # for both pipelines.
+        study_mapping_clinical_indication = INDICATION_CODES.get(
+            f"{protocol.anatomical_region} / {protocol.clinical_indication}", "OTHER"
+        )
         study_mapping_contrast_code = CONTRAST_CODES.get(protocol.contrast, "UNK")
         study_mapping_notes = f"protocol: {protocol.protocol_name or protocol.pk}".strip()
     else:

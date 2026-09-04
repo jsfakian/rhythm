@@ -180,6 +180,18 @@ class ProcessV2BatchItemSuccessTests(TestCase):
         self.assertEqual(mapping.upload_job_id, job.id)
         self.assertEqual(mapping.contrast_used, False)
 
+    def test_study_mapping_clinical_indication_matches_manual_entry_convention(self):
+        """Regression: StudyMapping.clinical_indication must store the coded
+        value (e.g. "HEADTRAUMA"), same as Manual Exam Entry's own
+        manifest_raw (ExaminationSaveAPIView's indication_code) — not the
+        protocol's raw free-text field ("Trauma"). A head-to-head manual
+        vs. automated comparison caught this drifting to the raw text."""
+        zip_path = _build_v2_zip(self.tmpdir)
+        job = _make_v2_job(zip_path, _v2_item())
+        self._run(job)
+        mapping = StudyMapping.objects.first()
+        self.assertEqual(mapping.clinical_indication, "HEADTRAUMA")
+
     def test_ctexamination_created_with_manifest_fields(self):
         zip_path = _build_v2_zip(self.tmpdir)
         job = _make_v2_job(zip_path, _v2_item())
