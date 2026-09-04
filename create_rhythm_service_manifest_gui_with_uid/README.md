@@ -13,6 +13,18 @@ Tool for RHYTHM partner institutions to prepare the Excel metadata, anonymized C
 | `rhythm_server_assigned_metadata_template.xlsx` | Excel template partners fill in, one row per studyset ZIP |
 | `rhythm_upload_manifest.json` | Example of the manifest the tool generates |
 | `rhythm_automated_upload_instructions_for_tool.html` | Standalone HTML version of these instructions (self-contained, can be opened offline or emailed to a partner) |
+| `build_windows_exe.sh` | **Maintainers only.** Rebuilds `RHYTHM_manifest_tool.exe` from the `.py` and smoke-tests it — see below. |
+| `dev/generate_test_fixtures.py` | Helper used only by `build_windows_exe.sh`; not needed by partners. |
+
+## Rebuilding RHYTHM_manifest_tool.exe (maintainers)
+
+Whenever `create_rhythm_server_assigned_manifest_gui_with_uid.py` changes, `RHYTHM_manifest_tool.exe` must be rebuilt to match — run:
+
+```bash
+./build_windows_exe.sh
+```
+
+Requires Docker and a host `python3` with `jsonschema` installed; no local pydicom/openpyxl needed. PyInstaller can't cross-compile directly (it bundles the interpreter for whatever OS it runs on), so this drives it under Wine via the `cdrx/pyinstaller-windows` image to produce a real Windows PE binary from Linux/macOS. It then actually **runs** that binary under Wine against a synthetic GDPR-compliant DICOM ZIP + Excel template and validates the manifest it produces against the platform's real schema (`ct_upload_platform/uploads/manifest_schema.py`, imported directly) — `RHYTHM_manifest_tool.exe` is only overwritten if every step succeeds. See the comments at the top of the script for what it does and does not prove (it can't confirm the Tk GUI window itself renders on real Windows — do a double-click smoke test there before a wide partner rollout).
 
 ## 1. Purpose
 
