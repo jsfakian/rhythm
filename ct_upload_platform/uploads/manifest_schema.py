@@ -281,22 +281,33 @@ MANIFEST_SCHEMA_V2 = {
                     "ref",
                     "filename",
                     "site_code",
-                    "clinical_indication_code",
-                    "anatomical_region",
-                    "contrast_code",
-                    "patient_group_code",
+                    "protocol_id",
                     "image_quality",
                 ],
                 "properties": {
                     "ref": {"type": "string", "minLength": 1, "description": "Row reference within the batch, e.g. \"ROW0001\"."},
                     "filename": {"type": "string", "minLength": 1, "description": "ZIP filename containing this item's studyset."},
-                    "site_code": {"type": "string"},
-                    "clinical_indication_code": {"type": "string"},
-                    "anatomical_region": {"type": "string"},
-                    "contrast_code": {"type": "string"},
-                    "patient_group_code": {"type": "string"},
-                    "scanner_id": {"type": "string"},
-                    "protocol_name": {"type": "string"},
+                    "site_code": {
+                        "type": "string",
+                        "description": (
+                            "Submitting site code. Must match (case-insensitively) the "
+                            "site_code of the CTProtocol referenced by protocol_id — the "
+                            "server rejects the item otherwise."
+                        ),
+                    },
+                    "protocol_id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+                        "description": (
+                            "UUID of the registered CTProtocol (see its ID on the Protocol "
+                            "Records page in the RHYTHM app, /protocols/records/) this "
+                            "studyset was acquired under. The server derives anatomical "
+                            "region, clinical indication, contrast, protocol type, "
+                            "examination group, and scanner from this protocol — none of "
+                            "those need to be (or can be) repeated in the manifest."
+                        ),
+                    },
                     "patient_weight_kg": {"type": ["number", "null"]},
                     "patient_age_years": {"type": ["number", "null"]},
                     "ctdivol_mgy": {"type": ["number", "null"]},

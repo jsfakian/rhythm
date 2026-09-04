@@ -17,7 +17,17 @@ from django.test import TestCase
 from pydicom.dataset import Dataset, FileDataset
 from pydicom.uid import generate_uid, ExplicitVRLittleEndian
 
-from uploads.models import UploadJob, Patient, StudyMapping, CTExamination, Image
+from uploads.models import (
+    UploadJob,
+    Patient,
+    StudyMapping,
+    CTExamination,
+    CTManufacturer,
+    CTProtocol,
+    CTScannerModel,
+    CTScannerProfile,
+    Image,
+)
 from uploads.orthanc_client import OrthancPushError
 from uploads.tasks import process_upload_job
 
@@ -60,17 +70,42 @@ def _build_v2_zip(tmpdir: str, patient_id: str = "PARTNERPAT001", n_files: int =
     return zip_path
 
 
-def _v2_item(**overrides) -> dict:
+def _make_default_protocol(**overrides) -> CTProtocol:
+    """A registered CTProtocol matching the RHY-S001-HEADTRAUMA-NC-PH-G4-
+    prefix _v2_item()'s defaults expect: site S001, "Head / Trauma" (->
+    HEADTRAUMA), "Non-contrast" (-> NC), PEDIATRIC_HEAD + "Group 4" (-> PH-G4)."""
+    mfr, _ = CTManufacturer.objects.get_or_create(
+        name="GE Healthcare", defaults={"is_active": True, "sort_order": 0},
+    )
+    model, _ = CTScannerModel.objects.get_or_create(
+        manufacturer=mfr, name="Revolution CT", defaults={"is_active": True, "sort_order": 0},
+    )
+    scanner, _ = CTScannerProfile.objects.get_or_create(
+        manufacturer=mfr, scanner_model=model, defaults={"detector_rows": "256"},
+    )
+    fields = {
+        "scanner": scanner,
+        "site_code": "S001",
+        "protocol_type": "PEDIATRIC_HEAD",
+        "anatomical_region": "Head",
+        "clinical_indication": "Trauma",
+        "contrast": "Non-contrast",
+        "examination_group": "Group 4",
+        "age_group": "30 kg – 50 kg",
+        "protocol_name": "Pediatric head trauma non-contrast",
+    }
+    fields.update(overrides)
+    return CTProtocol.objects.create(**fields)
+
+
+def _v2_item(protocol: CTProtocol | None = None, **overrides) -> dict:
+    if protocol is None and "protocol_id" not in overrides:
+        protocol = _make_default_protocol()
     item = {
         "ref": "ROW0001",
         "filename": "Input_volume1.zip",
         "site_code": "S001",
-        "clinical_indication_code": "HEADTRAUMA",
-        "anatomical_region": "Head",
-        "contrast_code": "NC",
-        "patient_group_code": "PH-G4",
-        "scanner_id": "CT01",
-        "protocol_name": "Pediatric head trauma non-contrast",
+        "protocol_id": str(protocol.pk) if protocol else None,
         "patient_weight_kg": 28.0,
         "patient_age_years": 8.0,
         "ctdivol_mgy": 18.4,
@@ -159,6 +194,34 @@ class ProcessV2BatchItemSuccessTests(TestCase):
         self.assertEqual(exam.protocol_type, "PEDIATRIC_HEAD")
         self.assertTrue(exam.rhythm_pseudo_id.startswith("RHY-S001-HEADTRAUMA-NC-PH-G4-"))
 
+    def test_ctexamination_linked_to_resolved_protocol_and_scanner(self):
+        """The manifest carries only protocol_id — anatomical region,
+        clinical indication, contrast, examination group, and the scanner
+        must all come from the resolved CTProtocol, exactly as they would
+        from Manual Exam Entry's own "Protocol used" selection."""
+        protocol = _make_default_protocol()
+        zip_path = _build_v2_zip(self.tmpdir)
+        job = _make_v2_job(zip_path, _v2_item(protocol=protocol))
+        self._run(job)
+        exam = CTExamination.objects.first()
+        self.assertEqual(exam.protocol_id, protocol.pk)
+        self.assertEqual(exam.scanner_id, protocol.scanner_id)
+        self.assertEqual(exam.anatomical_region, "Head")
+        self.assertEqual(exam.clinical_indication, "Trauma")
+        self.assertEqual(exam.contrast, "Non-contrast")
+        self.assertEqual(exam.examination_group, "Group 4")
+
+    def test_site_code_matches_protocol_site_case_insensitively(self):
+        """The manifest's site_code and the protocol's own site_code are
+        compared case-insensitively — differing case alone must not fail
+        the item."""
+        protocol = _make_default_protocol(site_code="S001")
+        zip_path = _build_v2_zip(self.tmpdir)
+        job = _make_v2_job(zip_path, _v2_item(protocol=protocol, site_code="s001"))
+        self._run(job)
+        job.refresh_from_db()
+        self.assertEqual(job.status, "COMPLETE", job.error_report)
+
     def test_image_quality_normalized(self):
         zip_path = _build_v2_zip(self.tmpdir)
         job = _make_v2_job(zip_path, _v2_item(image_quality="Acceptable"))
@@ -214,6 +277,38 @@ class ProcessV2BatchItemFailureTests(TestCase):
     def tearDown(self):
         shutil.rmtree(self.tmpdir, ignore_errors=True)
         shutil.rmtree(self.extract_dir, ignore_errors=True)
+
+    def test_unknown_protocol_id_fails_before_extracting_archive(self):
+        zip_path = _build_v2_zip(self.tmpdir)
+        job = _make_v2_job(zip_path, _v2_item(protocol_id="00000000-0000-0000-0000-000000000000"))
+        with patch("uploads.tasks.get_processed_data_job_dir", return_value=self.extract_dir):
+            process_upload_job.apply(args=[str(job.pk)])
+        job.refresh_from_db()
+        self.assertEqual(job.status, "FAILED")
+        self.assertEqual(job.error_report[0]["code"], "protocol_not_found")
+        self.assertFalse(CTExamination.objects.exists())
+
+    def test_malformed_protocol_id_fails(self):
+        zip_path = _build_v2_zip(self.tmpdir)
+        job = _make_v2_job(zip_path, _v2_item(protocol_id="not-a-uuid"))
+        with patch("uploads.tasks.get_processed_data_job_dir", return_value=self.extract_dir):
+            process_upload_job.apply(args=[str(job.pk)])
+        job.refresh_from_db()
+        self.assertEqual(job.status, "FAILED")
+        self.assertEqual(job.error_report[0]["code"], "protocol_not_found")
+
+    def test_site_code_mismatch_with_protocol_fails(self):
+        """A protocol_id pasted from another site's records must be
+        rejected, not silently attributed to the wrong institution."""
+        protocol = _make_default_protocol(site_code="S002")
+        zip_path = _build_v2_zip(self.tmpdir)
+        job = _make_v2_job(zip_path, _v2_item(protocol=protocol, site_code="S001"))
+        with patch("uploads.tasks.get_processed_data_job_dir", return_value=self.extract_dir):
+            process_upload_job.apply(args=[str(job.pk)])
+        job.refresh_from_db()
+        self.assertEqual(job.status, "FAILED")
+        self.assertEqual(job.error_report[0]["code"], "protocol_site_mismatch")
+        self.assertFalse(CTExamination.objects.exists())
 
     def test_multiple_study_uids_fails(self):
         src = tempfile.mkdtemp()

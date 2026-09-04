@@ -45,6 +45,7 @@
                     <thead>
                         <tr>
                             <th>#</th>
+                            <th>Protocol ID</th>
                             <th>Type</th>
                             <th>Scanner</th>
                             <th>Anatomical Region</th>
@@ -52,6 +53,7 @@
                             <th>IV Contrast</th>
                             <th>Examination Group</th>
                             <th>Age / Weight</th>
+                            <th>Protocol Name</th>
                             <th>kVp</th>
                             <th>Scan Type</th>
                             <th>Created</th>
@@ -62,6 +64,7 @@
                         {% for p in protocols %}
                         <tr>
                             <td>{{ forloop.counter }}</td>
+                            <td><code title="Reference this protocol from a v2 upload manifest's protocol_id field">{{ p.pk }}</code></td>
                             <td><span class="badge-type badge-{{ p.protocol_type }}">{{ p.get_protocol_type_display }}</span></td>
                             <td>{{ p.scanner.manufacturer.name }} – {{ p.scanner.scanner_model.name }}</td>
                             <td>{{ p.anatomical_region|default:"—" }}</td>
@@ -69,6 +72,7 @@
                             <td>{{ p.contrast|default:"—" }}</td>
                             <td>{{ p.examination_group|default:"—" }}</td>
                             <td>{{ p.age_group|default:"—" }}</td>
+                            <td>{{ p.protocol_name|default:"—" }}</td>
                             <td>{{ p.kvp|default:"—" }}</td>
                             <td>{{ p.scan_type|default:"—" }}</td>
                             <td>{{ p.created_at|date:"Y-m-d" }}</td>
@@ -81,7 +85,7 @@
                             </td>
                         </tr>
                         {% empty %}
-                        <tr><td colspan="12" class="text-muted" style="text-align:center;padding:32px;">No protocol records found.</td></tr>
+                        <tr><td colspan="14" class="text-muted" style="text-align:center;padding:32px;">No protocol records found.</td></tr>
                         {% endfor %}
                     </tbody>
                 </table>

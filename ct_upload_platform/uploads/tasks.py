@@ -18,10 +18,11 @@ from pathlib import Path
 import pydicom
 from celery import shared_task
 from django.conf import settings
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from django.utils import timezone
 
-from .models import UploadJob, Patient, StudyMapping, CTExamination, Image, Annotation, AuditLog
+from .models import UploadJob, Patient, StudyMapping, CTExamination, CTProtocol, Image, Annotation, AuditLog
 from .manifest_schema import validate_manifest
 from .orthanc_client import get_client, OrthancPushError
 from .gdpr_validator import validate_gdpr_anonymization
@@ -31,7 +32,11 @@ from .pseudo_id_validator import (
     PseudoIDCollisionError,
 )
 from .file_manager import get_processed_data_job_dir
-from .repository_study_id import generate_repository_study_id_from_codes
+from .repository_study_id import (
+    CONTRAST_CODES,
+    generate_repository_study_id,
+    generate_repository_study_id_from_codes,
+)
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -232,12 +237,24 @@ def process_v2_batch_item(job: "UploadJob", archive_path: str, extract_dir: str)
     Process one item of a v2 (server-assigned batch) manifest: one ZIP
     archive containing one already-anonymized CT DICOM studyset.
 
-    job.manifest_raw holds the manifest item (site_code,
-    clinical_indication_code, contrast_code, patient_group_code,
+    job.manifest_raw holds the manifest item (site_code, protocol_id,
     patient_weight_kg, patient_age_years, ctdivol_mgy, dlp_mgy_cm,
-    image_quality, protocol_name, and optionally repository_study_id_override
-    when this job was created by Manual Exam Entry reusing an ID it already
-    assigned synchronously).
+    image_quality, and optionally repository_study_id_override when this
+    job was created by Manual Exam Entry reusing an ID it already assigned
+    synchronously). protocol_id is the UUID of a registered CTProtocol —
+    anatomical region, clinical indication, contrast, protocol type,
+    examination group, and scanner all come from that protocol, exactly as
+    they would if the same protocol had been picked in Manual Exam Entry's
+    "Protocol used" dropdown, rather than being re-typed/re-coded in the
+    manifest. site_code is verified (case-insensitively) against the
+    resolved protocol's own site_code, to catch a protocol_id pasted from
+    the wrong site.
+
+    A legacy manifest item with no protocol_id (only Manual Exam Entry's
+    own synchronously-built manifest_raw takes this path today — it never
+    goes through schema validation, unlike a partner-submitted manifest)
+    falls back to the older clinical_indication_code/contrast_code/
+    patient_group_code coded fields.
 
     Mutates job in place (status/error_report/completed_at), mirroring the
     v1 pipeline's error-handling style. Does not raise on validation
@@ -245,6 +262,37 @@ def process_v2_batch_item(job: "UploadJob", archive_path: str, extract_dir: str)
     caller's retry logic.
     """
     item = job.manifest_raw or {}
+
+    # Resolve the registered protocol this studyset was acquired under, if
+    # the manifest declares one (required for any manifest that goes
+    # through schema validation — see MANIFEST_SCHEMA_V2 — so always true
+    # for a genuine partner batch item; absent for Manual Exam Entry's own
+    # manifest_raw, which resolves its own scanner/protocol synchronously
+    # before ever queuing this job and may have picked no protocol at all).
+    # Resolved up front, before touching the archive, so a bad/mismatched
+    # protocol_id fails cleanly without extracting or validating anything.
+    protocol = None
+    protocol_id = item.get("protocol_id")
+    if protocol_id:
+        try:
+            protocol = CTProtocol.objects.select_related(
+                "scanner__manufacturer", "scanner__scanner_model"
+            ).get(pk=protocol_id)
+        except (CTProtocol.DoesNotExist, DjangoValidationError, ValueError):
+            return _fail_job(
+                job,
+                f"protocol_id does not match a registered protocol: {protocol_id}",
+                code="protocol_not_found",
+            )
+        item_site_code = (item.get("site_code") or "").strip().casefold()
+        protocol_site_code = (protocol.site_code or "").strip().casefold()
+        if item_site_code != protocol_site_code:
+            return _fail_job(
+                job,
+                f"site_code '{item.get('site_code', '')}' does not match the "
+                f"submitting site of protocol {protocol_id} ('{protocol.site_code}')",
+                code="protocol_site_mismatch",
+            )
 
     # If the manifest item declares an archive checksum, verify it before
     # doing anything else with the file — mirrors the same principle the v1
@@ -345,12 +393,24 @@ def process_v2_batch_item(job: "UploadJob", archive_path: str, extract_dir: str)
     # the same real patient across separate studies/uploads.
     repository_study_id = item.get("repository_study_id_override")
     if not repository_study_id:
-        repository_study_id = generate_repository_study_id_from_codes(
-            site_code=item.get("site_code", ""),
-            indication_code=item.get("clinical_indication_code", "OTHER"),
-            contrast_code=item.get("contrast_code", "UNK"),
-            group_code=item.get("patient_group_code", "UNK"),
-        )
+        if protocol:
+            # Same resolution Manual Exam Entry itself uses (see
+            # ExaminationSaveAPIView) — from the protocol's own
+            # human-readable fields, not from codes re-typed in the manifest.
+            repository_study_id = generate_repository_study_id(
+                site_code=item.get("site_code", ""),
+                clinical_indication=f"{protocol.anatomical_region} / {protocol.clinical_indication}",
+                contrast=protocol.contrast,
+                protocol_type=protocol.protocol_type,
+                examination_group=protocol.examination_group,
+            )
+        else:
+            repository_study_id = generate_repository_study_id_from_codes(
+                site_code=item.get("site_code", ""),
+                indication_code=item.get("clinical_indication_code", "OTHER"),
+                contrast_code=item.get("contrast_code", "UNK"),
+                group_code=item.get("patient_group_code", "UNK"),
+            )
 
     # Get or create the Patient record, keyed by our own repository_study_id.
     patient, created, patient_error = PseudoIDUniquenessValidator.get_or_create_patient_with_pseudoid(
@@ -433,7 +493,19 @@ def process_v2_batch_item(job: "UploadJob", archive_path: str, extract_dir: str)
         job.save()
         return
 
-    # Upsert StudyMapping for this study.
+    # Upsert StudyMapping for this study. When a protocol was resolved,
+    # clinical_indication/contrast_used come from it (same source of truth
+    # as CTExamination below); otherwise fall back to the legacy coded
+    # fields for a manifest item with no protocol_id.
+    if protocol:
+        study_mapping_clinical_indication = protocol.clinical_indication
+        study_mapping_contrast_code = CONTRAST_CODES.get(protocol.contrast, "UNK")
+        study_mapping_notes = f"protocol: {protocol.protocol_name or protocol.pk}".strip()
+    else:
+        study_mapping_clinical_indication = item.get("clinical_indication_code", "")
+        study_mapping_contrast_code = item.get("contrast_code")
+        study_mapping_notes = f"protocol_name: {item.get('protocol_name', '')}".strip()
+
     acquisition_date = _parse_dicom_date(study_date_raw) or date.today()
     study_mapping, _ = StudyMapping.objects.update_or_create(
         pseudo_study_uid=study_uid,
@@ -442,9 +514,9 @@ def process_v2_batch_item(job: "UploadJob", archive_path: str, extract_dir: str)
             "upload_job": job,
             "site_code": item.get("site_code", job.site_code),
             "acquisition_date": acquisition_date,
-            "clinical_indication": item.get("clinical_indication_code", ""),
-            "contrast_used": _CONTRAST_CODE_USED.get(item.get("contrast_code"), False),
-            "notes": f"protocol_name: {item.get('protocol_name', '')}".strip(),
+            "clinical_indication": study_mapping_clinical_indication,
+            "contrast_used": _CONTRAST_CODE_USED.get(study_mapping_contrast_code, False),
+            "notes": study_mapping_notes,
             "orthanc_study_id": orthanc_study_id or None,
         },
     )
@@ -459,9 +531,12 @@ def process_v2_batch_item(job: "UploadJob", archive_path: str, extract_dir: str)
 
     # repository_study_id was already assigned above, before image
     # processing (it's now also the Patient's pseudo_id).
-    protocol_type, examination_group = _patient_group_code_to_protocol_fields(
-        item.get("patient_group_code", "")
-    )
+    if protocol:
+        protocol_type, examination_group = protocol.protocol_type, protocol.examination_group
+    else:
+        protocol_type, examination_group = _patient_group_code_to_protocol_fields(
+            item.get("patient_group_code", "")
+        )
 
     # Manual Exam Entry already creates its own CTExamination synchronously
     # (with upload_job set) before ever queuing this async job — its item
@@ -482,9 +557,11 @@ def process_v2_batch_item(job: "UploadJob", archive_path: str, extract_dir: str)
 
     CTExamination.objects.create(
         rhythm_pseudo_id=repository_study_id,
-        anatomical_region=item.get("anatomical_region", ""),
-        clinical_indication=item.get("clinical_indication_code", ""),
-        contrast=item.get("contrast_code", ""),
+        protocol=protocol,
+        scanner=protocol.scanner if protocol else None,
+        anatomical_region=protocol.anatomical_region if protocol else item.get("anatomical_region", ""),
+        clinical_indication=protocol.clinical_indication if protocol else item.get("clinical_indication_code", ""),
+        contrast=protocol.contrast if protocol else item.get("contrast_code", ""),
         protocol_type=protocol_type,
         examination_group=examination_group,
         patient_weight=item.get("patient_weight_kg"),
@@ -623,7 +700,12 @@ def process_upload_job(self, job_id: str):
         # directly on manifest_raw instead of an embedded manifest.json, and
         # may be ZIP rather than tar archives — hand off to the dedicated
         # v2 pipeline and skip the v1-specific steps below entirely.
-        if isinstance(job.manifest_raw, dict) and "clinical_indication_code" in job.manifest_raw:
+        # protocol_id is the current discriminator; clinical_indication_code
+        # is kept for Manual Exam Entry's own manifest_raw, which still uses
+        # the older coded fields (see process_v2_batch_item's fallback path).
+        if isinstance(job.manifest_raw, dict) and (
+            "protocol_id" in job.manifest_raw or "clinical_indication_code" in job.manifest_raw
+        ):
             processed_job_dir = get_processed_data_job_dir(job_id)
             extract_dir = str(processed_job_dir)
             process_v2_batch_item(job, tar_path, extract_dir)

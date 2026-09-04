@@ -493,12 +493,7 @@ class ChunkedUploadInitViewTest(APITestCase):
             "ref": "ROW0001",
             "filename": "Input_volume1.zip",
             "site_code": "S001",
-            "clinical_indication_code": "HEADTRAUMA",
-            "anatomical_region": "Head",
-            "contrast_code": "NC",
-            "patient_group_code": "PH-G4",
-            "scanner_id": "CT01",
-            "protocol_name": "Pediatric head trauma non-contrast",
+            "protocol_id": str(uuid.uuid4()),
             "patient_weight_kg": 28.0,
             "patient_age_years": 8.0,
             "ctdivol_mgy": 18.4,
@@ -528,9 +523,9 @@ class ChunkedUploadInitViewTest(APITestCase):
         """Regression: a caller posting directly to this endpoint (bypassing
         the "Validate Manifest" step) must not be able to get a
         CTExamination/repository_study_id created from a manifest item
-        missing its required coded fields."""
+        missing its required protocol_id field."""
         item = self._valid_manifest_item()
-        del item["clinical_indication_code"]
+        del item["protocol_id"]
         response = self.client.post(
             '/api/v1/uploads/chunked/init/',
             {

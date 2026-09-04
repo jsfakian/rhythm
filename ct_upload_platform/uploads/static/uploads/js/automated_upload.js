@@ -113,8 +113,7 @@ function renderItemsTable() {
         tr.innerHTML = `
             <td class="mono">${escHtml(item.ref || '')}</td>
             <td class="mono">${escHtml(item.filename || '')}</td>
-            <td>${escHtml(item.clinical_indication_code || '')}</td>
-            <td>${escHtml(item.patient_group_code || '')}</td>
+            <td class="mono">${escHtml(item.protocol_id || '')}</td>
             <td>${matched ? '<span class="badge-status badge-matched">matched</span>' : '<span class="badge-status badge-unmatched">no file selected</span>'}</td>
             <td><progress class="item-progress" id="item_progress_${idx}" value="0" max="100"></progress></td>
             <td id="item_status_${idx}"><span class="badge-status badge-pending">pending</span></td>

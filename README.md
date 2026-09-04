@@ -88,38 +88,13 @@ RHYTHM_Upload/
 | Column | Description |
 |---|---|
 | `filename` | Exact ZIP filename — must match a file in the selected ZIP folder |
-| `site_code` | Coded submitting site, e.g. `S001` |
-| `clinical_indication_code` | See table below |
-| `anatomical_region` | e.g. `Head`, `Chest/HRCT`, `Abdomen` |
-| `contrast_code` | `NC`, `CE`, or `MIX` |
-| `patient_group_code` | See table below |
-| `scanner_id` | Locally registered CT scanner ID, e.g. `CT01` |
-| `protocol_name` | Name of the CT protocol used |
+| `site_code` | Coded submitting site, e.g. `S001` — must match (case-insensitively) the submitting site of the protocol referenced by `protocol_id`, or the server rejects the row |
+| `protocol_id` | UUID of a protocol already registered in the RHYTHM app — copy it from the **Protocol Records** page (`/protocols/records/`). The server derives anatomical region, clinical indication, contrast, protocol type, examination group, and scanner from this protocol — none of those are re-typed in the manifest |
 | `patient_weight_kg`, `patient_age_years` | Numeric |
 | `ctdivol_mgy`, `dlp_mgy_cm` | Dose metrics |
 | `image_quality` | e.g. `Acceptable` |
 
-**Clinical indication codes**
-
-| Code | Meaning |
-|---|---|
-| `HEADTRAUMA` | Head / Trauma |
-| `MASTOID` | Mastoid bone / Inner ear |
-| `CHESTCOMP` | Chest / Complicated infections |
-| `CHESTFUNG` | Chest / Fungal infections |
-| `HRCTILD` | Chest/HRCT — interstitial lung disease and related conditions |
-| `ACUTEABD` | Abdomen / Acute abdomen |
-| `LYMPHOMA` | Neck-Chest-Abdomen / Lymphoma |
-| `CHESTABD` | Chest-Abdomen / Tumor staging and follow-up |
-
-**Patient group codes**
-
-| Code | Meaning | | Code | Meaning |
-|---|---|---|---|---|
-| `PH-G1`–`PH-G4` | Pediatric Head, Groups 1–4 | | `PB-G1`–`PB-G5` | Pediatric Body, Groups 1–5 |
-| `YA-G6` | Young Adult | | | |
-
-> ⚠️ These three coded fields are free-text strings in the manifest schema — the server does not reject an unrecognized code at upload time, so use the values above exactly as shown.
+> ⚠️ If the protocol you need isn't registered yet, add it first via the app's Protocol GUI — the manifest tool cannot create one for you, and an unrecognized `protocol_id` fails the upload.
 
 **5. Generate the manifest** with the tool from step 2:
 
@@ -153,9 +128,7 @@ A generated item looks like this:
     "instance_count": 180
   },
   "site_code": "S001",
-  "clinical_indication_code": "HEADTRAUMA",
-  "contrast_code": "NC",
-  "patient_group_code": "PH-G4",
+  "protocol_id": "5f6a1e9c-6b1a-4b7e-9c2d-8a1e5f6a1e9c",
   "image_quality": "Acceptable"
 }
 ```
@@ -166,6 +139,7 @@ A generated item looks like this:
 
 **7. What the server does with each item:**
 - Verifies the ZIP's SHA-256 checksum, if the manifest supplied one, before touching the file
+- Resolves `protocol_id` against the app's registered protocols, and rejects the item if it doesn't exist or its site doesn't match `site_code` (case-insensitively)
 - Re-validates GDPR anonymization against `GDPR-strict.json`
 - Independently extracts the DICOM `StudyInstanceUID` from the ZIP (it does not trust the manifest's optional `dicom_uid` field)
 - Checks for duplicate studies
@@ -179,6 +153,7 @@ Assignment happens **asynchronously** — there is no synchronous "here's your R
 - [ ] Each ZIP contains one studyset only
 - [ ] No ZIP contains direct patient identifiers
 - [ ] The Excel template has one row per ZIP, and each `filename` matches a ZIP exactly
+- [ ] Each `protocol_id` was copied from the correct row on the Protocol Records page, and its site matches `site_code`
 - [ ] The manifest generated successfully with no reported errors
 - [ ] The ZIP files and the JSON manifest are uploaded together
 
@@ -190,6 +165,8 @@ Assignment happens **asynchronously** — there is no synchronous "here's your R
 | File is not a valid ZIP | Re-create it with standard ZIP compression |
 | No readable DICOM files found | Check the ZIP holds DICOM files, not a nested ZIP or only screenshots/reports |
 | Multiple `StudyInstanceUID` values found | The ZIP has more than one study — split it, one ZIP per studyset |
+| `protocol_id does not match a registered protocol` | Copy the ID again from the Protocol Records page — it must be an exact UUID for a protocol that already exists |
+| `site_code does not match the submitting site of protocol` | The `protocol_id` belongs to a different site than `site_code` in this row |
 | Excel file cannot be read | Python: `pip install openpyxl`. Executable: close the Excel file before running the tool |
 | DICOM UID extraction fails | Python: `pip install pydicom`. Also confirm the ZIP contains valid DICOM files |
 
@@ -300,7 +277,7 @@ Authorization: Bearer <token>
 
 {"manifest": { ...manifest object... }}
 # → {"valid": true, "schema_version": "v1"|"v2", "errors": []}
-# or {"valid": false, "schema_version": "v2", "errors": [{"field": "$.items[0].clinical_indication_code", "code": "required", "message": "..."}]}
+# or {"valid": false, "schema_version": "v2", "errors": [{"field": "$.items[0].protocol_id", "code": "required", "message": "..."}]}
 ```
 
 ### Chunked Upload (v1 large files, and all v2 batch items)

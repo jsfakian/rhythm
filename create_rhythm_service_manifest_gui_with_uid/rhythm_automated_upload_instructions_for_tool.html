@@ -252,31 +252,11 @@ create_rhythm_server_assigned_manifest_gui_with_uid.exe
 </tr>
 <tr>
   <td><code>site_code</code></td>
-  <td>Coded submitting site, for example <code>S001</code></td>
+  <td>Coded submitting site, for example <code>S001</code>. Must match (case-insensitively) the submitting site of the protocol referenced by <code>protocol_id</code> below — the server rejects the row otherwise.</td>
 </tr>
 <tr>
-  <td><code>clinical_indication_code</code></td>
-  <td>RHYTHM clinical indication code, e.g. <code>HEADTRAUMA</code>, <code>HRCTILD</code>, <code>ACUTEABD</code></td>
-</tr>
-<tr>
-  <td><code>anatomical_region</code></td>
-  <td>Anatomical region, e.g. <code>Head</code>, <code>Chest/HRCT</code>, <code>Abdomen</code></td>
-</tr>
-<tr>
-  <td><code>contrast_code</code></td>
-  <td>Contrast category: <code>NC</code>, <code>CE</code>, or <code>MIX</code></td>
-</tr>
-<tr>
-  <td><code>patient_group_code</code></td>
-  <td>Patient/protocol group, e.g. <code>PH-G4</code>, <code>PB-G3</code>, <code>YA-G6</code></td>
-</tr>
-<tr>
-  <td><code>scanner_id</code></td>
-  <td>Local registered CT scanner ID, e.g. <code>CT01</code></td>
-</tr>
-<tr>
-  <td><code>protocol_name</code></td>
-  <td>Name of the CT protocol used</td>
+  <td><code>protocol_id</code></td>
+  <td>UUID of a protocol already registered in the RHYTHM app. Copy it from the Protocol Records page — see section 6 below. The server derives the anatomical region, clinical indication, contrast, protocol type, examination group, and scanner from this protocol; none of those are typed here.</td>
 </tr>
 <tr>
   <td><code>patient_weight_kg</code></td>
@@ -308,127 +288,17 @@ create_rhythm_server_assigned_manifest_gui_with_uid.exe
 <pre><code class="language-text">C:\RHYTHM_Upload\zips\study_001_anonymized.zip
 </code></pre>
 <hr />
-<h2>6. Clinical indication codes</h2>
-<table>
-<thead>
-<tr>
-  <th>Code</th>
-  <th>Meaning</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-  <td><code>HEADTRAUMA</code></td>
-  <td>Head / Trauma</td>
-</tr>
-<tr>
-  <td><code>MASTOID</code></td>
-  <td>Mastoid bone / Inner ear</td>
-</tr>
-<tr>
-  <td><code>CHESTCOMP</code></td>
-  <td>Chest / Complicated infections</td>
-</tr>
-<tr>
-  <td><code>CHESTFUNG</code></td>
-  <td>Chest / Fungal infections</td>
-</tr>
-<tr>
-  <td><code>HRCTILD</code></td>
-  <td>Chest/HRCT for interstitial lung disease and related conditions</td>
-</tr>
-<tr>
-  <td><code>ACUTEABD</code></td>
-  <td>Abdomen / Acute abdomen</td>
-</tr>
-<tr>
-  <td><code>LYMPHOMA</code></td>
-  <td>Neck-Chest-Abdomen / Lymphoma</td>
-</tr>
-<tr>
-  <td><code>CABDTUMOR</code></td>
-  <td>Chest-Abdomen / Tumor staging and follow-up</td>
-</tr>
-</tbody>
-</table>
+<h2>6. Finding your Protocol ID</h2>
+<p>Every studyset must reference a protocol already registered in the RHYTHM app — this replaces the older clinical indication / anatomical region / contrast / patient group / scanner columns entirely.</p>
+<ol>
+<li>Log in to the RHYTHM app and open the <strong>Protocol Records</strong> page (<code>/protocols/records/</code>).</li>
+<li>Find the row matching the scanner, indication, region, contrast, and age/weight group this studyset was actually acquired under.</li>
+<li>Copy the value from its <strong>Protocol ID</strong> column (a UUID, e.g. <code>5f6a1e9c-6b1a-4b7e-9c2d-8a1e5f6a1e9c</code>).</li>
+<li>Paste it into the <code>protocol_id</code> column for that row in the Excel template.</li>
+</ol>
+<p>If the protocol you need isn't listed yet, it must be registered first via the app's Protocol GUI before you can reference it here — the tool cannot create one for you.</p>
 <hr />
-<h2>7. Contrast codes</h2>
-<table>
-<thead>
-<tr>
-  <th>Code</th>
-  <th>Meaning</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-  <td><code>NC</code></td>
-  <td>Non-contrast</td>
-</tr>
-<tr>
-  <td><code>CE</code></td>
-  <td>Contrast-enhanced</td>
-</tr>
-<tr>
-  <td><code>MIX</code></td>
-  <td>Non-contrast and contrast-enhanced / mixed</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h2>8. Patient group codes</h2>
-<table>
-<thead>
-<tr>
-  <th>Code</th>
-  <th>Meaning</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-  <td><code>PH-G1</code></td>
-  <td>Pediatric Head Group 1</td>
-</tr>
-<tr>
-  <td><code>PH-G2</code></td>
-  <td>Pediatric Head Group 2</td>
-</tr>
-<tr>
-  <td><code>PH-G3</code></td>
-  <td>Pediatric Head Group 3</td>
-</tr>
-<tr>
-  <td><code>PH-G4</code></td>
-  <td>Pediatric Head Group 4</td>
-</tr>
-<tr>
-  <td><code>PB-G1</code></td>
-  <td>Pediatric Body Group 1</td>
-</tr>
-<tr>
-  <td><code>PB-G2</code></td>
-  <td>Pediatric Body Group 2</td>
-</tr>
-<tr>
-  <td><code>PB-G3</code></td>
-  <td>Pediatric Body Group 3</td>
-</tr>
-<tr>
-  <td><code>PB-G4</code></td>
-  <td>Pediatric Body Group 4</td>
-</tr>
-<tr>
-  <td><code>PB-G5</code></td>
-  <td>Pediatric Body Group 5</td>
-</tr>
-<tr>
-  <td><code>YA-G6</code></td>
-  <td>Young Adult Group 6</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h2>9. Preparing ZIP files</h2>
+<h2>7. Preparing ZIP files</h2>
 <p>Each ZIP file should contain the already anonymized DICOM files for one CT studyset.</p>
 <p>Recommended rules:</p>
 <ol>
@@ -440,7 +310,7 @@ create_rhythm_server_assigned_manifest_gui_with_uid.exe
 </ol>
 <p>The tool inspects each ZIP file and extracts the anonymized DICOM <code>StudyInstanceUID</code>.</p>
 <hr />
-<h2>10. Running the Windows executable version</h2>
+<h2>8. Running the Windows executable version</h2>
 <p>Use this option if you receive:</p>
 <pre><code class="language-text">create_rhythm_server_assigned_manifest_gui_with_uid.exe
 </code></pre>
@@ -465,7 +335,7 @@ rhythm_upload_manifest_index.csv
 </code></pre>
 <p>The JSON file is submitted to the repository together with the ZIP files. The CSV index file is for partner review.</p>
 <hr />
-<h2>11. Running the Python version</h2>
+<h2>9. Running the Python version</h2>
 <p>Use this option if you receive:</p>
 <pre><code class="language-text">create_rhythm_server_assigned_manifest_gui_with_uid.py
 </code></pre>
@@ -483,11 +353,12 @@ rhythm_upload_manifest_index.csv
   --batch S001-2026-07-12-001
 </code></pre>
 <hr />
-<h2>12. What the tool checks</h2>
+<h2>10. What the tool checks</h2>
 <p>The tool checks that:</p>
 <ol>
 <li>The metadata file can be read.</li>
 <li>The required metadata columns are present.</li>
+<li><code>protocol_id</code> is a syntactically valid UUID.</li>
 <li>Each <code>filename</code> exists in the selected ZIP folder.</li>
 <li>Each listed file is a valid ZIP archive.</li>
 <li>Each ZIP contains readable DICOM files.</li>
@@ -495,9 +366,10 @@ rhythm_upload_manifest_index.csv
 <li>The DICOM <code>StudyInstanceUID</code> can be extracted and included in the JSON manifest.</li>
 <li>A ZIP SHA-256 checksum can be calculated, if enabled.</li>
 </ol>
+<p>The tool only checks that <code>protocol_id</code> looks like a UUID — it does not confirm the protocol actually exists or belongs to the right site. That confirmation happens server-side, at upload time (see section 12).</p>
 <p>If a ZIP contains more than one <code>StudyInstanceUID</code>, the tool stops and reports an error. The ZIP should then be reviewed and split so that each ZIP contains only one CT studyset.</p>
 <hr />
-<h2>13. What the generated JSON contains</h2>
+<h2>11. What the generated JSON contains</h2>
 <p>The generated JSON manifest includes:</p>
 <ul>
 <li>ZIP filename</li>
@@ -509,12 +381,7 @@ rhythm_upload_manifest_index.csv
 <li>Number of DICOM series</li>
 <li>Number of DICOM instances</li>
 <li>Site code</li>
-<li>Clinical indication code</li>
-<li>Anatomical region</li>
-<li>Contrast code</li>
-<li>Patient group code</li>
-<li>Scanner ID</li>
-<li>Protocol name</li>
+<li>Protocol ID</li>
 <li>Patient weight</li>
 <li>Patient age</li>
 <li>CTDIvol</li>
@@ -537,12 +404,7 @@ rhythm_upload_manifest_index.csv
     &quot;instance_count&quot;: 180
   },
   &quot;site_code&quot;: &quot;S001&quot;,
-  &quot;clinical_indication_code&quot;: &quot;HEADTRAUMA&quot;,
-  &quot;anatomical_region&quot;: &quot;Head&quot;,
-  &quot;contrast_code&quot;: &quot;NC&quot;,
-  &quot;patient_group_code&quot;: &quot;PH-G4&quot;,
-  &quot;scanner_id&quot;: &quot;CT01&quot;,
-  &quot;protocol_name&quot;: &quot;Pediatric head trauma non-contrast&quot;,
+  &quot;protocol_id&quot;: &quot;5f6a1e9c-6b1a-4b7e-9c2d-8a1e5f6a1e9c&quot;,
   &quot;patient_weight_kg&quot;: 28,
   &quot;patient_age_years&quot;: 8,
   &quot;ctdivol_mgy&quot;: 18.4,
@@ -550,8 +412,9 @@ rhythm_upload_manifest_index.csv
   &quot;image_quality&quot;: &quot;Acceptable&quot;
 }
 </code></pre>
+<p><code>protocol_id</code> must be the UUID of a protocol already registered in the RHYTHM app (see section 6). The server derives anatomical region, clinical indication, contrast, protocol type, examination group, and scanner from it, and verifies <code>site_code</code> matches that protocol's own site (case-insensitively).</p>
 <hr />
-<h2>14. Uploading to the repository</h2>
+<h2>12. Uploading to the repository</h2>
 <p>After generating the manifest, upload the following through the RHYTHM Repository Upload Platform:</p>
 <ol>
 <li><code>rhythm_upload_manifest.json</code></li>
@@ -562,6 +425,7 @@ rhythm_upload_manifest_index.csv
 <li>Read the JSON manifest.</li>
 <li>Receive the corresponding ZIP files.</li>
 <li>Verify ZIP checksums.</li>
+<li>Resolve <code>protocol_id</code> against the RHYTHM app's registered protocols, and reject the item if it doesn't exist or its site doesn't match <code>site_code</code>.</li>
 <li>Re-inspect DICOM headers inside the ZIP files.</li>
 <li>Confirm that the DICOM <code>StudyInstanceUID</code> inside each ZIP matches the <code>dicom_uid</code> in the manifest.</li>
 <li>Check for duplicate uploaded studies.</li>
@@ -569,7 +433,7 @@ rhythm_upload_manifest_index.csv
 <li>Return a compact response listing the assigned Repository Study IDs.</li>
 </ol>
 <hr />
-<h2>15. Example server response</h2>
+<h2>13. Example server response</h2>
 <pre><code class="language-json">{
   &quot;v&quot;: &quot;1.0&quot;,
   &quot;type&quot;: &quot;server_assigned_repo_id_response&quot;,
@@ -588,7 +452,7 @@ rhythm_upload_manifest_index.csv
 </code></pre>
 <p>The final Repository Study ID is assigned by the server, not by the partner-side tool.</p>
 <hr />
-<h2>16. Troubleshooting</h2>
+<h2>14. Troubleshooting</h2>
 <h3>ZIP file not found</h3>
 <p>Check that the filename in the Excel template exactly matches the ZIP file in the selected ZIP folder.</p>
 <h3>File is not a valid ZIP</h3>
@@ -599,6 +463,10 @@ rhythm_upload_manifest_index.csv
 <p>The ZIP likely contains more than one DICOM study. Split the contents into separate ZIP files, one per CT studyset.</p>
 <h3>Multiple DICOM PatientID values found</h3>
 <p>This may indicate mixed DICOM datasets or inconsistent anonymization. Review the ZIP contents before upload.</p>
+<h3>protocol_id does not match a registered protocol</h3>
+<p>Copy the ID again from the Protocol Records page in the RHYTHM app (section 6) — it must be an exact UUID for a protocol that already exists there.</p>
+<h3>site_code does not match the submitting site of protocol</h3>
+<p>The <code>protocol_id</code> you pasted belongs to a different site than the <code>site_code</code> in this row. Use a protocol registered under your own site, or correct <code>site_code</code>.</p>
 <h3>Excel file cannot be read</h3>
 <p>If using the Python version, install:</p>
 <pre><code class="language-bash">pip install openpyxl
@@ -610,7 +478,7 @@ rhythm_upload_manifest_index.csv
 </code></pre>
 <p>Also check that the ZIP files contain valid DICOM files.</p>
 <hr />
-<h2>17. Final checklist before upload</h2>
+<h2>15. Final checklist before upload</h2>
 <p>Before submitting to the repository, confirm that:</p>
 <ul>
 <li>All CT studysets are anonymized.</li>
@@ -618,6 +486,7 @@ rhythm_upload_manifest_index.csv
 <li>No ZIP contains direct patient identifiers.</li>
 <li>The Excel template contains one row per ZIP file.</li>
 <li>Each filename in the Excel template exactly matches a ZIP filename.</li>
+<li>Each <code>protocol_id</code> was copied from the correct row on the Protocol Records page, and its site matches <code>site_code</code>.</li>
 <li>The JSON manifest was generated successfully.</li>
 <li>The ZIP files and JSON manifest are uploaded together.</li>
 <li>The partner does not manually assign the Repository Study ID.</li>

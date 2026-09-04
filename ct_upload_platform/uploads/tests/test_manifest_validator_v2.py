@@ -8,6 +8,7 @@ manifest per batch, each `items[]` entry describing one ZIP archive
 """
 
 import unittest
+import uuid
 
 from uploads.manifest_schema import (
     validate_manifest_v2,
@@ -31,12 +32,7 @@ class ManifestV2ValidatorTestCase(unittest.TestCase):
                     "ref": "ROW0001",
                     "filename": "Input_volume1.zip",
                     "site_code": "S001",
-                    "clinical_indication_code": "HEADTRAUMA",
-                    "anatomical_region": "Head",
-                    "contrast_code": "NC",
-                    "patient_group_code": "PH-G4",
-                    "scanner_id": "CT01",
-                    "protocol_name": "Pediatric head trauma non-contrast",
+                    "protocol_id": str(uuid.uuid4()),
                     "patient_weight_kg": 28.0,
                     "patient_age_years": 8.0,
                     "ctdivol_mgy": 18.4,
@@ -60,9 +56,15 @@ class ManifestV2ValidatorTestCase(unittest.TestCase):
 
     def test_missing_required_item_field(self):
         manifest = {**self.valid_manifest, "items": [dict(self.valid_manifest["items"][0])]}
-        del manifest["items"][0]["clinical_indication_code"]
+        del manifest["items"][0]["protocol_id"]
         errors = validate_manifest_v2(manifest)
         self.assertTrue(any(e["code"] == "required" for e in errors))
+
+    def test_malformed_protocol_id_rejected(self):
+        manifest = {**self.valid_manifest, "items": [dict(self.valid_manifest["items"][0])]}
+        manifest["items"][0]["protocol_id"] = "not-a-uuid"
+        errors = validate_manifest_v2(manifest)
+        self.assertTrue(any(e["code"] == "pattern" for e in errors))
 
     def test_wrong_type_discriminator_rejected(self):
         manifest = {**self.valid_manifest, "type": "something_else"}
@@ -123,10 +125,7 @@ class ManifestV2ItemStandaloneValidatorTestCase(unittest.TestCase):
             "ref": "ROW0001",
             "filename": "Input_volume1.zip",
             "site_code": "S001",
-            "clinical_indication_code": "HEADTRAUMA",
-            "anatomical_region": "Head",
-            "contrast_code": "NC",
-            "patient_group_code": "PH-G4",
+            "protocol_id": str(uuid.uuid4()),
             "image_quality": "Acceptable",
         }
 
@@ -135,7 +134,7 @@ class ManifestV2ItemStandaloneValidatorTestCase(unittest.TestCase):
 
     def test_missing_required_field_rejected(self):
         item = dict(self.valid_item)
-        del item["clinical_indication_code"]
+        del item["protocol_id"]
         errors = validate_manifest_v2_item(item)
         self.assertTrue(any(e["code"] == "required" for e in errors))
 

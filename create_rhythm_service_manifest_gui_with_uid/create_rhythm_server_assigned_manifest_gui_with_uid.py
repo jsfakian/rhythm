@@ -2,15 +2,21 @@
 """
 RHYTHM server-assigned Repository Study ID manifest creator WITH DICOM UID extraction.
 
-The partner metadata template contains filenames and manual metadata only. This tool
-opens each ZIP file, extracts the anonymized DICOM StudyInstanceUID (0020,000D), and
-includes it in the JSON manifest as `dicom_uid`. The server still assigns the final
-RHYTHM Repository Study ID after validating the manifest and ZIP contents.
+The partner metadata template contains filenames, a protocol_id, and manual dose/quality
+metadata only. This tool opens each ZIP file, extracts the anonymized DICOM
+StudyInstanceUID (0020,000D), and includes it in the JSON manifest as `dicom_uid`. The
+server still assigns the final RHYTHM Repository Study ID after validating the manifest
+and ZIP contents.
+
+protocol_id is the UUID of a protocol already registered in the RHYTHM app (see its ID
+on the Protocol Records page, /protocols/records/). The server derives anatomical
+region, clinical indication, contrast, protocol type, examination group, and scanner
+from that protocol — none of those are re-typed/re-coded in this template, and the
+server verifies site_code matches (case-insensitively) the protocol's own site.
 
 Template columns:
-  filename, site_code, clinical_indication_code, anatomical_region, contrast_code,
-  patient_group_code, scanner_id, protocol_name, patient_weight_kg,
-  patient_age_years, ctdivol_mgy, dlp_mgy_cm, image_quality
+  filename, site_code, protocol_id, patient_weight_kg, patient_age_years,
+  ctdivol_mgy, dlp_mgy_cm, image_quality
 
 Prerequisites:
   pip install pydicom openpyxl
@@ -28,21 +34,17 @@ import queue
 import sys
 import threading
 import traceback
+import uuid
 import zipfile
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
-TOOL_VERSION = "3.1"
+TOOL_VERSION = "4.0"
 
 REQUIRED_COLUMNS = [
     "filename",
     "site_code",
-    "clinical_indication_code",
-    "anatomical_region",
-    "contrast_code",
-    "patient_group_code",
-    "scanner_id",
-    "protocol_name",
+    "protocol_id",
     "patient_weight_kg",
     "patient_age_years",
     "ctdivol_mgy",
@@ -255,6 +257,16 @@ def check_rows(rows: List[Dict[str, str]], headers: List[str], zip_folder: Path)
                 errors.append(f"Row {idx}: file is not named as a .zip file: {filename}")
             elif not is_zip_file(path):
                 errors.append(f"Row {idx}: file is not a valid ZIP archive: {filename}")
+
+        protocol_id = clean(row.get("protocol_id", ""))
+        if protocol_id:
+            try:
+                uuid.UUID(protocol_id)
+            except ValueError:
+                errors.append(
+                    f"Row {idx}: protocol_id is not a valid UUID: '{protocol_id}' — copy it "
+                    "from the Protocol Records page in the RHYTHM app"
+                )
     return errors
 
 
@@ -299,12 +311,7 @@ def build_manifest(
             "dicom_uid": dicom_uid,
             "dicom": dicom_summary,
             "site_code": clean(row.get("site_code")),
-            "clinical_indication_code": clean(row.get("clinical_indication_code")),
-            "anatomical_region": clean(row.get("anatomical_region")),
-            "contrast_code": clean(row.get("contrast_code")),
-            "patient_group_code": clean(row.get("patient_group_code")),
-            "scanner_id": clean(row.get("scanner_id")),
-            "protocol_name": clean(row.get("protocol_name")),
+            "protocol_id": clean(row.get("protocol_id")),
             "patient_weight_kg": to_number_or_none(row.get("patient_weight_kg")),
             "patient_age_years": to_number_or_none(row.get("patient_age_years")),
             "ctdivol_mgy": to_number_or_none(row.get("ctdivol_mgy")),
@@ -322,9 +329,7 @@ def build_manifest(
             "dicom_uid": dicom_uid,
             "dicom_patient_id": dicom_summary.get("patient_id", ""),
             "site_code": item["site_code"],
-            "clinical_indication_code": item["clinical_indication_code"],
-            "contrast_code": item["contrast_code"],
-            "patient_group_code": item["patient_group_code"],
+            "protocol_id": item["protocol_id"],
             "size_bytes": item["size_bytes"],
             "sha256": item.get("sha256", ""),
             "series_count": dicom_summary.get("series_count", ""),
@@ -355,8 +360,7 @@ def build_manifest(
     with index_csv.open("w", newline="", encoding="utf-8-sig") as f:
         fieldnames = [
             "ref", "filename", "dicom_uid", "dicom_patient_id", "site_code",
-            "clinical_indication_code", "contrast_code", "patient_group_code",
-            "size_bytes", "sha256", "series_count", "instance_count",
+            "protocol_id", "size_bytes", "sha256", "series_count", "instance_count",
         ]
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
@@ -403,8 +407,10 @@ def run_gui() -> None:
             ttk.Label(self, text="RHYTHM upload manifest creator", font=("Segoe UI", 15, "bold")).pack(anchor="w", padx=14, pady=(14, 4))
             ttk.Label(
                 self,
-                text=("Simplified workflow: metadata template uses filename only. The script extracts DICOM StudyInstanceUID "
-                      "from each ZIP and includes it in the manifest. The server assigns the Repository Study ID after upload validation."),
+                text=("Simplified workflow: the metadata template only needs filename, site_code, and a protocol_id "
+                      "(copy it from the Protocol Records page in the RHYTHM app). The script extracts DICOM "
+                      "StudyInstanceUID from each ZIP and includes it in the manifest. The server derives the "
+                      "clinical/scanner fields from the protocol and assigns the Repository Study ID after upload validation."),
                 foreground="#7a3d00",
                 wraplength=900,
             ).pack(anchor="w", padx=14, pady=(0, 10))

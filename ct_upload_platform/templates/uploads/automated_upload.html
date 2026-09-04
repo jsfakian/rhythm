@@ -41,6 +41,10 @@
             <code>create_rhythm_server_assigned_manifest_gui</code> partner tool) together with the ZIP
             archives it references — one already-anonymized CT studyset per ZIP. The server extracts and
             validates the DICOM identifiers in each archive and assigns the Repository Study ID itself.
+            Each manifest item references a registered protocol by its ID — copy it from the
+            <a href="{% url 'protocol-records' %}">Protocol Records</a> page; the server derives anatomical
+            region, clinical indication, contrast, protocol type, examination group, and scanner from it and
+            verifies the manifest's <code>site_code</code> matches that protocol's site.
         </p>
         <p class="text-muted" style="margin-top:0;margin-bottom:20px;">
             Don't have the manifest generator yet? Get the Python source, the Windows <code>.exe</code>
@@ -79,8 +83,7 @@
                         <tr>
                             <th>Ref</th>
                             <th>Filename</th>
-                            <th>Indication</th>
-                            <th>Group</th>
+                            <th>Protocol ID</th>
                             <th>File</th>
                             <th>Progress</th>
                             <th>Status</th>
