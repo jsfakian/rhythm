@@ -446,11 +446,62 @@ class ExaminationSaveAPIViewTests(_ExamFixtures, TestCase):
         self.assertIsNone(exam.protocol)
 
     def test_missing_weight_returns_400(self) -> None:
-        payload = self._valid_payload()
+        # Body exams still require weight. Use a chest region so the
+        # head/mastoid exemption does not apply.
+        payload = self._valid_payload(
+            anatomical_region="Chest",
+            clinical_indication="Complicated infections",
+        )
         payload.pop("patient_weight", None)
         resp = self._post(payload)
         self.assertEqual(resp.status_code, 400)
         self.assertIn("weight", resp.json()["error"].lower())
+
+    def test_missing_weight_allowed_for_pediatric_head(self) -> None:
+        payload = self._valid_payload(
+            protocol_type="PEDIATRIC_HEAD",
+            examination_group="Group 4 – Childhood",
+            anatomical_region="Head",
+            clinical_indication="Trauma",
+        )
+        payload.pop("patient_weight", None)
+        resp = self._post(payload)
+        self.assertIn(resp.status_code, (200, 201))
+        self.assertIsNone(CTExamination.objects.first().patient_weight)
+
+    def test_missing_weight_allowed_for_young_adult_head(self) -> None:
+        """Regression: Aug 2026 only exempted PEDIATRIC_HEAD; young-adult
+        brain CT still required weight."""
+        payload = self._valid_payload(
+            protocol_type="YOUNG_ADULT",
+            examination_group="Group 6 – Adolescence & Young Adulthood",
+            anatomical_region="Head",
+            clinical_indication="Trauma",
+            patient_age=19,
+        )
+        payload.pop("patient_weight", None)
+        resp = self._post(payload)
+        self.assertIn(resp.status_code, (200, 201))
+        self.assertIsNone(CTExamination.objects.first().patient_weight)
+
+    def test_missing_weight_allowed_for_young_adult_mastoid(self) -> None:
+        """Customer report: young-adult mastoid CT must not require weight."""
+        payload = self._valid_payload(
+            protocol_type="YOUNG_ADULT",
+            examination_group="Group 6 – Adolescence & Young Adulthood",
+            anatomical_region="Mastoid bone/Inner Ear",
+            clinical_indication=(
+                "Hearing loss; congenital malformations, infection, "
+                "cholesteatoma, cochlear implants"
+            ),
+            patient_age=22,
+        )
+        payload.pop("patient_weight", None)
+        resp = self._post(payload)
+        self.assertIn(resp.status_code, (200, 201))
+        exam = CTExamination.objects.first()
+        self.assertIsNone(exam.patient_weight)
+        self.assertEqual(exam.anatomical_region, "Mastoid bone/Inner Ear")
 
     def test_ctdi_and_dlp_values_persisted(self) -> None:
         self._post(self._valid_payload())

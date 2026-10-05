@@ -13,6 +13,7 @@ from uploads.repository_study_id import (
     generate_repository_study_id,
     generate_repository_study_id_from_codes,
     is_repository_study_id,
+    is_weight_optional,
 )
 
 
@@ -74,3 +75,26 @@ class GenerateFromHumanReadableTests(TestCase):
             examination_group="Group 4 – Childhood",
         )
         self.assertIn("-OTHER-", study_id)
+
+
+class IsWeightOptionalTests(TestCase):
+    """Patient weight is optional for head/brain and mastoid CT at any age."""
+
+    def test_pediatric_head_always_optional(self) -> None:
+        self.assertTrue(is_weight_optional("PEDIATRIC_HEAD", "Head"))
+        self.assertTrue(is_weight_optional("PEDIATRIC_HEAD", "Chest"))
+
+    def test_young_adult_head_and_mastoid_optional(self) -> None:
+        self.assertTrue(is_weight_optional("YOUNG_ADULT", "Head"))
+        self.assertTrue(is_weight_optional("YOUNG_ADULT", "Mastoid bone/Inner Ear"))
+
+    def test_body_regions_require_weight(self) -> None:
+        self.assertFalse(is_weight_optional("YOUNG_ADULT", "Chest"))
+        self.assertFalse(is_weight_optional("PEDIATRIC_BODY", "Abdomen"))
+        self.assertFalse(is_weight_optional("PEDIATRIC_BODY", "Chest"))
+
+    def test_pediatric_body_head_region_still_optional(self) -> None:
+        # Clinical rule is region-based; a head study remains weight-optional
+        # even if the operator selected the body protocol type.
+        self.assertTrue(is_weight_optional("PEDIATRIC_BODY", "Head"))
+        self.assertTrue(is_weight_optional("PEDIATRIC_BODY", "Mastoid bone/Inner Ear"))

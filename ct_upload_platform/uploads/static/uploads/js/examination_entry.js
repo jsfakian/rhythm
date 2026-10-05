@@ -45,6 +45,37 @@ const GROUP_CODES = {
     "Group 4": "G4", "Group 5": "G5", "Group 6": "G6",
 };
 
+// Mirrors repository_study_id.HEAD_ANATOMICAL_REGIONS / is_weight_optional.
+const HEAD_ANATOMICAL_REGIONS = new Set([
+    "Head",
+    "Mastoid bone/Inner Ear",
+]);
+
+function isWeightOptional(protocolType, anatomicalRegion) {
+    if (protocolType === "PEDIATRIC_HEAD") return true;
+    return HEAD_ANATOMICAL_REGIONS.has(anatomicalRegion);
+}
+
+function getSelectedAnatomicalRegion() {
+    const raw = document.getElementById('sel_indication_combo')?.value;
+    if (!raw) return '';
+    try {
+        return JSON.parse(raw).region || '';
+    } catch (_e) {
+        return '';
+    }
+}
+
+function updateWeightHint() {
+    const weightHint = document.getElementById('weight_hint');
+    if (!weightHint) return;
+    const ptype = document.getElementById('sel_protocol_type').value;
+    const region = getSelectedAnatomicalRegion();
+    weightHint.textContent = isWeightOptional(ptype, region)
+        ? '(optional for head / mastoid exams)'
+        : '';
+}
+
 function getGroupCode(protocolType, examGroup) {
     const prefix = protocolType === "PEDIATRIC_HEAD" ? "PH" :
                    protocolType === "PEDIATRIC_BODY" ? "PB" : "YA";
@@ -53,6 +84,7 @@ function getGroupCode(protocolType, examGroup) {
     }
     return "UNK";
 }
+
 
 // ---------------------------------------------------------------------------
 // Init
@@ -124,6 +156,7 @@ function onIndicationComboChange() {
 
     if (!val) {
         contrastContainer.style.display = 'none';
+        updateWeightHint();
         updatePidPreview();
         return;
     }
@@ -150,8 +183,10 @@ function onIndicationComboChange() {
     contrastSelect.disabled = contrastOptions.length <= 1;
 
     contrastContainer.style.display = 'block';
+    updateWeightHint();
     updatePidPreview();
 }
+
 
 // ---------------------------------------------------------------------------
 // Protocol type → populate examination group select
@@ -168,12 +203,10 @@ function onProtocolTypeChange() {
     if (ptype === 'YOUNG_ADULT') {
         grpSel.value = 'Group 6 – Adolescence & Young Adulthood';
     }
-    const weightHint = document.getElementById('weight_hint');
-    if (weightHint) {
-        weightHint.textContent = ptype === 'PEDIATRIC_HEAD' ? '(optional for head exams)' : '';
-    }
+    updateWeightHint();
     updatePidPreview();
 }
+
 
 // ---------------------------------------------------------------------------
 // Study-set file hint — shows the name it will be saved under
@@ -304,7 +337,10 @@ async function saveExamination() {
     }
 
     const weightVal = document.getElementById('inp_weight').value || null;
-    if (!weightVal && protocolType !== 'PEDIATRIC_HEAD') errors.push("Patient's weight is required.");
+    if (!weightVal && !isWeightOptional(protocolType, anatomicalRegion)) {
+        errors.push("Patient's weight is required.");
+    }
+
 
     if (!document.getElementById('sel_quality').value) errors.push('Image quality is required.');
 

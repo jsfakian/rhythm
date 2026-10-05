@@ -28,6 +28,27 @@ INDICATION_CODES: dict[str, str] = {
     "Chest-Abdomen / Tumor staging & follow-up (Wilms tumor, neuroblastoma, other)": "CHESTABD",
 }
 
+# Anatomical regions for which patient weight is not a critical dosimetry
+# parameter (SSDE uses head size / age, not weight). Applies to all age
+# groups — pediatric and young adult / adult alike.
+HEAD_ANATOMICAL_REGIONS: frozenset[str] = frozenset({
+    "Head",
+    "Mastoid bone/Inner Ear",
+})
+
+
+def is_weight_optional(protocol_type: str, anatomical_region: str) -> bool:
+    """Return True when patient weight may be omitted for this exam.
+
+    Weight is optional for head / brain and mastoid CT studies at any age.
+    ``PEDIATRIC_HEAD`` is always treated as a head exam; for
+    ``YOUNG_ADULT`` / ``PEDIATRIC_BODY`` the anatomical region decides.
+    """
+    if protocol_type == "PEDIATRIC_HEAD":
+        return True
+    return anatomical_region in HEAD_ANATOMICAL_REGIONS
+
+
 CONTRAST_CODES: dict[str, str] = {
     "Non-contrast": "NC",
     "Contrast-enhanced": "CE",

@@ -33,7 +33,9 @@ from .models import (
     UploadJob,
 )
 from .protocol_forms import CTProtocolForm, CTScannerProfileForm
+from .repository_study_id import is_weight_optional
 from .tasks import process_upload_job
+
 
 _LOGIN_URL = '/login/'
 _PROTOCOL_TYPE_CHOICES = CTProtocol.PROTOCOL_TYPE_CHOICES
@@ -987,8 +989,13 @@ class ExaminationSaveAPIView(AjaxLoginRequiredMixin, View):
             errors.append("CTDI vol is required for every phase.")
         if any(v in (None, "") for v in dlp):
             errors.append("DLP is required for every phase.")
-        if patient_weight is None and protocol_type != "PEDIATRIC_HEAD":
+        # Weight is optional for head/brain and mastoid CT at any age
+        # (PEDIATRIC_HEAD, or YOUNG_ADULT/body with a head anatomical region).
+        # Regression: the Aug 2026 fix only exempted PEDIATRIC_HEAD, so
+        # young-adult mastoid/brain uploads were still blocked.
+        if patient_weight is None and not is_weight_optional(protocol_type, anatomical_region):
             errors.append("Patient's weight is required.")
+
         if not image_quality:
             errors.append("Image quality is required.")
         if 'application/json' not in content_type and not study_set_file:
