@@ -1,4 +1,4 @@
-.PHONY: help build up down logs migrate seed createsuperuser test test-all test-db-up test-db-down test-coverage test-e2e test-e2e-ui test-e2e-headed shell clean stop
+.PHONY: help build up down logs migrate seed createsuperuser test test-all test-db-up test-db-down test-coverage build-exe test-exe-windows test-e2e test-e2e-ui test-e2e-headed shell clean stop
 
 help:
 	@echo "CT Upload Platform - Available Commands"
@@ -17,12 +17,14 @@ help:
 	@echo "  make createsuperuser    - Create a Django superuser"
 	@echo ""
 	@echo "Development:"
-	@echo "  make test               - Run Django unit tests (237 tests)"
+	@echo "  make test               - Run Django unit tests on a throwaway PostgreSQL"
 	@echo "  make test-all           - Run all tests (unit + E2E)"
 	@echo "  make test-coverage      - Run unit tests with coverage report"
 	@echo "  make test-e2e           - Run Playwright E2E tests"
 	@echo "  make test-e2e-ui        - Run Playwright E2E tests with UI"
 	@echo "  make test-e2e-headed    - Run Playwright E2E tests in browser"
+	@echo "  make build-exe          - Rebuild + smoke-test RHYTHM_manifest_tool.exe (Wine)"
+	@echo "  make test-exe-windows   - GUI-test the .exe on a real Windows 11 VM"
 	@echo "  make shell              - Open Django shell"
 	@echo "  make bash               - Open bash in web container"
 	@echo ""
@@ -102,6 +104,18 @@ test-all:
 	npx playwright test
 	@echo ""
 	@echo "✓ All tests completed successfully!"
+
+# Partner manifest tool (create_rhythm_service_manifest_gui_with_uid/).
+MANIFEST_TOOL_DIR = ../create_rhythm_service_manifest_gui_with_uid
+
+build-exe:
+	$(MANIFEST_TOOL_DIR)/build_windows_exe.sh
+
+# Opens the .exe from Explorer on a Windows 11 VM (dockur/windows, reused
+# between runs; the first run installs Windows) and checks the manifest it
+# generates. KEEP=1 leaves the VM running afterwards.
+test-exe-windows:
+	$(MANIFEST_TOOL_DIR)/test_exe_windows_gui.sh $(if $(KEEP),--keep-running,)
 
 test-e2e:
 	npx playwright test
