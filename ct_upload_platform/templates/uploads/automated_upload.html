@@ -120,7 +120,7 @@
                         <a href="https://github.com/jsfakian/rhythm/tree/main/create_rhythm_service_manifest_gui_with_uid" target="_blank" rel="noopener noreferrer">github.com/jsfakian/rhythm/create_rhythm_service_manifest_gui_with_uid</a>.</span></li>
                     <li><span class="prep-num">2</span><span>The ID of the registered protocol for each study, copied from <a href="{% url 'protocol-records' %}">Protocol Records</a>. The server derives region, indication, contrast, examination group and scanner from it, and checks that the manifest's <code>site_code</code> matches the protocol's site.</span></li>
                     <li><span class="prep-num">3</span><span>One ZIP archive per anonymised CT study set, named exactly as in the manifest's <code>items[].filename</code>.</span></li>
-                    <li><span class="prep-num">4</span><span>Retention consent for each study: set <code>retain_after_project</code> to <code>yes</code> in the template if the patient authorised keeping the study after the project ends. Studies marked <code>no</code> or left empty are deleted at the end of the project.</span></li>
+                    <li><span class="prep-num">4</span><span>Retention: studies are kept after the project ends by default. Set <code>retain_after_project</code> to <code>no</code> in the template for any study the patient did not authorise keeping; it is deleted at the end of the project.</span></li>
                 </ol>
             </div>
 

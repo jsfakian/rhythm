@@ -448,12 +448,13 @@ The Data Transfer Agreement requires that studies a patient did not authorise fo
 
 | Value | Shown as | At project end |
 |---|---|---|
-| `RETAIN` | Retain | kept |
+| `RETAIN` *(default)* | Retain | kept |
 | `DELETE` | Delete at end | deleted |
-| *(blank)* | Not declared | **deleted**: only explicit authorisation is kept |
+
+New examinations default to `RETAIN`; sites mark `DELETE` for studies the patient did not authorise keeping. A defaulted value has no "set by"; an explicit choice records who and when. (Until 2026-11-05 the default was "not declared = delete"; all 68 examinations existing then were set to `RETAIN` in one audited bulk change, `actor_id=admin-bulk-default`. Blank values only survive in legacy rows and are deleted like `DELETE`.)
 
 **Declaring it**
-- *Automated upload:* the v2 manifest item field `retain_after_project` (`true` / `false` / `null`). The manifest tool (v4.1) fills it from the optional `retain_after_project` template column (`yes` / `no` / empty). The Automated Upload page shows each item's value and warns about undeclared ones before upload.
+- *Automated upload:* the v2 manifest item field `retain_after_project` (`true` / `false` / `null`). The manifest tool (v4.1) fills it from the optional `retain_after_project` template column (`yes` / `no` / empty). Missing or `null` means the default, `RETAIN`. The Automated Upload page shows each item's value and how many are marked for deletion before upload.
 - *Manual Exam Entry:* the "Retention After the Project" choice.
 - *Afterwards:* the Retention column on the Examinations page, editable by colleagues of the same institution. Every change is written to the `AuditLog` (`RETENTION_SET`) with who, when, and old/new value. The page shows counts and a filter for each state. Admins see the same column in the File Manager.
 

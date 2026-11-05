@@ -95,11 +95,11 @@ document.getElementById('btn_validate').addEventListener('click', async () => {
     }
 
     manifest = parsed;
-    const undeclared = manifest.items.filter((it) => it.retain_after_project !== true && it.retain_after_project !== false).length;
-    const retentionNote = undeclared
-        ? `<br>${undeclared} item(s) have no retention declaration. They will be <strong>deleted at the end of the project</strong> unless you declare them later on the Examinations page.`
+    const toDelete = manifest.items.filter((it) => it.retain_after_project === false).length;
+    const retentionNote = toDelete
+        ? `<br>${toDelete} item(s) are marked for <strong>deletion at the end of the project</strong>; all others are kept.`
         : '';
-    showResult(undeclared ? 'warn' : 'ok', `Manifest is valid — ${manifest.items.length} item(s) in batch "${escHtml(manifest.batch || '—')}".${retentionNote}`);
+    showResult('ok', `Manifest is valid — ${manifest.items.length} item(s) in batch "${escHtml(manifest.batch || '—')}".${retentionNote}`);
     document.getElementById('items_card').style.display = 'block';
     renderItemsTable();
 });
@@ -107,7 +107,7 @@ document.getElementById('btn_validate').addEventListener('click', async () => {
 function retentionBadge(value) {
     if (value === true) return '<span class="badge-status badge-done">Retain</span>';
     if (value === false) return '<span class="badge-status badge-error">Delete at end</span>';
-    return '<span class="badge-status badge-uploading" title="Not declared: deleted at project end">Not declared</span>';
+    return '<span class="badge-status badge-done" title="Not set in the manifest: retained by default">Retain (default)</span>';
 }
 
 function renderItemsTable() {

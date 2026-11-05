@@ -94,7 +94,7 @@ Open `rhythm_server_assigned_metadata_template.xlsx` and complete one row per ZI
 | `ctdivol_mgy` | CTDIvol in mGy |
 | `dlp_mgy_cm` | DLP in mGy·cm |
 | `image_quality` | Image-quality category, e.g. `Acceptable` |
-| `retain_after_project` | *Optional.* `yes` if the patient authorised keeping this study after the RHYTHM project ends, `no` if not. Leave empty if not yet known: the server treats an empty value as `no`, and the study is deleted at the end of the project. Sites can change it later on the Examinations page. |
+| `retain_after_project` | *Optional.* `no` if the patient did not authorise keeping this study after the RHYTHM project ends: it is deleted at the end of the project. `yes` or empty: kept (the default). Sites can change it later on the Examinations page. |
 
 ### Finding your Protocol ID
 

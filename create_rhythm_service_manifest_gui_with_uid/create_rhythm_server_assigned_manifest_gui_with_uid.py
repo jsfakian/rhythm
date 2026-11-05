@@ -18,10 +18,9 @@ Template columns:
   filename, site_code, protocol_id, patient_weight_kg, patient_age_years,
   ctdivol_mgy, dlp_mgy_cm, image_quality
 Optional column:
-  retain_after_project  yes / no. Did the patient authorise keeping the study
-                        after the RHYTHM project ends? Blank = not declared,
-                        which the server treats as "no": the study is deleted
-                        at the end of the project.
+  retain_after_project  yes / no. "no" if the patient did not authorise keeping
+                        the study after the RHYTHM project ends: it is deleted
+                        at the end of the project. Blank = kept (the default).
 
 Prerequisites:
   pip install pydicom openpyxl

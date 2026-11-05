@@ -156,7 +156,7 @@
                             <td>
                                 {% if e.retention_consent == 'RETAIN' %}<span class="ret-badge ret-keep">Retain</span>
                                 {% elif e.retention_consent == 'DELETE' %}<span class="ret-badge ret-del">Delete at end</span>
-                                {% else %}<span class="ret-badge ret-none" title="Not declared: deleted at project end">Not declared</span>{% endif %}
+                                {% else %}<span class="ret-badge ret-del" title="Legacy value with no retention set: deleted at project end">Delete at end</span>{% endif %}
                             </td>
                             <td>{{ e.created_by|default:"—" }}</td>
                             <td>

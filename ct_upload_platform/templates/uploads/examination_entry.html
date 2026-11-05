@@ -214,14 +214,13 @@
             <!-- Retention consent -->
             <div class="section-card">
                 <h2>Retention After the Project</h2>
-                <p class="sdesc">Did the patient authorise keeping this study after the RHYTHM project ends? Studies that are not authorised, or not declared, are deleted at the end of the project. You can change this later from Examinations.</p>
+                <p class="sdesc">Studies are kept after the RHYTHM project ends unless you mark them for deletion. Choose "Delete at project end" if the patient did not authorise keeping it. You can change this later from Examinations.</p>
                 <div style="max-width:420px;">
                     <div class="frow">
                         <label for="sel_retention">Retention consent</label>
                         <select id="sel_retention">
-                            <option value="">Not declared (delete at project end)</option>
-                            <option value="RETAIN">Authorised: retain after the project</option>
-                            <option value="DELETE">Not authorised: delete at project end</option>
+                            <option value="RETAIN" selected>Retain after the project (default)</option>
+                            <option value="DELETE">Delete at project end (not authorised)</option>
                         </select>
                     </div>
                 </div>

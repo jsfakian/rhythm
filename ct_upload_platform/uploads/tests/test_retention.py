@@ -94,15 +94,20 @@ class ParseRetentionConsentTests(TestCase):
         for value in ("DELETE", "no", "false", "0"):
             self.assertEqual(parse_retention_consent(value), RETENTION_DELETE, value)
 
-    def test_empty_means_not_declared(self) -> None:
+    def test_empty_means_default_retain(self) -> None:
         for value in (None, "", "   "):
-            self.assertEqual(parse_retention_consent(value), "")
+            self.assertEqual(parse_retention_consent(value), RETENTION_RETAIN)
+
+    def test_new_examination_defaults_to_retain(self) -> None:
+        exam = CTExamination.objects.create(rhythm_pseudo_id="RHY-NEW", anatomical_region="Head")
+        self.assertEqual(exam.retention_consent, RETENTION_RETAIN)
+        self.assertFalse(exam.will_be_deleted_at_project_end)
 
     def test_unknown_value_raises(self) -> None:
         with self.assertRaises(ValueError):
             parse_retention_consent("maybe")
 
-    def test_only_retain_survives_project_end(self) -> None:
+    def test_only_retain_survives_project_end(self) -> None:  # blank = legacy row
         self.assertFalse(_exam("RHY-A", RETENTION_RETAIN).will_be_deleted_at_project_end)
         self.assertTrue(_exam("RHY-B", RETENTION_DELETE).will_be_deleted_at_project_end)
         self.assertTrue(_exam("RHY-C", "").will_be_deleted_at_project_end)
@@ -130,9 +135,10 @@ class ManifestRetentionFieldTests(TestCase):
         self.assertIsNotNone(fields["retention_updated_at"])
         self.assertEqual(_retention_fields_from_item({"retain_after_project": False}, "u")["retention_consent"], RETENTION_DELETE)
 
-    def test_pipeline_treats_missing_or_bad_as_not_declared(self) -> None:
-        self.assertEqual(_retention_fields_from_item({}, "u"), {"retention_consent": ""})
-        self.assertEqual(_retention_fields_from_item({"retain_after_project": "weird"}, "u"), {"retention_consent": ""})
+    def test_pipeline_defaults_missing_or_bad_to_retain(self) -> None:
+        for item in ({}, {"retain_after_project": None}, {"retain_after_project": "weird"}):
+            # Default applied: RETAIN, and no "set by" (nobody declared it).
+            self.assertEqual(_retention_fields_from_item(item, "u"), {"retention_consent": RETENTION_RETAIN}, item)
 
 
 # ---------------------------------------------------------------------------
@@ -166,12 +172,20 @@ class ManualEntryRetentionTests(TestCase):
         self.assertEqual(exam.retention_updated_by, "entryuser")
         self.assertIsNotNone(exam.retention_updated_at)
 
-    def test_missing_retention_is_not_declared(self) -> None:
+    def test_missing_retention_defaults_to_retain(self) -> None:
         resp = self._post()
         self.assertEqual(resp.status_code, 200, resp.content)
         exam = CTExamination.objects.get()
-        self.assertEqual(exam.retention_consent, "")
+        self.assertEqual(exam.retention_consent, RETENTION_RETAIN)
         self.assertIsNone(exam.retention_updated_at)
+        self.assertEqual(exam.retention_updated_by, "")
+
+    def test_stores_explicit_delete(self) -> None:
+        resp = self._post(retention_consent="DELETE")
+        self.assertEqual(resp.status_code, 200, resp.content)
+        exam = CTExamination.objects.get()
+        self.assertEqual(exam.retention_consent, RETENTION_DELETE)
+        self.assertEqual(exam.retention_updated_by, "entryuser")
 
     def test_rejects_unknown_retention_value(self) -> None:
         resp = self._post(retention_consent="perhaps")
@@ -192,38 +206,38 @@ class ExaminationRetentionViewTests(TestCase):
     def setUp(self) -> None:
         self.user = _user("colleague", "S001")
         self.client.force_login(self.user)
-        self.exam = _exam("RHY-S001-HEADTRAUMA-NC-PH-G3-000001", "", site_code="S001")
+        self.exam = _exam("RHY-S001-HEADTRAUMA-NC-PH-G3-000001", RETENTION_RETAIN, site_code="S001")
         self.url = reverse("examination-retention", args=[self.exam.pk])
 
     def test_change_saves_and_audits(self) -> None:
-        resp = self.client.post(self.url, {"retention_consent": "RETAIN"})
+        resp = self.client.post(self.url, {"retention_consent": "DELETE"})
         self.assertRedirects(resp, reverse("examination-list"), fetch_redirect_response=False)
         self.exam.refresh_from_db()
-        self.assertEqual(self.exam.retention_consent, RETENTION_RETAIN)
+        self.assertEqual(self.exam.retention_consent, RETENTION_DELETE)
         self.assertEqual(self.exam.retention_updated_by, "colleague")
         log = AuditLog.objects.get(event_type="RETENTION_SET")
         self.assertIsNone(log.upload_job)
         self.assertEqual(log.actor_id, "colleague")
-        self.assertEqual(log.detail["from"], "NOT_DECLARED")
-        self.assertEqual(log.detail["to"], RETENTION_RETAIN)
+        self.assertEqual(log.detail["from"], RETENTION_RETAIN)
+        self.assertEqual(log.detail["to"], RETENTION_DELETE)
         self.assertEqual(log.detail["repository_study_id"], self.exam.rhythm_pseudo_id)
 
     def test_same_value_writes_no_audit(self) -> None:
-        self.client.post(self.url, {"retention_consent": ""})
+        self.client.post(self.url, {"retention_consent": "RETAIN"})
         self.assertFalse(AuditLog.objects.filter(event_type="RETENTION_SET").exists())
 
     def test_unknown_value_changes_nothing(self) -> None:
         self.client.post(self.url, {"retention_consent": "nonsense"})
         self.exam.refresh_from_db()
-        self.assertEqual(self.exam.retention_consent, "")
+        self.assertEqual(self.exam.retention_consent, RETENTION_RETAIN)
         self.assertFalse(AuditLog.objects.exists())
 
     def test_other_institution_gets_404(self) -> None:
         self.client.force_login(_user("outsider", "S004"))
-        resp = self.client.post(self.url, {"retention_consent": "RETAIN"})
+        resp = self.client.post(self.url, {"retention_consent": "DELETE"})
         self.assertEqual(resp.status_code, 404)
         self.exam.refresh_from_db()
-        self.assertEqual(self.exam.retention_consent, "")
+        self.assertEqual(self.exam.retention_consent, RETENTION_RETAIN)
 
     def test_get_not_allowed(self) -> None:
         self.assertEqual(self.client.get(self.url).status_code, 405)
@@ -250,11 +264,12 @@ class ExaminationListRetentionTests(TestCase):
 
     def test_summary_counts_are_institution_scoped(self) -> None:
         resp = self.client.get(reverse("examination-list"))
-        self.assertEqual(resp.context["retention_counts"], {"retain": 1, "delete": 1, "undeclared": 2})
+        # Legacy blank rows count as "delete at end".
+        self.assertEqual(resp.context["retention_counts"], {"retain": 1, "delete": 3})
 
-    def test_filter_undeclared(self) -> None:
-        resp = self.client.get(reverse("examination-list"), {"retention": "UNDECLARED"})
-        self.assertEqual(sorted(e.rhythm_pseudo_id for e in resp.context["examinations"]), ["RHY-3", "RHY-4"])
+    def test_filter_delete_includes_legacy_blank(self) -> None:
+        resp = self.client.get(reverse("examination-list"), {"retention": "DELETE"})
+        self.assertEqual(sorted(e.rhythm_pseudo_id for e in resp.context["examinations"]), ["RHY-2", "RHY-3", "RHY-4"])
 
     def test_filter_retain(self) -> None:
         resp = self.client.get(reverse("examination-list"), {"retention": "RETAIN"})
@@ -364,6 +379,11 @@ class PurgeCommandTests(TestCase):
         out = StringIO()
         call_command("purge_non_retained_examinations", *args, "--report-dir", str(self.reports), stdout=out, stderr=StringIO())
         return out.getvalue()
+
+    def test_new_default_examination_is_not_purged(self) -> None:
+        fresh = CTExamination.objects.create(rhythm_pseudo_id="RHY-S001-FRESH-000009", site_code="S001")
+        self._run("--execute", "--expected-count", "2")
+        self.assertTrue(CTExamination.objects.filter(pk=fresh.pk).exists())
 
     def test_dry_run_deletes_nothing(self) -> None:
         out = self._run()

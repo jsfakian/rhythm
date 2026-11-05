@@ -316,10 +316,10 @@ MANIFEST_SCHEMA_V2 = {
                     "retain_after_project": {
                         "type": ["boolean", "null"],
                         "description": (
-                            "Retention consent: true if the patient authorised keeping "
-                            "this study after the end of the Grant Agreement, false if "
-                            "not. Omitted/null means not declared, which is treated as "
-                            "false: the study is deleted at the end of the project."
+                            "Retention consent: false if the patient did not authorise "
+                            "keeping this study after the end of the Grant Agreement (it "
+                            "is deleted at the end of the project), true to confirm it is "
+                            "kept. Omitted/null means the default: kept."
                         ),
                     },
                     "size_bytes": {"type": "integer", "minimum": 0},

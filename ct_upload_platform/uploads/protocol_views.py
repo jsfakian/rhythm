@@ -920,11 +920,13 @@ class ExaminationSaveAPIView(AjaxLoginRequiredMixin, View):
         ctdi_vol = data.get("ctdi_vol_per_phase", [])
         dlp = data.get("dlp_per_phase", [])
         image_quality = data.get("image_quality", "")
+        retention_raw = data.get("retention_consent")
+        retention_declared = retention_raw not in (None, "")
         try:
-            retention_consent = parse_retention_consent(data.get("retention_consent"))
+            retention_consent = parse_retention_consent(retention_raw)
         except ValueError:
             return JsonResponse(
-                {"error": "Retention consent must be 'RETAIN', 'DELETE' or left empty."}, status=400
+                {"error": "Retention consent must be 'RETAIN' or 'DELETE'."}, status=400
             )
 
         try:
@@ -1100,8 +1102,8 @@ class ExaminationSaveAPIView(AjaxLoginRequiredMixin, View):
                 created_by=request.user.username,
                 site_code=user_site_code(request.user),
                 retention_consent=retention_consent,
-                retention_updated_at=timezone.now() if retention_consent else None,
-                retention_updated_by=request.user.username if retention_consent else "",
+                retention_updated_at=timezone.now() if retention_declared else None,
+                retention_updated_by=request.user.username if retention_declared else "",
             )
         except Exception as exc:
             # Defense in depth: every field above is now pre-validated, so
@@ -1203,17 +1205,17 @@ class ExaminationListView(LoginRequiredMixin, View):
         # the filters below, so the summary always shows the full picture.
         retention_counts = {
             "retain": qs.filter(retention_consent=RETENTION_RETAIN).count(),
-            "delete": qs.filter(retention_consent=RETENTION_DELETE).count(),
-            "undeclared": qs.filter(retention_consent="").count(),
+            # Legacy blank rows are deleted at project end, like DELETE.
+            "delete": qs.exclude(retention_consent=RETENTION_RETAIN).count(),
         }
         image_quality = request.GET.get("image_quality", "")
         if image_quality:
             qs = qs.filter(image_quality=image_quality)
         retention = request.GET.get("retention", "")
-        if retention in (RETENTION_RETAIN, RETENTION_DELETE):
-            qs = qs.filter(retention_consent=retention)
-        elif retention == "UNDECLARED":
-            qs = qs.filter(retention_consent="")
+        if retention == RETENTION_RETAIN:
+            qs = qs.filter(retention_consent=RETENTION_RETAIN)
+        elif retention == RETENTION_DELETE:
+            qs = qs.exclude(retention_consent=RETENTION_RETAIN)
         else:
             retention = ""
         return render(request, self.template_name, {

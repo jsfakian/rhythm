@@ -22,7 +22,7 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from django.utils import timezone
 
-from .models import UploadJob, Patient, StudyMapping, CTExamination, CTProtocol, Image, Annotation, AuditLog, parse_retention_consent
+from .models import UploadJob, Patient, StudyMapping, CTExamination, CTProtocol, Image, Annotation, AuditLog, RETENTION_RETAIN, parse_retention_consent
 from .manifest_schema import validate_manifest
 from .orthanc_client import get_client, OrthancPushError
 from .gdpr_validator import validate_gdpr_anonymization
@@ -170,17 +170,16 @@ _IMAGE_QUALITY_ALIASES = {
 def _retention_fields_from_item(item: dict, actor: str) -> dict:
     """CTExamination retention fields from a v2 manifest item.
 
-    The schema already restricts retain_after_project to true/false/null, so
-    parse_retention_consent cannot raise here; anything unexpected is treated
-    as "not declared" (= deleted at project end) rather than failing the
-    whole studyset after its images are already in Orthanc.
+    retain_after_project true/false is an explicit declaration and records
+    who/when. Missing or null applies the default, RETAIN, with no "set by".
+    The schema already restricts the field to true/false/null; anything
+    unexpected also falls back to the default rather than failing the whole
+    studyset after its images are already in Orthanc.
     """
-    try:
-        consent = parse_retention_consent(item.get("retain_after_project"))
-    except ValueError:
-        consent = ""
-    if not consent:
-        return {"retention_consent": ""}
+    value = item.get("retain_after_project")
+    if not isinstance(value, bool):
+        return {"retention_consent": RETENTION_RETAIN}
+    consent = parse_retention_consent(value)
     return {
         "retention_consent": consent,
         "retention_updated_at": timezone.now(),
