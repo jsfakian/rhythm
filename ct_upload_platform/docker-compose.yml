@@ -105,7 +105,10 @@ services:
       - "127.0.0.1:8042:8042"
       - "127.0.0.1:4242:4242"
     volumes:
-      - orthanc_data:/var/lib/orthanc/db
+      # ORTHANC_DATA_PATH (in .env) moves the image store onto the dedicated
+      # "rhythm" HDD array, e.g. /mnt/rhythm/orthanc. Unset = the named
+      # docker volume below. See README "Orthanc storage and backups".
+      - ${ORTHANC_DATA_PATH:-orthanc_data}:/var/lib/orthanc/db
       - ./orthanc.json:/etc/orthanc/orthanc.json:ro
       # RegisteredUsers lives here instead, gitignored — Orthanc merges every
       # .json file it finds under /etc/orthanc/. Copy
@@ -117,6 +120,9 @@ services:
       # that's exactly how it ended up committed (and leaked) before.
       ORTHANC_USERNAME: ${ORTHANC_USERNAME:-orthanc}
       ORTHANC_PASSWORD: ${ORTHANC_PASSWORD:?Set ORTHANC_PASSWORD in .env}
+      # Stone Web Viewer (/stone-webviewer/). Orthanc stays bound to
+      # 127.0.0.1, so the viewer is reachable from the server only.
+      STONE_WEB_VIEWER_PLUGIN_ENABLED: "true"
     stop_grace_period: 5s
     healthcheck:
       test: ["CMD-SHELL", "python3 -c \"import urllib.request as u, base64, os; auth = base64.b64encode(('%s:%s' % (os.environ['ORTHANC_USERNAME'], os.environ['ORTHANC_PASSWORD'])).encode()).decode(); u.urlopen(u.Request('http://localhost:8042/system', headers={'Authorization': 'Basic ' + auth}))\" || exit 1"]
@@ -140,6 +146,25 @@ services:
       - ./media:/srv/media:ro
     depends_on:
       - web
+
+  # Throwaway PostgreSQL for `make test` only. Never started by `make up`
+  # (profile "test"), no published ports, data in RAM (tmpfs) so it is
+  # empty on every start. Holds only test data, hence no password.
+  test-db:
+    image: postgres:15-alpine
+    container_name: ct_upload_test_db
+    profiles: ["test"]
+    environment:
+      POSTGRES_DB: ct_upload_test
+      POSTGRES_USER: test
+      POSTGRES_HOST_AUTH_METHOD: trust
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U test -d ct_upload_test"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
 
 volumes:
   postgres_data:

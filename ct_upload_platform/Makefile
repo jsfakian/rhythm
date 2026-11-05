@@ -1,4 +1,4 @@
-.PHONY: help build up down logs migrate seed createsuperuser test test-all test-e2e test-e2e-ui test-e2e-headed shell clean stop
+.PHONY: help build up down logs migrate seed createsuperuser test test-all test-db-up test-db-down test-coverage test-e2e test-e2e-ui test-e2e-headed shell clean stop
 
 help:
 	@echo "CT Upload Platform - Available Commands"
@@ -75,14 +75,26 @@ seed:
 createsuperuser:
 	docker compose exec -it web python manage.py createsuperuser
 
-test:
-	docker compose exec web python manage.py test uploads.tests --keepdb
+# Tests run in a one-off container (not the live `web` one) against the
+# throwaway `test-db` PostgreSQL, never against the production database.
+TEST_SETTINGS = ct_upload_platform.test_settings_postgres
+TEST_RUN = docker compose run --rm --no-deps -T -e DJANGO_SETTINGS_MODULE=$(TEST_SETTINGS) web
+
+test-db-up:
+	docker compose --profile test up -d --wait test-db
+
+test-db-down:
+	docker compose --profile test rm -sf test-db
+
+test: test-db-up
+	$(TEST_RUN) python manage.py test uploads.tests --settings=$(TEST_SETTINGS) --noinput; \
+	status=$$?; $(MAKE) --no-print-directory test-db-down; exit $$status
 
 test-all:
 	@echo "Running all available tests..."
 	@echo ""
 	@echo "Phase 1: Running Django unit tests (237 tests)..."
-	docker compose exec web python manage.py test uploads.tests --keepdb
+	$(MAKE) --no-print-directory test
 	@echo ""
 	@echo "✓ Django unit tests passed!"
 	@echo ""
@@ -100,9 +112,9 @@ test-e2e-ui:
 test-e2e-headed:
 	npx playwright test --headed
 
-test-coverage:
-	docker compose exec web coverage run --source='uploads' manage.py test uploads.tests
-	docker compose exec web coverage report
+test-coverage: test-db-up
+	$(TEST_RUN) sh -c "coverage run --source='uploads' manage.py test uploads.tests --settings=$(TEST_SETTINGS) --noinput && coverage report"; \
+	status=$$?; $(MAKE) --no-print-directory test-db-down; exit $$status
 
 shell:
 	docker compose exec -it web python manage.py shell

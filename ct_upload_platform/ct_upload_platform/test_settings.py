@@ -38,3 +38,12 @@ DICOM_ENRICHMENT_ENABLED = True
 # Pin independently of whatever SUPERUSER_EMAIL happens to be in the local .env,
 # so signup-notification tests are deterministic.
 ADMIN_NOTIFICATION_EMAIL = 'admin-notifications@example.com'
+
+# Never talk to a real broker from tests. settings.py reads REDIS_URL from
+# .env, which on the server is the *production* Redis (localhost:6381): any
+# view test that calls .delay() used to enqueue a real process_upload_job
+# task there, which the production worker then picked up and retried until
+# it gave up (UploadJob.DoesNotExist). The in-memory transport keeps every
+# .delay() inside the test process.
+CELERY_BROKER_URL = 'memory://'
+CELERY_RESULT_BACKEND = 'cache+memory://'

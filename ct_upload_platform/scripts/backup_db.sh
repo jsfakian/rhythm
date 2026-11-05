@@ -6,13 +6,14 @@
 # cron once per day; see the crontab entry installed alongside this script.
 #
 # Usage: backup_db.sh
-# Env overrides: RETENTION_DAYS (default 30)
+# Env overrides: RETENTION_DAYS (default 30), BACKUP_DIR (default backups/;
+# point it at the rhythm-backup HDD mount, e.g. /mnt/rhythm-backup/db)
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
-BACKUP_DIR="$PROJECT_DIR/backups"
+BACKUP_DIR="${BACKUP_DIR:-$PROJECT_DIR/backups}"
 RETENTION_DAYS="${RETENTION_DAYS:-30}"
 TIMESTAMP="$(date +%Y%m%d_%H%M%S)"
 BACKUP_FILE="$BACKUP_DIR/db_backup_${TIMESTAMP}.sql"
