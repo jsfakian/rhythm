@@ -22,7 +22,7 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from django.utils import timezone
 
-from .models import UploadJob, Patient, StudyMapping, CTExamination, CTProtocol, Image, Annotation, AuditLog
+from .models import UploadJob, Patient, StudyMapping, CTExamination, CTProtocol, Image, Annotation, AuditLog, parse_retention_consent
 from .manifest_schema import validate_manifest
 from .orthanc_client import get_client, OrthancPushError
 from .gdpr_validator import validate_gdpr_anonymization
@@ -165,6 +165,27 @@ _IMAGE_QUALITY_ALIASES = {
     "POOR": "POOR",
     "UNACCEPTABLE": "POOR",
 }
+
+
+def _retention_fields_from_item(item: dict, actor: str) -> dict:
+    """CTExamination retention fields from a v2 manifest item.
+
+    The schema already restricts retain_after_project to true/false/null, so
+    parse_retention_consent cannot raise here; anything unexpected is treated
+    as "not declared" (= deleted at project end) rather than failing the
+    whole studyset after its images are already in Orthanc.
+    """
+    try:
+        consent = parse_retention_consent(item.get("retain_after_project"))
+    except ValueError:
+        consent = ""
+    if not consent:
+        return {"retention_consent": ""}
+    return {
+        "retention_consent": consent,
+        "retention_updated_at": timezone.now(),
+        "retention_updated_by": actor,
+    }
 
 
 def _normalize_image_quality(raw_value: str) -> str:
@@ -580,6 +601,7 @@ def process_v2_batch_item(job: "UploadJob", archive_path: str, extract_dir: str)
         created_by=job.uploader_id,
         site_code=item.get("site_code", job.site_code),
         upload_job=job,
+        **_retention_fields_from_item(item, job.uploader_id),
     )
 
     job.error_report = error_report if error_report else None

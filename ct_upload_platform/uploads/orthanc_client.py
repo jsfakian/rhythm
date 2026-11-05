@@ -241,6 +241,54 @@ class OrthancClient:
                 getattr(e.response, 'text', '')
             )
     
+    def delete_study(self, study_instance_uid: str) -> bool:
+        """
+        Permanently delete a study (all series and instances) from Orthanc.
+
+        StudyMapping.orthanc_study_id holds the DICOM StudyInstanceUID (parsed
+        from the STOW-RS RetrieveURL), not Orthanc's internal ID, so the
+        study is first resolved through /tools/lookup.
+
+        Returns:
+            True if the study was deleted, False if Orthanc has no such study
+            (already deleted or never stored), so callers can treat a purge
+            as idempotent.
+
+        Raises:
+            OrthancQueryError: if the lookup or the deletion fails.
+        """
+        uid = (study_instance_uid or "").strip()
+        if not uid:
+            return False
+        try:
+            lookup = self.session.post(f"{self.base_url}/tools/lookup", data=uid)
+            if lookup.status_code != 200:
+                raise OrthancQueryError(
+                    f"Orthanc lookup failed with status {lookup.status_code}",
+                    lookup.status_code,
+                    lookup.text,
+                )
+            matches = [m for m in lookup.json() if m.get("Type") == "Study"]
+            if not matches:
+                return False
+            for match in matches:
+                resp = self.session.delete(f"{self.base_url}/studies/{match['ID']}")
+                if resp.status_code == 404:
+                    continue
+                if resp.status_code != 200:
+                    raise OrthancQueryError(
+                        f"Orthanc study deletion failed with status {resp.status_code}",
+                        resp.status_code,
+                        resp.text,
+                    )
+            return True
+        except requests.RequestException as e:
+            raise OrthancQueryError(
+                f"Request failed: {str(e)}",
+                getattr(e.response, 'status_code', 0),
+                getattr(e.response, 'text', ''),
+            )
+
     def health_check(self) -> bool:
         """
         Check if Orthanc is reachable and healthy.

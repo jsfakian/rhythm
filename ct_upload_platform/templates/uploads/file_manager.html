@@ -68,7 +68,11 @@
 
         .search-input { min-width: 200px; }
         .no-results { text-align: center; padding: 40px; color: #95a5a6; font-style: italic; }
-    </style>
+        .ret-badge { display:inline-block; padding:2px 9px; border-radius:10px; font-size:11px; font-weight:700; white-space:nowrap; }
+    .ret-keep { background:#e8f7ee; color:#067647; }
+    .ret-del { background:#fff2f0; color:#b42318; }
+    .ret-none { background:#fff7e6; color:#b54708; }
+</style>
 </head>
 <body>
 <div class="app-container">
@@ -132,6 +136,7 @@
                     <thead>
                         <tr>
                             <th>Repository Study ID</th>
+                            <th>Retention</th>
                             <th>Created by</th>
                             <th>Institution</th>
                             <th>Region</th>
@@ -148,6 +153,11 @@
                         {% with e=item.obj %}
                         <tr>
                             <td><code style="font-size:12px;">{{ e.rhythm_pseudo_id|default:"—" }}</code></td>
+                            <td>
+                                {% if e.retention_consent == 'RETAIN' %}<span class="ret-badge ret-keep">Retain</span>
+                                {% elif e.retention_consent == 'DELETE' %}<span class="ret-badge ret-del">Delete at end</span>
+                                {% else %}<span class="ret-badge ret-none" title="Not declared: deleted at project end">Not declared</span>{% endif %}
+                            </td>
                             <td>{{ e.created_by|default:"—" }}</td>
                             <td>
                                 {% if item.institution != '—' %}
@@ -196,7 +206,7 @@
                         {% endwith %}
                         {% empty %}
                         <tr>
-                            <td colspan="10" class="no-results">No examinations found.</td>
+                            <td colspan="11" class="no-results">No examinations found.</td>
                         </tr>
                         {% endfor %}
                     </tbody>

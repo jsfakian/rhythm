@@ -17,6 +17,11 @@ server verifies site_code matches (case-insensitively) the protocol's own site.
 Template columns:
   filename, site_code, protocol_id, patient_weight_kg, patient_age_years,
   ctdivol_mgy, dlp_mgy_cm, image_quality
+Optional column:
+  retain_after_project  yes / no. Did the patient authorise keeping the study
+                        after the RHYTHM project ends? Blank = not declared,
+                        which the server treats as "no": the study is deleted
+                        at the end of the project.
 
 Prerequisites:
   pip install pydicom openpyxl
@@ -39,7 +44,7 @@ import zipfile
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
-TOOL_VERSION = "4.0"
+TOOL_VERSION = "4.1"
 
 REQUIRED_COLUMNS = [
     "filename",
@@ -51,6 +56,11 @@ REQUIRED_COLUMNS = [
     "dlp_mgy_cm",
     "image_quality",
 ]
+
+OPTIONAL_COLUMNS = ["retain_after_project"]
+
+_RETAIN_YES = {"yes", "y", "true", "1", "retain"}
+_RETAIN_NO = {"no", "n", "false", "0", "delete"}
 
 FORBIDDEN_COLUMNS = [
     "repo_id",
@@ -103,6 +113,19 @@ def to_number_or_none(value: Any) -> Any:
         return float(text)
     except ValueError:
         return text
+
+
+def parse_retain(value: Any) -> Any:
+    """'yes'/'no' (and true/false/1/0) -> True/False; blank -> None.
+    Raises ValueError for anything else so the row is reported, not guessed."""
+    text = clean(value).lower()
+    if not text:
+        return None
+    if text in _RETAIN_YES:
+        return True
+    if text in _RETAIN_NO:
+        return False
+    raise ValueError(text)
 
 
 def file_sha256(path: Path) -> str:
@@ -258,6 +281,14 @@ def check_rows(rows: List[Dict[str, str]], headers: List[str], zip_folder: Path)
             elif not is_zip_file(path):
                 errors.append(f"Row {idx}: file is not a valid ZIP archive: {filename}")
 
+        try:
+            parse_retain(row.get("retain_after_project", ""))
+        except ValueError:
+            errors.append(
+                f"Row {idx}: retain_after_project must be yes, no or empty "
+                f"(found '{clean(row.get('retain_after_project', ''))}')"
+            )
+
         protocol_id = clean(row.get("protocol_id", ""))
         if protocol_id:
             try:
@@ -317,6 +348,7 @@ def build_manifest(
             "ctdivol_mgy": to_number_or_none(row.get("ctdivol_mgy")),
             "dlp_mgy_cm": to_number_or_none(row.get("dlp_mgy_cm")),
             "image_quality": clean(row.get("image_quality")),
+            "retain_after_project": parse_retain(row.get("retain_after_project")),
             "size_bytes": zip_path.stat().st_size,
         }
         if include_sha256:

@@ -95,10 +95,20 @@ document.getElementById('btn_validate').addEventListener('click', async () => {
     }
 
     manifest = parsed;
-    showResult('ok', `Manifest is valid — ${manifest.items.length} item(s) in batch "${escHtml(manifest.batch || '—')}".`);
+    const undeclared = manifest.items.filter((it) => it.retain_after_project !== true && it.retain_after_project !== false).length;
+    const retentionNote = undeclared
+        ? `<br>${undeclared} item(s) have no retention declaration. They will be <strong>deleted at the end of the project</strong> unless you declare them later on the Examinations page.`
+        : '';
+    showResult(undeclared ? 'warn' : 'ok', `Manifest is valid — ${manifest.items.length} item(s) in batch "${escHtml(manifest.batch || '—')}".${retentionNote}`);
     document.getElementById('items_card').style.display = 'block';
     renderItemsTable();
 });
+
+function retentionBadge(value) {
+    if (value === true) return '<span class="badge-status badge-done">Retain</span>';
+    if (value === false) return '<span class="badge-status badge-error">Delete at end</span>';
+    return '<span class="badge-status badge-uploading" title="Not declared: deleted at project end">Not declared</span>';
+}
 
 function renderItemsTable() {
     const tbody = document.getElementById('items_tbody');
@@ -115,6 +125,7 @@ function renderItemsTable() {
             <td class="mono">${escHtml(item.filename || '')}</td>
             <td class="mono">${escHtml(item.protocol_id || '')}</td>
             <td>${matched ? '<span class="badge-status badge-matched">matched</span>' : '<span class="badge-status badge-unmatched">no file selected</span>'}</td>
+            <td>${retentionBadge(item.retain_after_project)}</td>
             <td><progress class="item-progress" id="item_progress_${idx}" value="0" max="100"></progress></td>
             <td id="item_status_${idx}"><span class="badge-status badge-pending">pending</span></td>
         `;

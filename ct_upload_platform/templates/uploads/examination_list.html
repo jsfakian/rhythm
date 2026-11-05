@@ -22,6 +22,22 @@
         .filter-row { display:flex; gap:12px; align-items:center; margin-bottom:20px; flex-wrap:wrap; }
         .filter-row select { padding:8px 12px; border:1px solid #bdc3c7; border-radius:6px; font-size:14px; }
         .numeric { font-variant-numeric: tabular-nums; }
+        /* Retention consent */
+        .retention-summary { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px; }
+        .retention-stat { background:white; border-radius:8px; padding:12px 18px; box-shadow:0 1px 3px rgba(0,0,0,.08); display:flex; flex-direction:column; min-width:190px; border-left:4px solid #bdc3c7; }
+        .retention-stat strong { font-size:22px; color:#2c3e50; font-variant-numeric:tabular-nums; }
+        .retention-stat span { font-size:13px; color:#667085; }
+        .retention-stat.keep { border-left-color:#067647; }
+        .retention-stat.del { border-left-color:#b42318; }
+        .retention-stat.undeclared { border-left-color:#b54708; }
+        .retention-note { font-size:13px; color:#667085; margin:-4px 0 18px; max-width:900px; line-height:1.5; }
+        .retention-form select { padding:5px 8px; border-radius:6px; font-size:12px; font-weight:600; border:1px solid #d0d5dd; cursor:pointer; }
+        .retention-form select.ret-RETAIN { background:#e8f7ee; color:#067647; border-color:#b7e4c7; }
+        .retention-form select.ret-DELETE { background:#fff2f0; color:#b42318; border-color:#ffd5d1; }
+        .retention-form select.ret-NONE { background:#fff7e6; color:#b54708; border-color:#f7d68a; }
+        .flash { padding:10px 14px; border-radius:6px; margin-bottom:14px; font-size:14px; }
+        .flash-success { background:#e8f7ee; color:#067647; }
+        .flash-error { background:#fff2f0; color:#b42318; }
     </style>
 </head>
 <body>
@@ -35,7 +51,25 @@
             <a href="/examinations/entry/" class="btn btn-primary">+ Add Examination</a>
         </div>
 
+        {% for message in messages %}
+        <div class="flash flash-{{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+
+        <div class="retention-summary" aria-label="Retention after the project">
+            <div class="retention-stat keep"><strong>{{ retention_counts.retain }}</strong><span>Retain after project</span></div>
+            <div class="retention-stat del"><strong>{{ retention_counts.delete }}</strong><span>Delete at project end</span></div>
+            <div class="retention-stat undeclared"><strong>{{ retention_counts.undeclared }}</strong><span>Not declared (will be deleted)</span></div>
+        </div>
+        <p class="retention-note">Retention: did the patient authorise keeping the study after the RHYTHM project ends? Studies that are not authorised, or not declared, are deleted at the end of the project. Change it per study in the Retention column.</p>
+
         <form method="get" class="filter-row">
+            <select name="retention" data-auto-submit>
+                <option value="">All retention</option>
+                {% for key, label in retention_choices %}
+                <option value="{{ key }}"{% if key == selected_retention %} selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+                <option value="UNDECLARED"{% if selected_retention == 'UNDECLARED' %} selected{% endif %}>Not declared</option>
+            </select>
             <select name="image_quality" data-auto-submit>
                 <option value="">All image quality</option>
                 {% for key, label in image_quality_choices %}
@@ -43,7 +77,7 @@
                 {% endfor %}
             </select>
             <button type="submit" class="btn btn-secondary">Filter</button>
-            {% if selected_quality %}<a href="/examinations/" class="btn btn-secondary">Clear</a>{% endif %}
+            {% if selected_quality or selected_retention %}<a href="/examinations/" class="btn btn-secondary">Clear</a>{% endif %}
         </form>
 
         <div class="card">
@@ -53,6 +87,7 @@
                         <tr>
                             <th>#</th>
                             <th>Repository Study ID</th>
+                            <th>Retention</th>
                             <th>Scanner</th>
                             <th>Protocol Used</th>
                             <th>Region</th>
@@ -76,6 +111,18 @@
                         <tr>
                             <td>{{ forloop.counter }}</td>
                             <td><span style="font-family:monospace;font-size:12px;">{{ e.rhythm_pseudo_id|default:"—" }}</span></td>
+                            <td>
+                                <form method="post" action="{% url 'examination-retention' e.pk %}" class="retention-form">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                    <select name="retention_consent" data-auto-submit class="ret-{{ e.retention_consent|default:'NONE' }}" aria-label="Retention for {{ e.rhythm_pseudo_id }}"{% if e.retention_updated_by %} title="Set by {{ e.retention_updated_by }} on {{ e.retention_updated_at|date:'Y-m-d' }}"{% endif %}>
+                                        <option value=""{% if not e.retention_consent %} selected{% endif %}>Not declared</option>
+                                        <option value="RETAIN"{% if e.retention_consent == 'RETAIN' %} selected{% endif %}>Retain</option>
+                                        <option value="DELETE"{% if e.retention_consent == 'DELETE' %} selected{% endif %}>Delete at end</option>
+                                    </select>
+                                    <noscript><button type="submit" class="btn btn-secondary btn-sm">Save</button></noscript>
+                                </form>
+                            </td>
                             <td>
                                 {% if e.scanner %}
                                     {{ e.scanner.manufacturer.name }} – {{ e.scanner.scanner_model.name }}
@@ -122,7 +169,7 @@
                             </td>
                         </tr>
                         {% empty %}
-                        <tr><td colspan="18" class="text-muted" style="text-align:center;padding:32px;">No examination records yet.</td></tr>
+                        <tr><td colspan="19" class="text-muted" style="text-align:center;padding:32px;">No examination records yet.</td></tr>
                         {% endfor %}
                     </tbody>
                 </table>

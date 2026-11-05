@@ -227,7 +227,7 @@ Required state for each file:
 - `PatientName`, `PatientBirthDate`, `PatientAge`, `InstitutionName`, and other PHI tags must be absent or empty
 - `PatientID` must be set to the `pseudo_id` from the manifest (the platform writes an organ-specific derivative, e.g. `PAT12345678_CHT01`, before validating)
 - `StudyInstanceUID` and `SeriesInstanceUID` must be regenerated (not original scanner UIDs)
-- No private tags (odd DICOM group numbers)
+- Private (vendor) tags are **allowed**: `GDPR-strict.json` sets `KeepPrivateTags: true`, matching the partners' anonymization tool, because vendor private tags often carry dose and reconstruction parameters WP5 needs. Partners remain responsible for not placing identifiers in them. Do not use private or free-text tags to carry retention consent; use the manifest's `retain_after_project` field instead (see [Retention Consent and End-of-Project Deletion](#retention-consent-and-end-of-project-deletion)).
 - No overlay, curve, or audio data
 - No temporal tags (`StudyDate`, `SeriesDate`, etc.)
 
@@ -350,13 +350,15 @@ python chunked_upload_client.py \
 ### Running Tests
 
 ```bash
-make test           # Django unit tests (fast, keeps test DB)
-make test-coverage  # unit tests + coverage report
+make test           # Django unit tests against a throwaway PostgreSQL (test-db)
+make test-coverage  # same, with a coverage report
 make test-e2e       # Playwright E2E tests (requires running stack)
 make test-all       # unit + E2E
 ```
 
-Unit tests use an in-memory SQLite database and mocked Celery / Orthanc. Settings are in [ct_upload_platform/test_settings.py](ct_upload_platform/ct_upload_platform/test_settings.py).
+`make test` never touches the production database or the live `web` container. It starts the `test-db` service (docker compose profile `test`: PostgreSQL in RAM, no published ports), runs the suite in a one-off container with [test_settings_postgres.py](ct_upload_platform/ct_upload_platform/test_settings_postgres.py), then removes `test-db`. Those settings refuse to start if pointed at the production database host. Migrations are skipped and tables are created straight from the models.
+
+For a quick local run without Docker, `python manage.py test uploads --settings=ct_upload_platform.test_settings` uses in-memory SQLite. Both test settings use Celery's in-memory broker, so no test can enqueue tasks on the real Redis/worker. (Before this was fixed, local test runs put fake `process_upload_job` tasks on the production queue, because `.env`'s `REDIS_URL` points at it.) Orthanc is mocked. A few GDPR validator tests expect the rules file at `/app/GDPR-strict.json` and only pass inside the container.
 
 #### Playwright E2E Tests
 
@@ -440,6 +442,55 @@ docker compose exec web python manage.py create_upload_token john.doe
 
 ---
 
+## Retention Consent and End-of-Project Deletion
+
+The Data Transfer Agreement requires that studies a patient did not authorise for retention are deleted when the Grant Agreement ends. Every `CTExamination` carries a `retention_consent` flag:
+
+| Value | Shown as | At project end |
+|---|---|---|
+| `RETAIN` | Retain | kept |
+| `DELETE` | Delete at end | deleted |
+| *(blank)* | Not declared | **deleted**: only explicit authorisation is kept |
+
+**Declaring it**
+- *Automated upload:* the v2 manifest item field `retain_after_project` (`true` / `false` / `null`). The manifest tool (v4.1) fills it from the optional `retain_after_project` template column (`yes` / `no` / empty). The Automated Upload page shows each item's value and warns about undeclared ones before upload.
+- *Manual Exam Entry:* the "Retention After the Project" choice.
+- *Afterwards:* the Retention column on the Examinations page, editable by colleagues of the same institution. Every change is written to the `AuditLog` (`RETENTION_SET`) with who, when, and old/new value. The page shows counts and a filter for each state. Admins see the same column in the File Manager.
+
+**Deleting at the end of the project**
+```bash
+docker compose exec web python manage.py purge_non_retained_examinations            # dry run (default)
+docker compose exec web python manage.py purge_non_retained_examinations --site S001 # dry run, one site
+docker compose exec web python manage.py purge_non_retained_examinations --execute --expected-count N --actor <name>
+```
+- The dry run lists every study to be deleted, per site. `--execute` refuses to run unless `--expected-count` equals the number the dry run reported.
+- For each study it deletes the Orthanc study (all series/images), the `StudyMapping`/`Image`/`Annotation` rows and the then-unused `Patient`, the `CTExamination`, its `UploadJob` (unless shared), the uploaded archive, the extracted copy, any Manual Entry study-set file, and the chunked-upload session row. It only ever deletes files inside `MEDIA_ROOT`, `RAW_DATA_DIR` and `PROCESSED_DATA_DIR`.
+- If Orthanc refuses a deletion, that study's database rows are left in place and it is reported as `FAILED`, so a re-run retries it.
+- Each deleted study gets a `STUDY_PURGED` `AuditLog` entry (not attached to the deleted job, so it survives), and a CSV per site is written to `backups/purge_reports/<timestamp>/` to send to the partners.
+- Backups still hold deleted studies until they age out: database dumps after 30 days, Orthanc archives after 7 (see below). Take that into account when confirming deletion to partners.
+
+---
+
+## Orthanc Storage and Backups
+
+**Image store location.** Orthanc's data (images and index) lives in the `orthanc_data` Docker volume by default. Setting `ORTHANC_DATA_PATH` in `.env` moves it to a host directory, intended for the dedicated **`rhythm`** HDD array (e.g. `/mnt/rhythm/orthanc`). To migrate:
+```bash
+docker compose stop orthanc worker web
+sudo rsync -a /var/lib/docker/volumes/ct_upload_platform_orthanc_data/_data/ /mnt/rhythm/orthanc/
+echo 'ORTHANC_DATA_PATH=/mnt/rhythm/orthanc' >> .env
+docker compose up -d orthanc worker web
+```
+Then compare a study count in Orthanc Explorer before and after. Keep the old volume until verified.
+
+**Backups.** `scripts/backup_orthanc.sh` archives the Orthanc data through a throwaway read-only container (the running Orthanc is not stopped), verifies the gzip archive, and prunes archives older than `RETENTION_DAYS` (default 7, since images are large). It follows `ORTHANC_DATA_PATH` automatically and refuses to start if free disk is less than twice the data size. Both backup scripts accept `BACKUP_DIR`. Point them at the **`rhythm-backup`** HDD array, a different physical disk from the Orthanc data:
+```bash
+30 2 * * * BACKUP_DIR=/mnt/rhythm-backup/orthanc /path/to/rhythm-repo/ct_upload_platform/scripts/backup_orthanc.sh
+55 23 * * * BACKUP_DIR=/mnt/rhythm-backup/db /path/to/rhythm-repo/ct_upload_platform/scripts/backup_db.sh
+```
+Restore: stop Orthanc, extract the archive into the (emptied) data directory or volume, start Orthanc. The archive contains Orthanc's `index` database and the storage folders.
+
+---
+
 ## Database Backups
 
 `scripts/backup_db.sh` dumps the live PostgreSQL database via `pg_dump`, timestamped, with a log at `backups/backup.log`. It fails loudly (and removes the partial file) rather than silently writing a broken dump, and prunes dumps older than 30 days (`RETENTION_DAYS` env var to override).
@@ -520,6 +571,8 @@ EMAIL_HOST_PASSWORD=<app password>
 - [ ] `IP_WHITELIST` configured if needed
 - [ ] Audit logging monitored
 - [x] Database backups: `scripts/backup_db.sh` runs daily via cron (30-day retention) — see [Database Backups](#database-backups)
+- [ ] Orthanc image backups: `scripts/backup_orthanc.sh` scheduled nightly via cron — see [Orthanc Storage and Backups](#orthanc-storage-and-backups)
+- [ ] Orthanc data on the `rhythm` HDD array and backups on the `rhythm-backup` array (`ORTHANC_DATA_PATH`, `BACKUP_DIR`)
 - [x] Backup restore rehearsed 2026-08-31 (restored into a throwaway DB, row counts verified, dropped) — see [Database Backups](#database-backups)
 - [ ] Backups encrypted at rest / shipped off-host (currently plain `.sql` files on the same disk as the live DB)
 - [ ] Dependency scanning in CI/CD (`pip-audit` or `safety`)

@@ -43,6 +43,7 @@ from uploads.protocol_views import (
     ExaminationSaveAPIView,
     ExaminationListView,
     ExaminationDeleteView,
+    ExaminationRetentionView,
     JSONValidatorView,
     UploadJobListView,
     UploadJobDeleteView,
@@ -100,6 +101,7 @@ urlpatterns = [
     path('examinations/entry/', ExaminationEntryView.as_view(), name='examination-entry'),
     path('examinations/api/save/', ExaminationSaveAPIView.as_view(), name='examination-save-api'),
     path('examinations/<str:pk>/delete/', ExaminationDeleteView.as_view(), name='examination-delete'),
+    path('examinations/<str:pk>/retention/', ExaminationRetentionView.as_view(), name='examination-retention'),
 
     # My Uploads (bulk/automated upload job tracking)
     path('my-uploads/', UploadJobListView.as_view(), name='upload-job-list'),

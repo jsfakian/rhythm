@@ -7,94 +7,170 @@
     <title>Automated Upload – RHYTHM Repository Upload Platform</title>
     {% include 'uploads/_styles.html' %}
     <style>
-        .page-body { max-width:1200px; }
-        .upload-row { display:flex; align-items:center; gap:12px; margin-bottom:14px; flex-wrap:wrap; }
-        .upload-row label { font-size:13px; color:var(--text,#152238); font-weight:600; white-space:nowrap; min-width:220px; }
-        .result-box { border-radius:14px; padding:14px 18px; font-size:14px; margin-top:16px; display:none; line-height:1.5; }
-        .result-ok   { background:#e8f7ee; border:1px solid #b7e4c7; color:#067647; display:block; }
-        .result-err  { background:#fff2f0; border:1px solid #ffd5d1; color:#b42318; display:block; }
-        .result-warn { background:#fff7e6; border:1px solid #f7d68a; color:#7a3d00; display:block; }
-        .result-box ul { margin:8px 0 0; padding-left:18px; }
-        .badge-status   { display:inline-block; padding:2px 8px; border-radius:10px; font-size:11px; font-weight:700; }
-        .badge-pending    { background:#f2f4f7; color:#475467; }
-        .badge-matched    { background:#e8f1ff; color:#1e3a5f; }
-        .badge-unmatched  { background:#fff2f0; color:#b42318; }
-        .badge-uploading  { background:#fff7e6; color:#b54708; }
-        .badge-done       { background:#e8f7ee; color:#067647; }
-        .badge-error      { background:#fff2f0; color:#b42318; }
-        .mono { font-family:monospace; font-size:12px; }
-        progress.item-progress { width:120px; height:8px; }
+        /* Same visual language as Manual Exam Entry / Protocol GUI:
+           navy header band, rounded section cards, 12px-radius buttons. */
+        :root {
+            --bg:#f4f7fb; --card:#fff; --text:#152238; --muted:#667085;
+            --border:#d9e2ef; --primary:#1e3a5f; --primary2:#2c5282;
+            --accent:#e8f1ff; --ok:#067647; --ok-bg:#e8f7ee;
+            --danger:#b42318; --danger-bg:#fff2f0;
+            --warn:#b54708; --warn-bg:#fff7e6;
+        }
+        body { background: var(--bg); }
+        .exam-header {
+            background: linear-gradient(135deg, var(--primary), var(--primary2));
+            color: white; padding: 28px 32px 24px;
+            border-radius: 0 0 24px 24px;
+            box-shadow: 0 12px 30px rgba(21,34,56,.18);
+            margin-bottom: 24px;
+            display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; flex-wrap: wrap;
+        }
+        .exam-header h1 { margin: 0 0 8px; font-size: 26px; }
+        .exam-header p { margin: 0; opacity: .9; font-size: 14px; line-height: 1.55; max-width: 760px; }
+        .exam-body { max-width: 1000px; margin: 0 auto; padding: 0 20px 48px; }
+        .section-card {
+            background: var(--card); border: 1px solid var(--border);
+            border-radius: 18px; padding: 22px 26px;
+            box-shadow: 0 6px 18px rgba(21,34,56,.07); margin-bottom: 20px;
+        }
+        .section-card h2 { margin: 0 0 4px; font-size: 16px; color: var(--primary); font-weight: 700; }
+        .section-card .sdesc { margin: 0 0 18px; color: var(--muted); font-size: 13px; line-height: 1.5; }
+        .section-card code { background: #f1f5fb; border-radius: 6px; padding: 1px 6px; font-size: 12px; color: var(--primary); }
+        .section-card a { color: var(--primary2); font-weight: 600; }
+
+        /* Before-you-start checklist */
+        .prep-list { list-style: none; display: grid; gap: 12px; }
+        .prep-list li { display: grid; grid-template-columns: 28px 1fr; gap: 12px; align-items: start; font-size: 14px; color: var(--text); line-height: 1.5; }
+        .prep-num {
+            width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: var(--primary);
+            font-weight: 800; font-size: 13px; display: flex; align-items: center; justify-content: center;
+        }
+
+        /* File pickers */
+        .fgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 20px; margin-bottom: 18px; }
+        .frow { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+        .frow label { font-weight: 600; font-size: 13px; color: var(--text); }
+        .file-drop {
+            border: 1.5px dashed #b3ccff; background: #f8fbff; border-radius: 12px;
+            padding: 14px; font-size: 13px; color: var(--muted); width: 100%;
+        }
+        .file-drop:focus-within { border-color: var(--primary2); box-shadow: 0 0 0 3px rgba(40,75,122,.12); }
+        .file-drop::file-selector-button {
+            background: #edf2f7; color: var(--text); border: 1px solid var(--border);
+            padding: 8px 14px; border-radius: 10px; font-weight: 700; font-size: 13px;
+            margin-right: 12px; cursor: pointer; font-family: inherit;
+        }
+        .file-drop::file-selector-button:hover { background: #e2e8f0; }
+        .hint { font-size: 12px; color: var(--muted); }
+
+        /* Actions */
+        .form-actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 4px; }
+        .btn-save { background: var(--primary2); color: white; border: 0; padding: 11px 22px; border-radius: 12px; cursor: pointer; font-weight: 700; font-size: 14px; font-family: inherit; }
+        .btn-save:hover { filter: brightness(.93); }
+        .btn-save:disabled { opacity: .5; cursor: not-allowed; filter: none; }
+        .btn-outline { background: white; color: var(--primary2); border: 1.5px solid var(--primary2); padding: 10px 20px; border-radius: 12px; cursor: pointer; font-weight: 700; font-size: 14px; font-family: inherit; }
+        .btn-outline:hover { background: var(--accent); }
+        .btn-list { background: rgba(255,255,255,.14); color: white; border: 1px solid rgba(255,255,255,.35); padding: 10px 18px; border-radius: 12px; font-weight: 700; font-size: 14px; text-decoration: none; display: inline-block; white-space: nowrap; }
+        .btn-list:hover { background: rgba(255,255,255,.24); }
+
+        /* Validation result banner (classes set by automated_upload.js) */
+        .result-box { border-radius: 14px; padding: 12px 16px; font-size: 13px; margin-top: 16px; display: none; line-height: 1.55; }
+        .result-ok   { background: var(--ok-bg); border: 1px solid #b7e4c7; color: var(--ok); display: block; }
+        .result-err  { background: var(--danger-bg); border: 1px solid #ffd5d1; color: var(--danger); display: block; }
+        .result-warn { background: var(--warn-bg); border: 1px solid #f7d68a; color: #7a3d00; display: block; }
+        .result-box ul { margin: 8px 0 0; padding-left: 18px; }
+
+        /* Batch items table */
+        .items-table { width: 100%; border-collapse: collapse; margin-top: 4px; }
+        .items-table th { background: #f1f5fb; padding: 9px 12px; font-size: 12px; text-align: left; color: #344054; text-transform: uppercase; letter-spacing: .03em; border-bottom: 1px solid var(--border); white-space: nowrap; }
+        .items-table td { padding: 10px 12px; border-bottom: 1px solid #edf1f7; font-size: 14px; color: var(--text); }
+        .items-table tr:last-child td { border-bottom: none; }
+        .badge-status { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+        .badge-pending   { background: #f2f4f7; color: #475467; }
+        .badge-matched   { background: var(--accent); color: var(--primary); }
+        .badge-unmatched { background: var(--danger-bg); color: var(--danger); }
+        .badge-uploading { background: var(--warn-bg); color: var(--warn); }
+        .badge-done      { background: var(--ok-bg); color: var(--ok); }
+        .badge-error     { background: var(--danger-bg); color: var(--danger); }
+        .mono { font-family: 'Courier New', monospace; font-size: 13px; }
+        progress.item-progress { width: 120px; height: 8px; accent-color: var(--primary2); }
+
+        @media (max-width: 640px) { .fgrid { grid-template-columns: 1fr; } .exam-header { padding: 22px 20px; } }
     </style>
 </head>
 <body>
 <div class="app-container">
     {% include 'uploads/_sidebar.html' with active_nav='automated-upload' %}
     <div class="main-content">
-    <div class="page-body">
-
-        <div class="page-header">
-            <h1>Automated Upload</h1>
-            <a href="{% url 'upload-job-list' %}" class="btn btn-secondary">View My Uploads</a>
-        </div>
-        <p class="text-muted" style="margin-top:-8px;margin-bottom:8px;">
-            Submit a server-assigned batch manifest (produced by the
-            <code>create_rhythm_server_assigned_manifest_gui</code> partner tool) together with the ZIP
-            archives it references — one already-anonymized CT studyset per ZIP. The server extracts and
-            validates the DICOM identifiers in each archive and assigns the Repository Study ID itself.
-            Each manifest item references a registered protocol by its ID — copy it from the
-            <a href="{% url 'protocol-records' %}">Protocol Records</a> page; the server derives anatomical
-            region, clinical indication, contrast, protocol type, examination group, and scanner from it and
-            verifies the manifest's <code>site_code</code> matches that protocol's site.
-        </p>
-        <p class="text-muted" style="margin-top:0;margin-bottom:20px;">
-            Don't have the manifest generator yet? Get the Python source, the Windows <code>.exe</code>
-            build, and the manifest template — plus full usage instructions — from
-            <a href="https://github.com/jsfakian/rhythm/tree/main/create_rhythm_service_manifest_gui_with_uid" target="_blank" rel="noopener noreferrer">github.com/jsfakian/rhythm/create_rhythm_service_manifest_gui_with_uid</a>.
-        </p>
-
-        <div class="card">
-            <h2 style="margin:0 0 6px;font-size:16px;">1. Select manifest and ZIP files</h2>
-            <p class="sdesc" style="margin:0 0 16px;color:var(--muted,#667085);font-size:13px;">
-                The manifest's <code>items[].filename</code> values must match the selected ZIP filenames exactly.
-            </p>
-
-            <div class="upload-row">
-                <label for="inp_manifest">Manifest JSON (v2 batch)</label>
-                <input type="file" id="inp_manifest" accept=".json,application/json" />
+        <div class="exam-header">
+            <div>
+                <h1>Automated Upload</h1>
+                <p>Upload a batch of already-anonymised CT studies in one go: one ZIP archive per study, described by a manifest from the RHYTHM manifest tool. The server validates every archive and assigns each study its Repository Study ID.</p>
             </div>
-            <div class="upload-row">
-                <label for="inp_zips">ZIP archives</label>
-                <input type="file" id="inp_zips" accept=".zip" multiple />
-            </div>
-
-            <div class="form-actions">
-                <button class="btn btn-primary" id="btn_validate">Validate Manifest</button>
-                <button class="btn btn-save" id="btn_start_upload" disabled>Start Upload</button>
-            </div>
-
-            <div id="resultBox" class="result-box"></div>
+            <a href="{% url 'upload-job-list' %}" class="btn-list">View My Uploads</a>
         </div>
 
-        <div class="card" id="items_card" style="display:none;">
-            <h2 style="margin:0 0 6px;font-size:16px;">2. Batch items</h2>
-            <div class="table-wrap">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Ref</th>
-                            <th>Filename</th>
-                            <th>Protocol ID</th>
-                            <th>File</th>
-                            <th>Progress</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody id="items_tbody"></tbody>
-                </table>
-            </div>
-        </div>
+        <div class="exam-body">
 
-    </div>
+            <div class="section-card">
+                <h2>Before you start</h2>
+                <p class="sdesc">You need four things ready.</p>
+                <ol class="prep-list">
+                    <li><span class="prep-num">1</span><span>The manifest generator tool. Get the Windows <code>.exe</code>, the Python source and the instructions from
+                        <a href="https://github.com/jsfakian/rhythm/tree/main/create_rhythm_service_manifest_gui_with_uid" target="_blank" rel="noopener noreferrer">github.com/jsfakian/rhythm/create_rhythm_service_manifest_gui_with_uid</a>.</span></li>
+                    <li><span class="prep-num">2</span><span>The ID of the registered protocol for each study, copied from <a href="{% url 'protocol-records' %}">Protocol Records</a>. The server derives region, indication, contrast, examination group and scanner from it, and checks that the manifest's <code>site_code</code> matches the protocol's site.</span></li>
+                    <li><span class="prep-num">3</span><span>One ZIP archive per anonymised CT study set, named exactly as in the manifest's <code>items[].filename</code>.</span></li>
+                    <li><span class="prep-num">4</span><span>Retention consent for each study: set <code>retain_after_project</code> to <code>yes</code> in the template if the patient authorised keeping the study after the project ends. Studies marked <code>no</code> or left empty are deleted at the end of the project.</span></li>
+                </ol>
+            </div>
+
+            <div class="section-card">
+                <h2>1. Select manifest and ZIP files</h2>
+                <p class="sdesc">Validate the manifest first. Start Upload becomes available once it passes.</p>
+
+                <div class="fgrid">
+                    <div class="frow">
+                        <label for="inp_manifest">Manifest JSON (v2 batch)</label>
+                        <input type="file" id="inp_manifest" class="file-drop" accept=".json,application/json" />
+                        <span class="hint">The <code>.json</code> file produced by the manifest tool.</span>
+                    </div>
+                    <div class="frow">
+                        <label for="inp_zips">ZIP archives</label>
+                        <input type="file" id="inp_zips" class="file-drop" accept=".zip" multiple />
+                        <span class="hint">Select all ZIPs listed in the manifest at once.</span>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn-outline" id="btn_validate">Validate Manifest</button>
+                    <button type="button" class="btn-save" id="btn_start_upload" disabled>Start Upload</button>
+                </div>
+
+                <div id="resultBox" class="result-box"></div>
+            </div>
+
+            <div class="section-card" id="items_card" style="display:none;">
+                <h2>2. Batch items</h2>
+                <p class="sdesc">Each row is one study from the manifest, with its upload progress.</p>
+                <div class="table-wrap">
+                    <table class="items-table">
+                        <thead>
+                            <tr>
+                                <th>Ref</th>
+                                <th>Filename</th>
+                                <th>Protocol ID</th>
+                                <th>File</th>
+                                <th>Retention</th>
+                                <th>Progress</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="items_tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
     </div>
 </div>
 

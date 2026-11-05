@@ -16,11 +16,14 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import Http404, HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
+from django.utils import timezone
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views import View
 from django.views.generic import DeleteView, DetailView, ListView
 
 from .institution_scope import can_access, scope_queryset, user_site_code
 from .models import (
+    AuditLog,
     ClinicalIndicationRow,
     CTExamination,
     CTManufacturer,
@@ -30,7 +33,11 @@ from .models import (
     CTScannerProfile,
     MaModulationInputSpec,
     ProtocolChoiceOption,
+    RETENTION_CHOICES,
+    RETENTION_DELETE,
+    RETENTION_RETAIN,
     UploadJob,
+    parse_retention_consent,
 )
 from .protocol_forms import CTProtocolForm, CTScannerProfileForm
 from .repository_study_id import is_weight_optional
@@ -913,6 +920,12 @@ class ExaminationSaveAPIView(AjaxLoginRequiredMixin, View):
         ctdi_vol = data.get("ctdi_vol_per_phase", [])
         dlp = data.get("dlp_per_phase", [])
         image_quality = data.get("image_quality", "")
+        try:
+            retention_consent = parse_retention_consent(data.get("retention_consent"))
+        except ValueError:
+            return JsonResponse(
+                {"error": "Retention consent must be 'RETAIN', 'DELETE' or left empty."}, status=400
+            )
 
         try:
             number_of_phases = int(number_of_phases)
@@ -1086,6 +1099,9 @@ class ExaminationSaveAPIView(AjaxLoginRequiredMixin, View):
                 image_quality=image_quality,
                 created_by=request.user.username,
                 site_code=user_site_code(request.user),
+                retention_consent=retention_consent,
+                retention_updated_at=timezone.now() if retention_consent else None,
+                retention_updated_by=request.user.username if retention_consent else "",
             )
         except Exception as exc:
             # Defense in depth: every field above is now pre-validated, so
@@ -1183,14 +1199,83 @@ class ExaminationListView(LoginRequiredMixin, View):
             owner_field="created_by",
             owner_value=request.user.username,
         )
+        # Counts over the caller's whole (institution-scoped) list, before
+        # the filters below, so the summary always shows the full picture.
+        retention_counts = {
+            "retain": qs.filter(retention_consent=RETENTION_RETAIN).count(),
+            "delete": qs.filter(retention_consent=RETENTION_DELETE).count(),
+            "undeclared": qs.filter(retention_consent="").count(),
+        }
         image_quality = request.GET.get("image_quality", "")
         if image_quality:
             qs = qs.filter(image_quality=image_quality)
+        retention = request.GET.get("retention", "")
+        if retention in (RETENTION_RETAIN, RETENTION_DELETE):
+            qs = qs.filter(retention_consent=retention)
+        elif retention == "UNDECLARED":
+            qs = qs.filter(retention_consent="")
+        else:
+            retention = ""
         return render(request, self.template_name, {
             "examinations": qs,
             "image_quality_choices": CTExamination.IMAGE_QUALITY_CHOICES,
             "selected_quality": image_quality,
+            "retention_choices": RETENTION_CHOICES,
+            "selected_retention": retention,
+            "retention_counts": retention_counts,
         })
+
+
+class ExaminationRetentionView(LoginRequiredMixin, View):
+    """Change one examination's retention consent (same-institution users).
+
+    Every change is written to the AuditLog with upload_job=None, so the
+    history of who declared what survives an eventual purge of the study.
+    """
+
+    login_url = _LOGIN_URL
+
+    def post(self, request: HttpRequest, pk: str) -> HttpResponse:
+        exam = get_object_or_404(CTExamination, pk=pk)
+        if not can_access(exam, request.user, owner_field="created_by", owner_value=request.user.username):
+            raise Http404("No CTExamination matches the given query.")
+        try:
+            new_value = parse_retention_consent(request.POST.get("retention_consent"))
+        except ValueError:
+            messages.error(request, "Unknown retention choice; nothing was changed.")
+            return redirect(self._back_url(request))
+
+        old_value = exam.retention_consent
+        if new_value != old_value:
+            exam.retention_consent = new_value
+            exam.retention_updated_at = timezone.now()
+            exam.retention_updated_by = request.user.username
+            exam.save(update_fields=["retention_consent", "retention_updated_at", "retention_updated_by", "updated_at"])
+            AuditLog.objects.create(
+                upload_job=None,
+                event_type="RETENTION_SET",
+                actor_id=request.user.username,
+                detail={
+                    "repository_study_id": exam.rhythm_pseudo_id,
+                    "examination_id": str(exam.pk),
+                    "site_code": exam.site_code,
+                    "from": old_value or "NOT_DECLARED",
+                    "to": new_value or "NOT_DECLARED",
+                },
+            )
+            messages.success(
+                request,
+                f"{exam.rhythm_pseudo_id or 'Examination'}: retention set to "
+                f"{exam.get_retention_consent_display() or 'Not declared'}.",
+            )
+        return redirect(self._back_url(request))
+
+    @staticmethod
+    def _back_url(request: HttpRequest) -> str:
+        nxt = request.POST.get("next", "")
+        if nxt and url_has_allowed_host_and_scheme(nxt, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
+            return nxt
+        return reverse("examination-list")
 
 
 class ExaminationDeleteView(LoginRequiredMixin, View):

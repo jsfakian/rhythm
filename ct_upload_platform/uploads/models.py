@@ -328,6 +328,10 @@ class AuditLog(models.Model):
         ('COMPLETE', 'Job Complete'),
         ('FAILED', 'Job Failed'),
         ('PARTIAL', 'Job Partial Success'),
+        # Retention: written with upload_job=None so the record survives the
+        # deletion of the job/study it describes.
+        ('RETENTION_SET', 'Retention Consent Changed'),
+        ('STUDY_PURGED', 'Study Deleted (retention)'),
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -837,6 +841,37 @@ class CTProtocol(models.Model):
         return f"{self.get_protocol_type_display()} – {self.age_group}"
 
 
+RETENTION_RETAIN = 'RETAIN'
+RETENTION_DELETE = 'DELETE'
+RETENTION_CHOICES = [
+    (RETENTION_RETAIN, 'Retain after project'),
+    (RETENTION_DELETE, 'Delete at project end'),
+]
+
+
+def parse_retention_consent(value) -> str:
+    """Normalise a submitted retention declaration to a stored value.
+
+    Accepts the manifest's boolean ``retain_after_project`` (True/False), the
+    stored codes ('RETAIN'/'DELETE'), and form strings ('true'/'false',
+    'yes'/'no'). None / '' means "not declared" and maps to ''.
+    Raises ValueError for anything else, so callers can reject bad input
+    instead of silently storing "not declared".
+    """
+    if value is None:
+        return ''
+    if isinstance(value, bool):
+        return RETENTION_RETAIN if value else RETENTION_DELETE
+    text = str(value).strip().lower()
+    if text == '':
+        return ''
+    if text in ('retain', 'true', 'yes', '1'):
+        return RETENTION_RETAIN
+    if text in ('delete', 'false', 'no', '0'):
+        return RETENTION_DELETE
+    raise ValueError(f'Unrecognised retention value: {value!r}')
+
+
 class CTExamination(models.Model):
     IMAGE_QUALITY_CHOICES = [
         ('EXCELLENT', 'Excellent'),
@@ -919,6 +954,22 @@ class CTExamination(models.Model):
         default='',
         help_text='Institution site code of the creator, for institution-wide sharing'
     )
+    # Retention consent: whether the patient authorised keeping this study
+    # after the end of the Grant Agreement. Declared by the submitting site.
+    # Blank ("not declared") is treated exactly like DELETE: the Data Transfer
+    # Agreement requires deleting anything not explicitly authorised. See
+    # will_be_deleted_at_project_end and purge_non_retained_examinations.
+    retention_consent = models.CharField(
+        max_length=8,
+        choices=RETENTION_CHOICES,
+        blank=True,
+        default='',
+        db_index=True,
+        help_text='Patient authorised retention after the project ends (RETAIN), '
+                  'did not (DELETE), or not declared yet (blank = delete).',
+    )
+    retention_updated_at = models.DateTimeField(null=True, blank=True)
+    retention_updated_by = models.CharField(max_length=128, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -936,6 +987,11 @@ class CTExamination(models.Model):
     @property
     def total_dlp(self) -> float:
         return sum(float(v) for v in self.dlp_per_phase if v is not None)
+
+    @property
+    def will_be_deleted_at_project_end(self) -> bool:
+        """Anything not explicitly authorised for retention is deleted."""
+        return self.retention_consent != RETENTION_RETAIN
 
     @property
     def pipeline_status(self) -> str:

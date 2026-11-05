@@ -362,6 +362,7 @@ async function saveExamination() {
     fd.append('ctdi_vol_per_phase',       JSON.stringify(ctdiVol));
     fd.append('dlp_per_phase',            JSON.stringify(dlp));
     fd.append('image_quality',            document.getElementById('sel_quality').value);
+    fd.append('retention_consent',        document.getElementById('sel_retention').value);
     const protocolId = document.getElementById('sel_protocol').value;
     if (protocolId) fd.append('protocol_id', protocolId);
 
@@ -439,6 +440,7 @@ function clearForm(resetRsid = true) {
     document.getElementById('inp_weight').value = '';
     document.getElementById('inp_age').value = '';
     document.getElementById('sel_quality').value = '';
+    document.getElementById('sel_retention').value = '';
     document.getElementById('inp_study_set').value = '';
     document.getElementById('study_set_hint').textContent = '';
     renderPhasesTable();
