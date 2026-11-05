@@ -8,8 +8,15 @@ rhythm.med.uoc.gr {
 		X-Frame-Options "DENY"
 		Referrer-Policy "strict-origin-when-cross-origin"
 		Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
-		Content-Security-Policy "default-src 'self'; frame-ancestors 'none'; base-uri 'self'; object-src 'none'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'"
+		# fonts.googleapis.com allowed for CODE (/code); harmless for the CT upload app on /
+		Content-Security-Policy "default-src 'self'; frame-ancestors 'none'; base-uri 'self'; object-src 'none'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; script-src 'self'; connect-src 'self'"
 		-Server
+	}
+
+	redir /code /code/ 308
+
+	handle /code/* {
+		reverse_proxy code_frontend:80
 	}
 
 	@static path /static/*
