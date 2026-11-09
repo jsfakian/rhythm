@@ -9,7 +9,8 @@ rhythm.med.uoc.gr {
 		Referrer-Policy "strict-origin-when-cross-origin"
 		Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
 		# fonts.googleapis.com allowed for CODE (/code); harmless for the CT upload app on /
-		Content-Security-Policy "default-src 'self'; frame-ancestors 'none'; base-uri 'self'; object-src 'none'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; script-src 'self'; connect-src 'self'"
+		# "?" = default only: routes below (e.g. /ctrad, /code) may set their own CSP.
+		?Content-Security-Policy "default-src 'self'; frame-ancestors 'none'; base-uri 'self'; object-src 'none'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; script-src 'self'; connect-src 'self'"
 		-Server
 	}
 
@@ -17,6 +18,27 @@ rhythm.med.uoc.gr {
 
 	handle /code/* {
 		reverse_proxy code_frontend:80
+	}
+
+	# Upgraded medphys tools (Django 5.2), see ~/Documents/src/medphys-tools.
+	# Their pages load jQuery/Bootstrap from CDNs, use inline scripts and
+	# reCAPTCHA, so they get a CSP that allows exactly those.
+	redir /ctrad /ctrad/ 308
+	handle /ctrad/* {
+		header Content-Security-Policy "default-src 'self'; frame-ancestors 'none'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://code.jquery.com https://cdnjs.cloudflare.com https://stackpath.bootstrapcdn.com https://maxcdn.bootstrapcdn.com https://cdn.jsdelivr.net https://www.google.com https://www.gstatic.com; style-src 'self' 'unsafe-inline' https://code.jquery.com https://cdnjs.cloudflare.com https://stackpath.bootstrapcdn.com https://maxcdn.bootstrapcdn.com https://cdn.jsdelivr.net https://fonts.googleapis.com; font-src 'self' data: https://maxcdn.bootstrapcdn.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://fonts.gstatic.com; img-src 'self' data: blob: https:; frame-src https://www.google.com; connect-src 'self'"
+		reverse_proxy medphys_ctrad:8000
+	}
+
+	redir /xsg /xsg/ 308
+	handle /xsg/* {
+		header Content-Security-Policy "default-src 'self'; frame-ancestors 'none'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://code.jquery.com https://cdnjs.cloudflare.com https://stackpath.bootstrapcdn.com https://maxcdn.bootstrapcdn.com https://cdn.jsdelivr.net https://www.google.com https://www.gstatic.com; style-src 'self' 'unsafe-inline' https://code.jquery.com https://cdnjs.cloudflare.com https://stackpath.bootstrapcdn.com https://maxcdn.bootstrapcdn.com https://cdn.jsdelivr.net https://fonts.googleapis.com; font-src 'self' data: https://maxcdn.bootstrapcdn.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://fonts.gstatic.com; img-src 'self' data: blob: https:; frame-src https://www.google.com; connect-src 'self'"
+		reverse_proxy medphys_xsg:8000
+	}
+
+	redir /autowed /autowed/ 308
+	handle /autowed/* {
+		header Content-Security-Policy "default-src 'self'; frame-ancestors 'none'; base-uri 'self'; object-src 'none'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://code.jquery.com https://cdnjs.cloudflare.com https://stackpath.bootstrapcdn.com https://maxcdn.bootstrapcdn.com https://cdn.jsdelivr.net https://www.google.com https://www.gstatic.com; style-src 'self' 'unsafe-inline' https://code.jquery.com https://cdnjs.cloudflare.com https://stackpath.bootstrapcdn.com https://maxcdn.bootstrapcdn.com https://cdn.jsdelivr.net https://fonts.googleapis.com; font-src 'self' data: https://maxcdn.bootstrapcdn.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://fonts.gstatic.com; img-src 'self' data: blob: https:; frame-src https://www.google.com; connect-src 'self'"
+		reverse_proxy medphys_autowed:8000
 	}
 
 	@static path /static/*
