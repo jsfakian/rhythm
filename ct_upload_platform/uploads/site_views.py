@@ -36,9 +36,9 @@ STATUS_LABELS = {
 # Keep it short and factual: this list is published as-is.
 REPOSITORY_MILESTONES: list[dict[str, str]] = [
     {
-        'task': '5.2',
+        'task': '5.3',
         'title': 'Secure upload platform',
-        'detail': 'Partner accounts with two-factor authentication, institution-scoped access '
+        'detail': 'Partner registration, two-factor authentication, institution-scoped access '
                   'and an audit trail for every action.',
         'status': DONE,
     },
@@ -50,7 +50,7 @@ REPOSITORY_MILESTONES: list[dict[str, str]] = [
         'status': DONE,
     },
     {
-        'task': '5.2',
+        'task': '5.3',
         'title': 'Anonymisation checks and image storage',
         'detail': 'Every DICOM file is checked against a GDPR-strict rule set before it reaches '
                   'the image archive. The server assigns the Repository Study ID.',
@@ -65,9 +65,17 @@ REPOSITORY_MILESTONES: list[dict[str, str]] = [
     },
     {
         'task': '5.3',
+        'title': 'Retention consent and end-of-project deletion',
+        'detail': 'Each examination records whether it may be retained after the project; '
+                  'everything else is deleted at project end, with the decision kept in the audit log.',
+        'status': DONE,
+    },
+    {
+        'task': '5.3',
         'title': 'Search and retrieval',
-        'detail': 'Browse and filter repository data by age group, scanner model, examination '
-                  'type, site and time period.',
+        'detail': 'Available now: institution-scoped examination lists with filters, and study-set '
+                  'downloads. Next: search across the repository by age group, scanner model, '
+                  'examination type, site and time period.',
         'status': IN_PROGRESS,
     },
     {
