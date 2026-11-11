@@ -149,7 +149,7 @@
                             </td>
                             <td>
                                 {% if e.study_set_file %}
-                                <a href="{{ e.study_set_file.url }}" download class="btn btn-secondary btn-sm">Download</a>
+                                <a href="{% url 'examination-study-set-download' e.pk %}" class="btn btn-secondary btn-sm">Download</a>
                                 {% else %}—{% endif %}
                             </td>
                             <td>

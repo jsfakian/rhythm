@@ -143,7 +143,6 @@ services:
       - caddy_data:/data
       - caddy_config:/config
       - static_volume:/srv/static:ro
-      - ./media:/srv/media:ro
     depends_on:
       - web
 

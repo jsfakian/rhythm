@@ -58,10 +58,12 @@ rhythm.med.uoc.gr {
 		file_server
 	}
 
-	@media path /media/*
+	# /media/ holds partner study-set ZIPs (CT images). They are downloaded
+	# only through Django's login- and institution-checked views, so never
+	# serve this directory directly, and never pass it to Django either.
+	@media path /media /media/*
 	handle @media {
-		root * /srv
-		file_server
+		respond 404
 	}
 
 	handle {

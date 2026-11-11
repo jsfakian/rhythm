@@ -19,7 +19,11 @@ from uploads.user_management_views import (
     UserUpdateAPIView,
     UserDeleteAPIView,
 )
-from uploads.file_management_views import FileManagerView, StudySetDownloadView
+from uploads.file_management_views import (
+    ExaminationStudySetDownloadView,
+    FileManagerView,
+    StudySetDownloadView,
+)
 from uploads.twofactor_views import (
     SecuritySettingsView,
     TOTPSetupInitiateView,
@@ -109,6 +113,8 @@ urlpatterns = [
     path('examinations/api/save/', ExaminationSaveAPIView.as_view(), name='examination-save-api'),
     path('examinations/<str:pk>/delete/', ExaminationDeleteView.as_view(), name='examination-delete'),
     path('examinations/<str:pk>/retention/', ExaminationRetentionView.as_view(), name='examination-retention'),
+    path('examinations/<uuid:pk>/study-set/', ExaminationStudySetDownloadView.as_view(),
+         name='examination-study-set-download'),
 
     # My Uploads (bulk/automated upload job tracking)
     path('my-uploads/', UploadJobListView.as_view(), name='upload-job-list'),

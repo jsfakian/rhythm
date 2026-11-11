@@ -1,4 +1,4 @@
-<style>
+{% load static %}<style>
     .rhythm-footer {
         background: #ffffff;
         border-top: 1px solid #e8ecef;
@@ -31,9 +31,9 @@
 </style>
 <footer class="rhythm-footer">
     <div class="rhythm-footer-logos">
-        <a href="https://www.eibir.org/projects/rhythm/" target="_blank" rel="noopener noreferrer"><img class="rhythm-logo-mark" src="/media/image-rhythm.png" alt="RHYTHM - Radiation, Health, Safety &amp; Quality for Youth"></a>
-        <a href="https://medicalphysics.med.uoc.gr/medicalphysics/index_en.jsp" target="_blank" rel="noopener noreferrer"><img src="/media/image.png" alt="Department of Medical Physics, Faculty of Medicine, University of Crete"></a>
-        <a href="https://health.ec.europa.eu/funding/eu4health-programme-2021-2027-vision-healthier-european-union_en" target="_blank" rel="noopener noreferrer"><img src="/media/image-eu.png" alt="Co-funded by the European Union"></a>
+        <a href="https://www.eibir.org/projects/rhythm/" target="_blank" rel="noopener noreferrer"><img class="rhythm-logo-mark" src="{% static 'site/img/logo-rhythm.png' %}" alt="RHYTHM - Radiation, Health, Safety &amp; Quality for Youth"></a>
+        <a href="https://medicalphysics.med.uoc.gr/medicalphysics/index_en.jsp" target="_blank" rel="noopener noreferrer"><img src="{% static 'site/img/logo-uoc-medphys.png' %}" alt="Department of Medical Physics, Faculty of Medicine, University of Crete"></a>
+        <a href="https://health.ec.europa.eu/funding/eu4health-programme-2021-2027-vision-healthier-european-union_en" target="_blank" rel="noopener noreferrer"><img src="{% static 'site/img/logo-eu.png' %}" alt="Co-funded by the European Union"></a>
     </div>
     <p class="rhythm-footer-text">
         &copy; RHYTHM Project, 2026 &ndash; Data are provided for benchmarking and quality improvement purposes only. Redistribution or further use is subject to the RHYTHM governance framework and applicable agreements. Co-funded by the European Union under the EU4Health Programme.
