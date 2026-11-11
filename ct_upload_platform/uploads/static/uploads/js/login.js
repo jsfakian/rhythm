@@ -8,6 +8,16 @@ const enrollBtn = document.getElementById('enrollBtn');
 const errorMessage = document.getElementById('errorMessage');
 const successMessage = document.getElementById('successMessage');
 
+// Where to go after login: a same-site ?next= path, otherwise the platform home.
+// "//host" and "/\host" are rejected: browsers treat both as another site.
+function postLoginUrl() {
+    const next = new URLSearchParams(window.location.search).get('next');
+    if (next && next.startsWith('/') && !next.startsWith('//') && !next.startsWith('/\\') && next !== '/') {
+        return next;
+    }
+    return '/platform/';
+}
+
 function onAuthenticated(data) {
     localStorage.setItem('token', data.token);
     localStorage.setItem('user', JSON.stringify(data));
@@ -16,7 +26,7 @@ function onAuthenticated(data) {
     successMessage.classList.add('show');
 
     setTimeout(() => {
-        window.location.href = '/';
+        window.location.href = postLoginUrl();
     }, 2000);
 }
 

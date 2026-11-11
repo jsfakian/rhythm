@@ -387,7 +387,7 @@ class SignupPageViewTestCase(TestCase):
         self.client.login(username='existinguser', password='testpass123')
         response = self.client.get(SIGNUP_PAGE_URL)
         self.assertEqual(response.status_code, 302)
-        self.assertRedirects(response, '/', fetch_redirect_response=False)
+        self.assertRedirects(response, '/platform/', fetch_redirect_response=False)
 
     def test_signup_page_uses_correct_template(self):
         response = self.client.get(SIGNUP_PAGE_URL)

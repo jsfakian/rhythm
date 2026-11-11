@@ -1,0 +1,332 @@
+{% extends 'site/_base.html' %}
+{% load static %}
+
+{% block content %}
+      <section class="hero">
+        <div class="container hero-grid">
+          <div class="hero-copy reveal">
+            <span class="eyebrow">The RHYTHM project · University of Crete</span>
+            <h1>Safer imaging through <em>better evidence.</em></h1>
+            <p class="hero-lead">
+              Advancing CT radiation protection for children, adolescents and young adults through
+              clinical diagnostic reference levels, European dose benchmarking and protocol optimisation.
+            </p>
+            <div class="hero-actions">
+              <a class="button button-primary" href="#platform">
+                Upload platform <span class="arrow" aria-hidden="true">→</span>
+              </a>
+              <a class="button button-secondary" href="{{ repository_url }}"{% if repository_is_live %} target="_blank" rel="noopener"{% endif %}>
+                {% if repository_is_live %}Open the RHYTHM repository{% else %}Follow repository progress{% endif %}
+              </a>
+            </div>
+          </div>
+
+          <div class="hero-visual reveal" aria-label="Abstract CT dose and image-quality visualisation">
+            <span class="visual-label">CT · dose · image quality</span>
+            <div class="logo-chip"><img src="{% static 'site/img/rhythm-logo.png' %}" alt="" /></div>
+            <svg viewBox="0 0 520 420" role="img" aria-label="CT scanner, dose grid and measurement paths">
+              <defs>
+                <linearGradient id="beam" x1="0" x2="1">
+                  <stop offset="0" stop-color="#e50087" stop-opacity="0.18" />
+                  <stop offset="1" stop-color="#ffd900" stop-opacity="0.92" />
+                </linearGradient>
+                <radialGradient id="scan" cx="50%" cy="50%" r="50%">
+                  <stop offset="0" stop-color="#dce2ff" stop-opacity="0.62" />
+                  <stop offset="0.55" stop-color="#dce2ff" stop-opacity="0.1" />
+                  <stop offset="1" stop-color="#dce2ff" stop-opacity="0" />
+                </radialGradient>
+              </defs>
+              <g fill="none" stroke="#dce2ff" stroke-opacity="0.22">
+                <path d="M35 84H485M35 134H485M35 184H485M35 234H485M35 284H485M35 334H485" />
+                <path d="M85 45V365M135 45V365M185 45V365M235 45V365M285 45V365M335 45V365M385 45V365M435 45V365" />
+              </g>
+              <circle cx="292" cy="205" r="154" fill="url(#scan)" />
+              <circle cx="292" cy="205" r="120" fill="none" stroke="#dce2ff" stroke-width="22" stroke-opacity="0.92" />
+              <circle cx="292" cy="205" r="76" fill="none" stroke="#e50087" stroke-width="2" stroke-opacity="0.9" />
+              <circle cx="292" cy="205" r="58" fill="#2c3e50" stroke="#ffd900" stroke-width="2" />
+              <path d="M82 205H315" stroke="url(#beam)" stroke-width="18" />
+              <path d="M92 165H228M92 245H228" stroke="#ffd900" stroke-width="2" stroke-dasharray="7 8" />
+              <path d="M325 280H468" stroke="#dce2ff" stroke-width="16" stroke-linecap="round" />
+              <path d="M431 280V317H472" stroke="#dce2ff" stroke-width="12" stroke-linecap="round" />
+              <g fill="#ffd900">
+                <circle cx="92" cy="165" r="5" /><circle cx="92" cy="245" r="5" />
+                <circle cx="292" cy="205" r="6" /><circle cx="412" cy="205" r="4" />
+              </g>
+              <path d="M42 341C101 294 131 358 183 311S267 341 313 304S393 323 476 266" fill="none" stroke="#e50087" stroke-width="4" />
+            </svg>
+            <div class="visual-caption">
+              <strong>A European repository for meaningful comparison.</strong>
+              <span>WP5 · UoC</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section section-tint" id="about">
+        <div class="container">
+          <div class="section-head reveal">
+            <div>
+              <span class="eyebrow">About RHYTHM</span>
+              <h2>From clinical questions to usable evidence.</h2>
+            </div>
+            <p>
+              RHYTHM (Radiation, Health, Safety &amp; Quality for Youth) is a four-year EU4Health project on safer,
+              optimised medical imaging for children and young adults. The University of Crete leads Work Package 5,
+              which builds the European CT dose and image repository, and contributes to data governance in WP1.
+            </p>
+          </div>
+
+          <div class="objective-grid">
+            <article class="objective-card reveal">
+              <span class="card-index">01</span>
+              <h3>The RHYTHM Project</h3>
+              <p>A four-year EU4Health project focused on safer, optimised imaging for children and young adults.</p>
+              <a class="text-link" href="https://www.eibir.org/projects/rhythm/" target="_blank" rel="noopener">
+                Project overview <span class="arrow" aria-hidden="true">→</span>
+              </a>
+            </article>
+
+            <article class="objective-card reveal">
+              <span class="card-index">02</span>
+              <h3>UoC Project Tasks</h3>
+              <p>Data governance and the UoC-led work to develop a European CT dose and image repository.</p>
+              <a class="text-link" href="{% url 'project-tasks' %}">
+                View work packages <span class="arrow" aria-hidden="true">→</span>
+              </a>
+            </article>
+
+            <article class="objective-card reveal">
+              <span class="card-index">03</span>
+              <h3>Upload Platform</h3>
+              <p>The secure environment where partner hospitals contribute CT protocol, dose and anonymised image data.</p>
+              <a class="text-link" href="#platform">
+                How it works <span class="arrow" aria-hidden="true">→</span>
+              </a>
+            </article>
+
+            <article class="objective-card reveal">
+              <span class="card-index">04</span>
+              <h3>RHYTHM Repository</h3>
+              <p>The European repository for DRL benchmarking and protocol comparison, under development.</p>
+              <a class="text-link" href="{{ repository_url }}"{% if repository_is_live %} target="_blank" rel="noopener"{% endif %}>
+                {% if repository_is_live %}Open repository{% else %}See progress{% endif %} <span class="arrow" aria-hidden="true">→</span>
+              </a>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="platform">
+        <div class="container tasks-shell">
+          <div class="tasks-intro reveal">
+            <span class="eyebrow">For partner institutions</span>
+            <h2>The RHYTHM upload platform.</h2>
+            <p>
+              Partner hospitals register their CT scanners and protocols, enter examination dose data and submit
+              anonymised image study sets. Every file is checked against a GDPR-strict anonymisation rule set
+              before it is stored, and the server, never the partner, assigns the Repository Study ID.
+            </p>
+            <div class="section-actions">
+              {% if user.is_authenticated %}
+              <a class="button button-primary" href="{% url 'platform-home' %}">Go to the platform <span class="arrow" aria-hidden="true">→</span></a>
+              {% else %}
+              <a class="button button-primary" href="{% url 'login-page' %}?next={% url 'platform-home' %}">Partner login <span class="arrow" aria-hidden="true">→</span></a>
+              <a class="button button-secondary" href="{% url 'signup-page' %}">Request an account</a>
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="task-list">
+            <article class="task-card reveal">
+              <span class="task-number">1</span>
+              <div>
+                <h3>Register your CT scanners</h3>
+                <p>Manufacturer, model and site details for each scanner that contributes data.</p>
+              </div>
+            </article>
+
+            <article class="task-card reveal">
+              <span class="task-number">2</span>
+              <div>
+                <h3>Describe your protocols</h3>
+                <p>Acquisition and reconstruction settings per clinical indication and age group.</p>
+              </div>
+            </article>
+
+            <article class="task-card reveal">
+              <span class="task-number">3</span>
+              <div>
+                <h3>Enter examinations</h3>
+                <p>Patient-size metrics and dose indices per examination, one at a time or as an automated batch.</p>
+              </div>
+            </article>
+
+            <article class="task-card reveal">
+              <span class="task-number">4</span>
+              <div>
+                <h3>Submit anonymised images</h3>
+                <p>Anonymise locally first. The platform validates anonymisation; it does not perform it.</p>
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="section section-tint" id="repository">
+        <div class="container">
+          <div class="section-head reveal">
+            <div>
+              <span class="eyebrow">RHYTHM repository · WP5</span>
+              <h2>{% if repository_is_live %}The repository is live.{% else %}Built in the open, step by step.{% endif %}</h2>
+            </div>
+            <p>
+              The repository will let radiology departments compare their DRLs, protocol settings and image quality
+              with institutions using the same scanner model. Progress is published here as each part lands.
+            </p>
+          </div>
+
+          <div class="progress-summary reveal">
+            <div class="progress-bar" role="img" aria-label="{{ milestone_percent }}% of repository milestones complete">
+              <span class="progress-fill" style="width: {{ milestone_percent }}%"></span>
+            </div>
+            <p class="progress-counts">
+              <strong>{{ milestones_done }}</strong> of {{ milestone_total }} milestones done ·
+              <strong>{{ milestones_in_progress }}</strong> in progress
+            </p>
+          </div>
+
+          <ol class="milestone-list milestone-list-compact">
+            {% for m in milestones %}
+            <li class="milestone milestone-{{ m.status }} reveal">
+              <span class="milestone-status">{{ m.status_label }}</span>
+              <h3>{{ m.title }}</h3>
+            </li>
+            {% endfor %}
+          </ol>
+
+          <div class="section-actions">
+            <a class="button button-primary" href="{{ repository_url }}"{% if repository_is_live %} target="_blank" rel="noopener"{% endif %}>
+              {% if repository_is_live %}Open the RHYTHM repository{% else %}Repository progress in detail{% endif %} <span class="arrow" aria-hidden="true">→</span>
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="tasks">
+        <div class="container tasks-shell">
+          <div class="tasks-intro reveal">
+            <span class="eyebrow">RHYTHM project tasks</span>
+            <h2>Work Package 5, led by UoC.</h2>
+            <p>
+              UoC-led RHYTHM tasks and collaborative activities build the evidence base,
+              infrastructure and validation needed for a useful European repository.
+            </p>
+            <div class="section-actions">
+              <a class="button button-primary" href="{% url 'project-tasks' %}">Read all task details</a>
+            </div>
+          </div>
+
+          <div class="task-list">
+            <article class="task-card reveal">
+              <span class="task-number">5.1</span>
+              <div>
+                <h3>Identification of Clinical Indications</h3>
+                <p>Priority CT indications for establishing DRLs in paediatric patients, adolescents and young adults.</p>
+                <a class="text-link" href="{% url 'project-tasks' %}#task-51">Explore task <span class="arrow" aria-hidden="true">→</span></a>
+              </div>
+            </article>
+
+            <article class="task-card reveal">
+              <span class="task-number">5.2</span>
+              <div>
+                <h3>Data Collection and AI-Enhanced Analysis</h3>
+                <p>European CT protocol, patient-size, dose and anonymised image data, supported by anomaly detection.</p>
+                <a class="text-link" href="{% url 'project-tasks' %}#task-52">Explore task <span class="arrow" aria-hidden="true">→</span></a>
+              </div>
+            </article>
+
+            <article class="task-card reveal">
+              <span class="task-number">5.3</span>
+              <div>
+                <h3>Development of the Repository</h3>
+                <p>Secure submission, storage, retrieval, search, interactive reporting and local benchmarking.</p>
+                <a class="text-link" href="{% url 'project-tasks' %}#task-53">Explore task <span class="arrow" aria-hidden="true">→</span></a>
+              </div>
+            </article>
+
+            <article class="task-card reveal">
+              <span class="task-number">5.4</span>
+              <div>
+                <h3>Repository Validation and Roll-Out</h3>
+                <p>Pilot testing, real-world integration, dissemination and long-term sustainability.</p>
+                <a class="text-link" href="{% url 'project-tasks' %}#task-54">Explore task <span class="arrow" aria-hidden="true">→</span></a>
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="facts" id="numbers">
+        <div class="container facts-grid">
+          <div class="facts-heading reveal">
+            <span class="eyebrow">Facts &amp; figures</span>
+            <h2>European scale, focused purpose.</h2>
+          </div>
+          <div class="metric reveal"><strong data-count="20">20</strong><span>Participating organisations</span></div>
+          <div class="metric reveal"><strong data-count="12">12</strong><span>European countries</span></div>
+          <div class="metric reveal"><strong data-count="3.72" data-decimals="2" data-prefix="€" data-suffix="M">€3.72M</strong><span>EU funding</span></div>
+          <div class="metric reveal"><strong data-count="48">48</strong><span>Duration in months</span></div>
+        </div>
+      </section>
+
+      <section class="section" id="team">
+        <div class="container team-grid">
+          <figure class="team-photo reveal">
+            <img src="{% static 'site/img/research-team.jpg' %}" alt="CT research activity at the Department of Medical Physics, University of Crete" />
+            <figcaption>Medical imaging and dosimetry research at the University of Crete.</figcaption>
+          </figure>
+          <div class="team-copy reveal">
+            <span class="eyebrow">University of Crete</span>
+            <h2>Research grounded in clinical Medical Physics.</h2>
+            <p>
+              The Department of Medical Physics has a major research portfolio and teaches the principles and practice
+              of Medical Physics to undergraduate medical students, medical students and residents during their clinical
+              training. The Department also offers a programme leading to the degree of Master of Science in Medical Physics.
+            </p>
+            <div class="section-actions">
+              <a class="button button-primary" href="https://medicalphysics.med.uoc.gr/people_en.jsp" target="_blank" rel="noopener">UoC research team</a>
+              <a class="button button-secondary" href="https://medicalphysics.med.uoc.gr/research_en.jsp?id=null" target="_blank" rel="noopener">Research activities</a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section section-tint" id="contact">
+        <div class="container contact-panel reveal">
+          <div>
+            <span class="eyebrow">Contact MedPhys UoC</span>
+            <h2>Get in touch.</h2>
+          </div>
+          <div class="contact-details">
+            <div class="contact-item">
+              <span>Department</span>
+              <strong>Department of Medical Physics<br />University of Crete · Faculty of Medicine</strong>
+            </div>
+            <div class="contact-item">
+              <span>Address</span>
+              <strong>P.O. Box 2208<br />71003 Iraklion, Crete, Greece</strong>
+            </div>
+            <div class="contact-item">
+              <span>Contact</span>
+              <strong>Prof. John Damilakis</strong><br />
+              <a href="mailto:john.damilakis@med.uoc.gr">john.damilakis@med.uoc.gr</a>
+            </div>
+            <div class="contact-item">
+              <span>Telephone · Fax</span>
+              <a href="tel:+302810392569">+30 2810 392569</a><br />
+              <strong>Fax: +30 2810 542095</strong>
+            </div>
+          </div>
+        </div>
+      </section>
+{% endblock %}

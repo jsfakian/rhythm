@@ -12,6 +12,7 @@ from uploads.views import (
     VerifyEmailView,
 )
 from uploads.forms import InactiveAllowedPasswordResetForm
+from uploads.site_views import LandingView, ProjectTasksView, RepositoryView
 from uploads.user_management_views import (
     UserManagementView,
     UserCreateAPIView,
@@ -90,7 +91,13 @@ urlpatterns = [
         name='password-reset-complete',
     ),
 
-    path('', HomeView.as_view(), name='index'),
+    # Public RHYTHM site (replaces ctdose.med.uoc.gr/rhythm/). No login.
+    path('', LandingView.as_view(), name='index'),
+    path('tasks/', ProjectTasksView.as_view(), name='project-tasks'),
+    path('repository/', RepositoryView.as_view(), name='repository-progress'),
+
+    # Upload platform home (was at /), shown after login.
+    path('platform/', HomeView.as_view(), name='platform-home'),
     path('upload/', UploadAdvancedView.as_view(), name='upload'),
     path('json-validator/', JSONValidatorView.as_view(), name='json-validator'),
     path('simple/', UploadIndexView.as_view(), name='simple'),

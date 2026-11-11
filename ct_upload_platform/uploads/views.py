@@ -404,7 +404,7 @@ class UploadAdvancedView(LoginRequiredMixin, TemplateView):
 
 
 class HomeView(LoginRequiredMixin, TemplateView):
-    """Landing page shown after login — prompts user to pick a section from the sidebar."""
+    """Platform home (/platform/) shown after login: prompts the user to pick a section from the sidebar."""
     login_url = '/login/'
     template_name = 'uploads/home.html'
 
@@ -575,7 +575,7 @@ class LoginPageView(TemplateView):
     def get(self, request, *args, **kwargs):
         """Redirect to main page if already logged in."""
         if request.user.is_authenticated:
-            return redirect('/')
+            return redirect('platform-home')
         return super().get(request, *args, **kwargs)
 
 
@@ -628,7 +628,7 @@ class SignupPageView(TemplateView):
     def get(self, request, *args, **kwargs):
         """Redirect to main page if already logged in."""
         if request.user.is_authenticated:
-            return redirect('/')
+            return redirect('platform-home')
         return super().get(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):

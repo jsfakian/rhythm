@@ -16,13 +16,13 @@ from .models import UserProfile
 
 
 class SuperuserRequiredMixin(LoginRequiredMixin):
-    """Redirect non-superusers to the index page."""
+    """Redirect non-superusers to the platform home page."""
 
     def dispatch(self, request, *args, **kwargs):
         if not request.user.is_authenticated:
             return self.handle_no_permission()
         if not request.user.is_superuser:
-            return redirect('/')
+            return redirect('platform-home')
         return super().dispatch(request, *args, **kwargs)
 
 

@@ -237,7 +237,11 @@ DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default='noreply@ct-upload-platfo
 ADMIN_NOTIFICATION_EMAIL = env('SUPERUSER_EMAIL', default='')
 
 LOGIN_URL = '/login/'
-LOGIN_REDIRECT_URL = '/'
+LOGIN_REDIRECT_URL = '/platform/'
+
+# Public URL of the RHYTHM repository (WP5, Task 5.3) once it is live.
+# Empty: the site's "RHYTHM repo" links go to the /repository/ progress page.
+RHYTHM_REPOSITORY_URL = env('RHYTHM_REPOSITORY_URL', default='')
 
 # Automatic logout after this many seconds of inactivity.
 SESSION_COOKIE_AGE = env.int('SESSION_TIMEOUT_SECONDS', default=3600)

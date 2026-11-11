@@ -89,7 +89,7 @@ test.describe('JSON Validator page', () => {
     await page.fill('#username', TEST_USER.username);
     await page.fill('#password', TEST_USER.password);
     await page.click('#loginBtn');
-    await page.waitForURL('/', { timeout: 8000 });
+    await page.waitForURL('/platform/', { timeout: 8000 });
 
     await page.goto(VALIDATOR_URL);
     await expect(page.locator('#jsonInput')).toBeVisible();

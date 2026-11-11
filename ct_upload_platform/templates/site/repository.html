@@ -1,0 +1,61 @@
+{% extends 'site/_base.html' %}
+
+{% block title %}RHYTHM Repository: progress | University of Crete{% endblock %}
+{% block description %}Development progress of the RHYTHM European CT dose and image repository (WP5, University of Crete).{% endblock %}
+
+{% block content %}
+      <section class="subhero">
+        <div class="container reveal">
+          <div class="breadcrumbs"><a href="{% url 'index' %}">Home</a><span>/</span><span>RHYTHM repository</span></div>
+          <span class="eyebrow">WP5 · Tasks 5.3 and 5.4</span>
+          <h1>{% if repository_is_live %}The RHYTHM repository is live.{% else %}The RHYTHM repository, in progress.{% endif %}</h1>
+          <p>
+            A secure European repository for CT dose benchmarking through DRLs and for comparing protocol settings
+            and image quality across institutions that use the same scanner model.
+            {% if not repository_is_live %}This page tracks its development until the first public release.{% endif %}
+          </p>
+          {% if repository_is_live %}
+          <div class="section-actions">
+            <a class="button button-primary" href="{{ repository_url }}" target="_blank" rel="noopener">Open the repository <span class="arrow" aria-hidden="true">→</span></a>
+          </div>
+          {% endif %}
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="container">
+          <div class="progress-summary reveal">
+            <div class="progress-bar" role="img" aria-label="{{ milestone_percent }}% of repository milestones complete">
+              <span class="progress-fill" style="width: {{ milestone_percent }}%"></span>
+            </div>
+            <p class="progress-counts">
+              <strong>{{ milestones_done }}</strong> done ·
+              <strong>{{ milestones_in_progress }}</strong> in progress ·
+              <strong>{{ milestones_planned }}</strong> planned
+            </p>
+          </div>
+
+          <ol class="milestone-list">
+            {% for m in milestones %}
+            <li class="milestone milestone-{{ m.status }} reveal">
+              <span class="milestone-status">{{ m.status_label }}</span>
+              <div>
+                <span class="milestone-task">Task {{ m.task }}</span>
+                <h3>{{ m.title }}</h3>
+                <p>{{ m.detail }}</p>
+              </div>
+            </li>
+            {% endfor %}
+          </ol>
+        </div>
+      </section>
+
+      <section class="cta-band">
+        <div class="container cta-inner reveal">
+          <h2>Contributing data? The upload platform is open to partner institutions.</h2>
+          <a class="button button-primary" href="{% url 'index' %}#platform">
+            About the upload platform <span class="arrow" aria-hidden="true">→</span>
+          </a>
+        </div>
+      </section>
+{% endblock %}

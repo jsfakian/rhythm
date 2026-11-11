@@ -1,0 +1,75 @@
+{% load static %}<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="{% block description %}RHYTHM at the University of Crete: European CT dose benchmarking, clinical DRLs, protocol optimisation and the RHYTHM repository.{% endblock %}" />
+    <title>{% block title %}RHYTHM Project | University of Crete{% endblock %}</title>
+    <link rel="icon" href="{% static 'site/img/rhythm-logo.png' %}" />
+    <link rel="stylesheet" href="{% static 'site/styles.css' %}" />
+    <script defer src="{% static 'site/script.js' %}"></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#content">Skip to content</a>
+
+    <header class="site-header">
+      <div class="container nav-shell">
+        <a class="brand" href="{% url 'index' %}" aria-label="RHYTHM home">
+          <img src="{% static 'site/img/rhythm-logo.png' %}" alt="RHYTHM" />
+          <span class="brand-copy">
+            <strong>University of Crete</strong>
+            <span>Medical Physics · RHYTHM</span>
+          </span>
+        </a>
+
+        <button
+          class="nav-toggle"
+          type="button"
+          aria-label="Open navigation"
+          aria-controls="site-navigation"
+          aria-expanded="false"
+          data-nav-toggle
+        ><span></span></button>
+
+        <nav class="site-nav" id="site-navigation" aria-label="Primary navigation" data-site-nav data-open="false">
+          <a href="{% url 'index' %}"{% if nav_current == 'home' %} aria-current="page"{% endif %}>Home</a>
+          <a href="{% url 'index' %}#about">About</a>
+          <a href="{% url 'project-tasks' %}"{% if nav_current == 'tasks' %} aria-current="page"{% endif %}>UoC tasks</a>
+          <a class="future-repo-link" href="{{ repository_url }}"{% if repository_is_live %} target="_blank" rel="noopener"{% endif %}{% if nav_current == 'repository' %} aria-current="page"{% endif %}
+             title="{% if repository_is_live %}Open the RHYTHM repository{% else %}RHYTHM repository: development progress{% endif %}">
+            <span class="future-repo-icon" aria-hidden="true">◷</span>
+            <span>RHYTHM repo</span>
+            <span class="future-repo-badge">{% if repository_is_live %}Live{% else %}Soon{% endif %}</span>
+          </a>
+          {% if user.is_authenticated %}
+          <a class="nav-cta" href="{% url 'platform-home' %}">Upload platform</a>
+          {% else %}
+          <a class="nav-cta" href="{% url 'login-page' %}?next={% url 'platform-home' %}">Partner login</a>
+          {% endif %}
+        </nav>
+      </div>
+    </header>
+
+    <main id="content">
+      {% block content %}{% endblock %}
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">
+        <div class="footer-logos">
+          <a href="https://www.eibir.org/projects/rhythm/" target="_blank" rel="noopener"><img src="{% static 'site/img/logo-rhythm.png' %}" alt="RHYTHM: Radiation, Health, Safety &amp; Quality for Youth" /></a>
+          <a href="https://medicalphysics.med.uoc.gr/medicalphysics/index_en.jsp" target="_blank" rel="noopener"><img src="{% static 'site/img/logo-uoc-medphys.png' %}" alt="Department of Medical Physics, Faculty of Medicine, University of Crete" /></a>
+          <a href="https://health.ec.europa.eu/funding/eu4health-programme-2021-2027-vision-healthier-european-union_en" target="_blank" rel="noopener"><img src="{% static 'site/img/logo-eu.png' %}" alt="Co-funded by the European Union" /></a>
+        </div>
+        <div class="footer-grid">
+          <p>Co-funded by the European Union under the EU4Health Programme.</p>
+          <div class="footer-links">
+            <a href="mailto:john.damilakis@med.uoc.gr">Contact</a>
+            <a href="https://www.eibir.org/projects/rhythm/" target="_blank" rel="noopener">RHYTHM project</a>
+            <span>© <span data-year>{% now "Y" %}</span> University of Crete</span>
+          </div>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>
