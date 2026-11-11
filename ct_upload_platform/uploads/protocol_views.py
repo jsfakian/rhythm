@@ -1293,7 +1293,19 @@ class ExaminationDeleteView(LoginRequiredMixin, View):
 
     def post(self, request: HttpRequest, pk: str) -> HttpResponse:
         exam = self._get_exam(request, pk)
+        # Django never deletes a FileField's file with its row: without this,
+        # every deleted examination left its study-set ZIP (CT images) in
+        # media/, where nothing references it and the end-of-project purge,
+        # which works from DB rows, can no longer find it.
+        study_set_name = exam.study_set_file.name if exam.study_set_file else ""
+        storage = exam.study_set_file.storage
         exam.delete()
+        if study_set_name:
+            try:
+                storage.delete(study_set_name)
+            except OSError:
+                logger.exception("Examination %s deleted but its study set %s could not be removed",
+                                 pk, study_set_name)
         return redirect(reverse("examination-list"))
 
     def get(self, request: HttpRequest, pk: str) -> HttpResponse:

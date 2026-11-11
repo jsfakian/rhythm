@@ -77,3 +77,30 @@ class ExaminationStudySetDownloadTests(TestCase):
         response = self.client.get(reverse("examination-list"))
         self.assertContains(response, self.url)
         self.assertNotContains(response, "/media/examination_study_sets/")
+
+
+class ExaminationDeleteRemovesStudySetTests(TestCase):
+    def test_deleting_an_examination_removes_its_zip(self) -> None:
+        exam = _exam_with_zip(site_code="S001")
+        storage, name = exam.study_set_file.storage, exam.study_set_file.name
+        self.assertTrue(storage.exists(name))
+        self.client.force_login(_user("colleague", site_code="S001"))
+        response = self.client.post(reverse("examination-delete", kwargs={"pk": str(exam.pk)}))
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(CTExamination.objects.filter(pk=exam.pk).exists())
+        self.assertFalse(storage.exists(name))
+
+    def test_other_institution_cannot_delete_or_remove_the_zip(self) -> None:
+        exam = _exam_with_zip(site_code="S001")
+        storage, name = exam.study_set_file.storage, exam.study_set_file.name
+        self.client.force_login(_user("outsider", site_code="S004"))
+        response = self.client.post(reverse("examination-delete", kwargs={"pk": str(exam.pk)}))
+        self.assertEqual(response.status_code, 404)
+        self.assertTrue(storage.exists(name))
+
+    def test_deleting_an_examination_without_a_file_still_works(self) -> None:
+        exam = CTExamination.objects.create(rhythm_pseudo_id="RHY-NOFILE", site_code="S001")
+        self.client.force_login(_user("colleague", site_code="S001"))
+        response = self.client.post(reverse("examination-delete", kwargs={"pk": str(exam.pk)}))
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(CTExamination.objects.filter(pk=exam.pk).exists())
