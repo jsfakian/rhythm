@@ -92,48 +92,37 @@ rhythm.med.uoc.gr {
 }
 
 # ---------------------------------------------------------------------------
-# ctdose-iqurad / medphys-tools → CTRAD at /
-# (app urlpatterns include both ^$ and ^ctrad/…; other tools stay on /xsg etc.)
+# Hostname roots → each app's path prefix.
+# Apps keep cookie/script paths (/ctrad/, /idose/, /code/), so / must redirect
+# into that prefix or CSRF/session cookies will not be sent.
 # ---------------------------------------------------------------------------
 ctdose-iqurad.med.uoc.gr, medphys-tools.med.uoc.gr {
 	encode zstd gzip
 	import edge_headers
 	import medphys_apps
 
-	handle {
-		import medphys_csp
-		reverse_proxy medphys_ctrad:8000
-	}
+	# Root → CTRAD
+	redir / /ctrad/ 308
 }
 
-# ---------------------------------------------------------------------------
-# idose.med.uoc.gr → idose at /
-# FORCE_SCRIPT_NAME=/idose still emits /idose/… links; serve those too.
-# ---------------------------------------------------------------------------
 idose.med.uoc.gr {
 	encode zstd gzip
 	import edge_headers
 
+	# Root → idose
+	redir / /idose/ 308
 	redir /idose /idose/ 308
 	handle_path /idose/* {
 		import medphys_csp
 		reverse_proxy medphys_idose:8000
 	}
-
-	handle {
-		import medphys_csp
-		reverse_proxy medphys_idose:8000
-	}
 }
 
-# ---------------------------------------------------------------------------
-# embryodose.med.uoc.gr → CODE
-# Frontend is built with base=/code/, so keep the app under /code/.
-# ---------------------------------------------------------------------------
 embryodose.med.uoc.gr {
 	encode zstd gzip
 	import edge_headers
 
+	# Root → CODE (Vite base=/code/)
 	redir / /code/ 308
 	import code_app
 }
