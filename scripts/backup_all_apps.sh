@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
-# Daily backup of every app hosted on the rhythm edge server (backup-rhythm).
+# Daily backup of apps hosted on rhythm-backup, then copy them to rhythm.
 #
-# Order:
-#   1. Database dumps (MariaDB medphys, Postgres CODE, Postgres RHYTHM)
-#   2. App data volumes / remote mirrors that ride along with those scripts
-#   3. Orthanc DICOM store (index + images)
-#   4. Sync RHYTHM Postgres dumps to the rhythm host
+# Runs on rhythm-backup (this host). For each app: dump DB (+ data volumes
+# where applicable) locally, then rsync everything to rhythm:~/backups/.
+#
+# Apps covered:
+#   medphys  — MariaDB (medirad/weddb/xspectdb) + ctrad/idose volumes + .env
+#   code     — Postgres code_db + med_app.sql seed
+#   rhythm   — Postgres ct_upload_platform + Orthanc DICOM store
 #
 # Intended for cron at 03:00. Log: ~/backups/backup_all.log
-# Exit 0 only if every step succeeded.
 
 set -uo pipefail
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH"
@@ -34,24 +35,17 @@ run() {
     fi
 }
 
-# --- Databases (and the volume/env artifacts those scripts also write) ---
-# medphys: mysqldump medirad + weddb + xspectdb (+ ctrad/idose data vols)
-run "db-medphys" "$SRC_ROOT/medphys-tools/scripts/backup_medphys.sh"
-# CODE: pg_dump code_db (+ med_app.sql seed)
-run "db-code" "$SRC_ROOT/code/scripts/backup_db.sh"
-# RHYTHM: pg_dump ct_upload_platform
-run "db-rhythm" "$SRC_ROOT/rhythm-repo/ct_upload_platform/scripts/backup_db.sh"
-# ctdose-iqurad mirror: mysqldump medirad/weddb/xspectdb/imgqualdb from ctdose
-run "db-ctdose-iqurad" "$SRC_ROOT/ctdose-iqurad/backup_ctdose_iqurad.sh"
+# Local dumps on rhythm-backup (medphys/code scripts also try an early rsync).
+run "backup-medphys" "$SRC_ROOT/medphys-tools/scripts/backup_medphys.sh"
+run "backup-code" "$SRC_ROOT/code/scripts/backup_db.sh"
+run "backup-rhythm-db" "$SRC_ROOT/rhythm-repo/ct_upload_platform/scripts/backup_db.sh"
+run "backup-orthanc" "$SRC_ROOT/rhythm-repo/ct_upload_platform/scripts/backup_orthanc.sh"
 
-# --- Orthanc DICOM store (SQLite index + images) ---
-run "orthanc" "$SRC_ROOT/rhythm-repo/ct_upload_platform/scripts/backup_orthanc.sh"
-
-# --- Off-box copy of RHYTHM Postgres dumps ---
-run "rhythm-sync" "$SRC_ROOT/rhythm-repo/ct_upload_platform/scripts/sync_backups_to_rhythm.sh"
+# Authoritative off-box copy: everything → rhythm
+run "sync-to-rhythm" "$SRC_ROOT/rhythm-repo/scripts/sync_all_backups_to_rhythm.sh"
 
 if [ "$fail" -eq 0 ]; then
-    log "DONE: all app + DB backups succeeded"
+    log "DONE: rhythm-backup apps backed up to rhythm"
     exit 0
 fi
 log "DONE WITH ERRORS"
