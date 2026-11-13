@@ -1,6 +1,7 @@
 django>=5.0
 djangorestframework
 celery
+packaging
 redis
 psycopg[binary]
 pydicom
