@@ -138,6 +138,12 @@ services:
     ports:
       - "80:80"
       - "443:443"
+      # OHIF DICOM Viewer (idose.med.uoc.gr:3000)
+      - "3000:3000"
+    environment:
+      # Basic auth header injected when proxying /dicom-web and /wado to Orthanc.
+      # Format: "Basic <base64(user:password)>" — set in .env, never commit.
+      ORTHANC_AUTHORIZATION: ${ORTHANC_AUTHORIZATION:-}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
@@ -145,6 +151,7 @@ services:
       - static_volume:/srv/static:ro
     depends_on:
       - web
+      - orthanc
 
   # Throwaway PostgreSQL for `make test` only. Never started by `make up`
   # (profile "test"), no published ports, data in RAM (tmpfs) so it is

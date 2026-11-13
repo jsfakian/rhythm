@@ -126,3 +126,29 @@ embryodose.med.uoc.gr {
 	redir / /code/ 308
 	import code_app
 }
+
+# ---------------------------------------------------------------------------
+# OHIF DICOM Viewer — https://idose.med.uoc.gr:3000/
+# HTTPS-only on :3000 (HTTP and TLS cannot share the same port).
+# Legacy path /local is the dicomlocal data source in OHIF.
+# ---------------------------------------------------------------------------
+https://idose.med.uoc.gr:3000 {
+	encode zstd gzip
+	import edge_headers
+
+	# DICOMweb / WADO → Orthanc (auth injected; browsers never see credentials)
+	handle /dicom-web* {
+		reverse_proxy orthanc:8042 {
+			header_up Authorization {env.ORTHANC_AUTHORIZATION}
+		}
+	}
+	handle /wado* {
+		reverse_proxy orthanc:8042 {
+			header_up Authorization {env.ORTHANC_AUTHORIZATION}
+		}
+	}
+
+	handle {
+		reverse_proxy medphys_ohif:80
+	}
+}
